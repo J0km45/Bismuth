@@ -9,7 +9,7 @@ public class ControlPanelUI : MonoBehaviour
     [Tooltip("재화")]
     [SerializeField] private TMP_Text _goldText;
     [Tooltip("합성소")]
-    [SerializeField] private TMP_Text _craftingStationText;
+    [SerializeField] private TMP_Text _combinationText;
     [Tooltip("시너지")]
     [SerializeField] private TMP_Text _synergyText;
     [Tooltip("일반 뽑기")]
@@ -19,14 +19,14 @@ public class ControlPanelUI : MonoBehaviour
 
     [Header("━━━━ 패널 ━━━━")]
     [Tooltip("합성소")]
-    [SerializeField] private GameObject _craftingStation;
+    [SerializeField] private GameObject _combinationScrollView;
 
-    private bool _isCraftingStationOpened => _craftingStation.activeSelf;
+    private bool _isCombinationSVOpened => _combinationScrollView.activeSelf;
 
     private void Start()
     {
         // TODO : 수정해야됨(로컬라이징)
-        _craftingStationText.text = "Crafting Station";
+        _combinationText.text = "Combination";
         _drawText.text = "Draw";
         _upgradeText.text = "Upgrade";
     }
@@ -38,9 +38,9 @@ public class ControlPanelUI : MonoBehaviour
         _goldText.text = "Gold : 123456";
     }
 
-    public void OnClickCraftingStation()
+    public void OnClickCombination()
     {
-        _craftingStation.SetActive(!_isCraftingStationOpened);
+        _combinationScrollView.SetActive(!_isCombinationSVOpened);
     }
 
     // TODO : 뽑기랑 확률증가는 다른곳에서 연결 필요

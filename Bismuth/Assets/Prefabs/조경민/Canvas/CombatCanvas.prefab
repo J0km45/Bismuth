@@ -4680,11 +4680,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ControlPanelUI
   _timeText: {fileID: 9098905479559599289}
   _goldText: {fileID: 5518389365186841552}
-  _craftingStationText: {fileID: 5449692561113276951}
+  _combinationText: {fileID: 0}
   _synergyText: {fileID: 939275647599133388}
   _drawText: {fileID: 6750234883604626132}
   _upgradeText: {fileID: 1518303218917269566}
-  _craftingStation: {fileID: 5951458653977317484}
+  _combinationScrollView: {fileID: 0}
 --- !u!1 &2823213013911371582
 GameObject:
   m_ObjectHideFlags: 0
@@ -9101,7 +9101,7 @@ GameObject:
   - component: {fileID: 216819028937325696}
   - component: {fileID: 5449692561113276951}
   m_Layer: 5
-  m_Name: CraftingStationText
+  m_Name: CombinationText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -9154,7 +9154,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Crafting Station
+  m_text: Combination
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -10326,7 +10326,7 @@ GameObject:
   - component: {fileID: 6753460409612193351}
   - component: {fileID: 7604176668385253151}
   m_Layer: 5
-  m_Name: CraftingStation
+  m_Name: CombinationScrollView
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -13875,7 +13875,7 @@ GameObject:
   - component: {fileID: 1061514629942161769}
   - component: {fileID: 5755223531095958733}
   m_Layer: 5
-  m_Name: CraftingStationButton
+  m_Name: CombinationButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -13985,7 +13985,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 7358752814444049304}
         m_TargetAssemblyTypeName: ControlPanelUI, Assembly-CSharp
-        m_MethodName: OnClickCraftingStation
+        m_MethodName: OnClickCombination
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
