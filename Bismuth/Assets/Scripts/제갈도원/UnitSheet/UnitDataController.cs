@@ -8,8 +8,11 @@ public class UnitDataController : MonoBehaviour
     [SerializeField] private SheetData unitSheet;
 
     [Header("━━━━ 유닛 DB ━━━━")]
-    [Tooltip("시트 데이터가 채워질 UnitSO 에셋\nCreate > Bismuth > Unit Database 로 생성 후 할당")]
-    [SerializeField] private UnitSO[] unitDatabase = new UnitSO[4];
+    [Tooltip("시트 데이터가 채워질 UnitSO 에셋\nCreate > Bismuth > Unit Database 로 생성 후 할당\n" +
+             "티어별 정리, 전체 정리")]
+    [SerializeField] private UnitSO[] unitDatabaseByTier = new UnitSO[MaxTier];
+
+    [SerializeField] private UnitSO unitDatabaseAll;
     
     public static int MaxTier = 4;
     public static int AllUnitCount;
@@ -18,14 +21,12 @@ public class UnitDataController : MonoBehaviour
     public static int Tier3UnitCount;
     public static int Tier4UnitCount;
     
-    public UnitSO[] UnitDatabase => unitDatabase;
-
     [SerializeField] private bool _log;
     private void Start()
     {
         DebugTool.DebugSelect(DebugType.Data, _log);
         
-        if (unitSheet == null || unitDatabase == null)
+        if (unitSheet == null || unitDatabaseByTier == null)
         {
             DebugTool.Warnning("unitSheet 또는 unitDatabase가 할당되지 않았습니다.", DebugType.Data, this);
             return;
@@ -43,8 +44,8 @@ public class UnitDataController : MonoBehaviour
     {
         if (lines == null || lines.Length < 2) return;
 
-        foreach(UnitSO unit in unitDatabase)
-            unit.ClearUnits();
+        ClearUnitDatas(unitDatabaseByTier);
+        ClearUnitDatas(unitDatabaseAll);
         
         // 0행: 헤더, 1행부터 데이터
         for (int i = 1; i < lines.Length; i++)
@@ -53,7 +54,8 @@ public class UnitDataController : MonoBehaviour
             UnitData unitData = UnitData.CreateFromSheetRow(cells);
             if (unitData != null)
             {
-                unitDatabase[unitData.Tier-1].AddUnit(unitData);
+                unitDatabaseByTier[unitData.Tier-1].AddUnit(unitData);
+                unitDatabaseAll.AddUnit(unitData);
                 switch (unitData.Tier)
                 {
                     case 1:
@@ -78,5 +80,11 @@ public class UnitDataController : MonoBehaviour
         DebugTool.Log($"[티어 2 : {Tier2UnitCount} 개 유닛 로드 완료]", DebugType.Data, this);
         DebugTool.Log($"[티어 3 : {Tier3UnitCount} 개 유닛 로드 완료]", DebugType.Data, this);
         DebugTool.Log($"[티어 4 : {Tier4UnitCount} 개 유닛 로드 완료]", DebugType.Data, this);
+    }
+
+    private void ClearUnitDatas(params UnitSO[] units)
+    {
+        foreach(UnitSO unit in units)
+            unit.ClearUnits();
     }
 }

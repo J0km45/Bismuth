@@ -42,10 +42,11 @@ public class SummonUnit : MonoBehaviour
     [SerializeField] private PlayerDataManager playerDataManager;
     [SerializeField] private CellHighlight cellHighlight;
     [SerializeField] private Camera worldCamera;
+    [SerializeField] private UnitCatalogManager unitCatalogManager;
      
-
     [Header("Data")]
     [SerializeField] private List<UnitSO> units = new List<UnitSO>(4);
+    public List<UnitSO> Units => units;
     [SerializeField] private SummonChanceSO summonSO;
 
     [Header("Prefab Table")]
@@ -53,12 +54,13 @@ public class SummonUnit : MonoBehaviour
 
     [Header("Owned Towers")]
     [SerializeField] private List<SummonedTowerRecord> ownedTowers = new List<SummonedTowerRecord>();
+    public IReadOnlyList<SummonedTowerRecord> OwnedTowers => ownedTowers;
 
     [SerializeField] private bool summonLog = true;
+    [SerializeField] private bool boardLog = true;
     
     private int summonSequence = 0;
 
-    public IReadOnlyList<SummonedTowerRecord> OwnedTowers => ownedTowers;
 
     private void Awake()
     {
@@ -73,16 +75,18 @@ public class SummonUnit : MonoBehaviour
 
         if (cellHighlight == null)
             cellHighlight = FindAnyObjectByType<CellHighlight>();
+        
         if (worldCamera == null)
             worldCamera = Camera.main;
-
-
-        // BuildPrefabMap();
+        
+        if (unitCatalogManager == null)
+            unitCatalogManager = GetComponent<UnitCatalogManager>();
     }
 
     private void Start()
     {
         DebugTool.DebugSelect(DebugType.Summon, summonLog);
+        DebugTool.DebugSelect(DebugType.Board, summonLog);
         CleanupNullOwnedTowers();
     }
 
@@ -142,6 +146,7 @@ public class SummonUnit : MonoBehaviour
         UnitStat stat = ApplyUnitStat(createdTower.gameObject, data);
 
         synergyManager?.OnUnitCreated?.Invoke(stat);
+        unitCatalogManager.OnSummonUnit?.Invoke(stat);
         
         PrintStat(stat);
 
@@ -280,9 +285,14 @@ public class SummonUnit : MonoBehaviour
             return null;
         }
         
-        // unitPrefabMap.TryGetValue(data.Id, out GameObject prefab);
+        if (unitPrefabTable.Count < (data.Id - 10001))
+        {
+            DebugTool.Warnning($"{data.Id} : 해당 프리펩을 찾을 수 없습니다.", DebugType.Unit, this);
+            return null;
+        }
+        
         GameObject prefab = unitPrefabTable[data.Id - 10001];
-
+        
         return prefab;
     }
 

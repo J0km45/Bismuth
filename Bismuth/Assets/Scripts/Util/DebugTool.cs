@@ -128,6 +128,7 @@ public static class DebugTool
             case DebugType.Data: return "#e4ada4";
             case DebugType.Merge: return "#0eb6a6";
             case DebugType.Reforge: return "#A35ED3";
+            case DebugType.Catalog: return "#D6EA15";
             case DebugType.Missing: return "#ffff00";
             case DebugType.Default: return "#251f59";
             default: return "#ffffff";
@@ -149,6 +150,7 @@ public enum DebugType
     Data = 9, 
     Merge = 10,
     Reforge = 11,
-    Missing = 12,
-    Default = 13
+    Catalog = 12,
+    Missing = 13,
+    Default = 14
 }
