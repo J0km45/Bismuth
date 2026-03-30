@@ -6,7 +6,7 @@ using UnityEngine;
 public class SynergyLevelData
 {
     [Header("효과값 목록")]
-    [SerializeField] private List<string> _effectValues = new();
+    [SerializeField] private List<float> _effectValues = new();
     
     
     [Header("활성 유닛 수")]
@@ -14,9 +14,9 @@ public class SynergyLevelData
 
 
     public int ActiveCount => _activeCount;
-    public List<string> EffectValues => _effectValues; // 정령이 2s 를 들고 있어서 string 으로 
+    public List<float> EffectValues => _effectValues;
 
-    public void SetData(int activeCount, List<string> effectValues)
+    public void SetData(int activeCount, List<float> effectValues)
     {
         _activeCount = activeCount;
         _effectValues = effectValues;
