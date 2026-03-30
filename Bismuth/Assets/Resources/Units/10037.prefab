@@ -1009,7 +1009,7 @@ SpriteRenderer:
   m_Size: {x: 0.53125, y: 0.9375}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 0
+  m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
 --- !u!1 &2559329051520285952
 GameObject:
@@ -9661,6 +9661,7 @@ MonoBehaviour:
   attackTypes: 0
   AttackTargetCount: 0
   SynergIDs: 
+  OnBoard: 1
 --- !u!114 &-8019046511751456184
 MonoBehaviour:
   m_ObjectHideFlags: 0
