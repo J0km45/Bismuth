@@ -45,6 +45,7 @@ public class UnitAutoAttack : MonoBehaviour
             return;
 
         attackTimer -= attackInterval;
+        DoAttack(currentTarget);
         DoDebugAttack(currentTarget);
     }
 
@@ -137,15 +138,22 @@ public class UnitAutoAttack : MonoBehaviour
         }
     }
 
+    private void DoAttack(MonsterController target)
+    {
+        target.TakeDamage(unitStat.AttackPower);
+    }
+
+
     private void DoDebugAttack(MonsterController target)
     {
         if (!attackLog || target == null)
             return;
 
         DebugTool.Log(
-            $"공격 판정 - {name} -> {target.name} | Power={unitStat.AttackPower} | Type={unitStat.attackTypes} | Range={unitStat.Range}",
+            $"공격 판정 - {name} -> {target.name} | Power={unitStat.AttackPower} | HP={target.CurrentHp} / {target.MaxHp} ",
             DebugType.Unit,
             this
         );
+        
     }
 }
