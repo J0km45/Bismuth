@@ -93,4 +93,9 @@ public class TowerUnit : MonoBehaviour
         if (selectionCollider != null)
             selectionCollider.enabled = isEnabled;
     }
+
+    public void ClearPlacedSlot()
+    {
+        CurrentSlot = null;
+    }
 }

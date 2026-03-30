@@ -179,6 +179,57 @@ public class BoardSystem : MonoBehaviour
         return PlaceNewTower(towerPrefab, slotData, out createdTower);
     }
 
+    public bool TryReleaseTowerSlot(TowerUnit tower, out SlotData releasedSlot)
+    {
+        releasedSlot = null;
+
+        if (tower == null)
+        {
+            DebugTool.Warnning("해제할 타워가 없습니다.", DebugType.Board, this);
+            return false;
+        }
+
+        if (tower.CurrentSlot == null)
+        {
+            DebugTool.Warnning(
+                $"해제할 타워의 CurrentSlot이 없습니다. tower={tower.TowerId}",
+                DebugType.Board,
+                this
+            );
+            return false;
+        }
+
+        if (!TryGetSlotData(tower.CurrentSlot, out releasedSlot))
+        {
+            DebugTool.Error(
+                $"CurrentSlot에 대응하는 SlotData를 찾지 못했습니다. tower={tower.TowerId}",
+                DebugType.Board,
+                this
+            );
+            return false;
+        }
+
+        if (!releasedSlot.isOccupied || releasedSlot.occupiedTower != tower)
+        {
+            DebugTool.Warnning(
+                $"슬롯 점유 정보가 타워와 일치하지 않아 자동 보정 후 해제합니다. slot={releasedSlot.slot.name}",
+                DebugType.Board,
+                this
+            );
+        }
+
+        releasedSlot.isOccupied = false;
+        releasedSlot.occupiedTower = null;
+
+        DebugTool.Log(
+            $"슬롯 해제 성공 - {tower.TowerId} / {releasedSlot.slot.name}",
+            DebugType.Board,
+            this
+        );
+
+        return true;
+    }
+
     public bool TryRelocateOrSwapFromWorld(TowerUnit tower, Vector3 worldPos, out RelocateResult result)
     {
         result = RelocateResult.Invalid;

@@ -144,6 +144,8 @@ public class SummonUnit : MonoBehaviour
 
         UnitStat stat = ApplyUnitStat(createdTower.gameObject, data);
 
+        EnsureAutoAttack(createdTower.gameObject);
+
         synergyManager?.OnUnitCreated?.Invoke(stat);
         unitCatalogManager.OnSummonUnit?.Invoke(stat);
         
@@ -380,5 +382,79 @@ public class SummonUnit : MonoBehaviour
                       $"Synerge2 : {stat.SynergIDs[1]}\n" +
                       $"Synerge3 : {stat.SynergIDs[2]}\n"
             , DebugType.Summon, this);
+    }
+
+    private void EnsureAutoAttack(GameObject unitObject)
+    {
+        if (unitObject == null)
+            return;
+
+        UnitAutoAttack autoAttack = unitObject.GetComponent<UnitAutoAttack>();
+        if (autoAttack == null)
+            autoAttack = unitObject.AddComponent<UnitAutoAttack>();
+
+        autoAttack.RefreshFromCurrentStat();
+    }
+
+    public bool TryDespawnTower(TowerUnit tower)
+    {
+        CleanupNullOwnedTowers();
+
+        if (tower == null)
+        {
+            DebugTool.Warnning("디스폰할 타워가 없습니다.", DebugType.Summon, this);
+            return false;
+        }
+
+        if (boardSystem == null)
+        {
+            DebugTool.Error("BoardSystem 참조가 없습니다.", DebugType.Board, this);
+            return false;
+        }
+
+        PlacementSlot previousSlot = tower.CurrentSlot;
+        BoardSystem.SlotData releasedSlot = null;
+
+        if (previousSlot != null)
+        {
+            if (!boardSystem.TryReleaseTowerSlot(tower, out releasedSlot))
+            {
+                DebugTool.Warnning("슬롯 해제에 실패하여 디스폰을 중단합니다.", DebugType.Board, this);
+                return false;
+            }
+        }
+        else
+        {
+            DebugTool.Warnning(
+                $"{tower.name}은(는) CurrentSlot이 없어 슬롯 해제 없이 디스폰합니다.",
+                DebugType.Board,
+                this
+            );
+        }
+
+        bool removed = RemoveOwnedTower(tower);
+        if (!removed)
+        {
+            DebugTool.Warnning(
+                $"{tower.name}이 ownedTowers 목록에 없어 목록 제거는 건너뜁니다.",
+                DebugType.Summon,
+                this
+            );
+        }
+
+        tower.SetDragVisual(false);
+        tower.SetSelectionColliderEnabled(false);
+        tower.ClearPlacedSlot();
+
+        string slotName = previousSlot != null ? previousSlot.name : "None";
+
+        DebugTool.Log(
+            $"디스폰 성공 - {tower.TowerId} / 슬롯 {slotName}",
+            DebugType.Summon,
+            this
+        );
+
+        Destroy(tower.gameObject);
+        return true;
     }
 }
