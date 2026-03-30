@@ -1,3 +1,5 @@
+using UnityEditor;
+using UnityEditor.VersionControl;
 using UnityEngine;
 
 // 유닛 시트 직렬화
@@ -18,6 +20,9 @@ public class UnitData
 
     [Tooltip("유닛 고유 ID \n예: 10001 = 인간 전사")] [SerializeField]
     private int id;
+
+    [Tooltip("유닛 고유 스프라이트 아이콘")] [SerializeField]
+    private Sprite sprite;
 
     [Tooltip("유닛 등급 단계 (1~4)\n1: 1성, 2: 2성, 3: 3성, 4: 4성(레어)")] [Range(1, 4)] [SerializeField]
     private int tier;
@@ -62,6 +67,7 @@ public class UnitData
     public int Id => id;
     public int Tier => tier;
     public string UnitName => unitName;
+    public Sprite Sprite => sprite;
     public float AttackPower => attackPower;
     public float AttackSpeed => attackSpeed;
     public float CriticalChance => criticalChance;
@@ -122,6 +128,7 @@ public class UnitData
         int.TryParse(SafeGet(line, 0), out id);
         int.TryParse(SafeGet(line, 1), out tier);
         unitName = SafeGet(line, 2);
+        sprite = (Sprite)AssetDatabase.LoadAssetAtPath($"Assets/Resources/Units/Sprites/{Id}.png", typeof(Sprite));
         float.TryParse(SafeGet(line, 3), out attackPower);
         attackSpeed = ParseAttackSpeed(SafeGet(line, 4));
         float.TryParse(SafeGet(line, 5).Replace(",", "."), out criticalChance);

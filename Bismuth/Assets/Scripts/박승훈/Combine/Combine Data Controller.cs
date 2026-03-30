@@ -10,7 +10,6 @@ public class CombineDataController : MonoBehaviour
     [Tooltip("시트 데이터가 채워질 UnitSO 에셋\nCreate > Bismuth > Unit Database 로 생성 후 할당")]
     [SerializeField] private CombineSO combineDatabase;
     
-    public CombineSO  CombineDatabase => combineDatabase;
 
     [SerializeField] private bool _log = true;
 
@@ -33,7 +32,11 @@ public class CombineDataController : MonoBehaviour
 
     private void SetCombineDatas(char splitSymbol, string[] lines)
     {
-        if (lines == null || lines.Length < 2) return;
+        if (lines == null || lines.Length < 2)
+        {
+            DebugTool.Log($"[{lines.Length} 개의 조합 식을 로드하였습니다.", DebugType.Combine, this);
+            return;
+        }
 
         combineDatabase.ClearUnits();
 

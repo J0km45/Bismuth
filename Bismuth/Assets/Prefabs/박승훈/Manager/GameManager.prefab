@@ -113,7 +113,7 @@ MonoBehaviour:
           m_BoolArgument: 0
         m_CallState: 2
   _unitCount: 0
-  _log: 1
+  _log: 0
 --- !u!114 &651773196946485032
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -127,7 +127,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SummonManager
   summonUnit: {fileID: 0}
-  SummonLog: 1
+  SummonLog: 0
 --- !u!114 &3586491415078184626
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -140,8 +140,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1baa8ab0c926664448af434a2d22aaa7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CombineMangager
-  _synergyManager: {fileID: 0}
+  _summonManager: {fileID: 0}
+  _unitCatalogManager: {fileID: 0}
+  _summonUnit: {fileID: 0}
+  _units: {fileID: 11400000, guid: cd09fb10c1adca94facd263909f98d92, type: 2}
   _combineSO: {fileID: 11400000, guid: 0dfded2c1c40dd54498084b03b040f27, type: 2}
+  _log: 1
+  log1: 
+  log2: 
 --- !u!114 &8554172300313096461
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -182,8 +188,36 @@ MonoBehaviour:
   - {fileID: 540444489045863749, guid: 6cbce5190e6d3a848812cdb01ecd6641, type: 3}
   - {fileID: 4077702490002813465, guid: ff8db8bf0b8479c4c94006c3545c0c46, type: 3}
   - {fileID: 2528165396881810678, guid: 11a3ebce82ab9e4408f6ea054cccd946, type: 3}
+  - {fileID: 2758780900165688658, guid: 3ab6631a0bb178d429d4fb628efc49c8, type: 3}
+  - {fileID: 522020964549468293, guid: e261b812a2afece438e5c2e3285068d3, type: 3}
+  - {fileID: 4564851725197033660, guid: cca1e4e39f3f553488b6aec25c1e5c29, type: 3}
+  - {fileID: 3880673180179213472, guid: 7e25ddcfa8095d540b0b290edf65de3b, type: 3}
+  - {fileID: 140055310782605417, guid: bb8ff9d96366a694e9293c327a2731ce, type: 3}
+  - {fileID: 6110430192138968359, guid: 557087640b8bd034ea5d1e32c35a1cad, type: 3}
+  - {fileID: 6188591979903708380, guid: 5c2fd64178a439d439a6a5b59075bc96, type: 3}
+  - {fileID: 4640666574542266821, guid: d0da38d0f3f2b8345a7d7e82c1c5498c, type: 3}
+  - {fileID: 8882535156457615749, guid: 498f4429640af9841ab0d9ee4218d8ad, type: 3}
+  - {fileID: 4886766703146375633, guid: 6ec72174fb9ebc24a8aa0f4f1707be26, type: 3}
+  - {fileID: 4653548259735551513, guid: 6fa2cb4aa71333d4a950eb8f3281c906, type: 3}
+  - {fileID: 6931192240088861300, guid: d2df0755e10c79a4b9f56653f3c4629f, type: 3}
+  - {fileID: 6488530611085659359, guid: dcb749ef8f9f15b40a188de02d33f465, type: 3}
+  - {fileID: 551619504439793322, guid: 00d01600255a3224b88bb9c2bc0ba981, type: 3}
+  - {fileID: 2250697744906733633, guid: 7a34ec314fb8bf742a965bddbdf2f5a0, type: 3}
+  - {fileID: 5791971631792004131, guid: e36697719530077428c8aff96a94cd6e, type: 3}
+  - {fileID: 7516956121163327303, guid: e817f04210ec68f46bf89818ad3afda6, type: 3}
+  - {fileID: 7183515090530276502, guid: 107c5f7ea018dbf48ba1bbccd1d3ccf6, type: 3}
+  - {fileID: 3054073721928638240, guid: 2abe64a713093b542b87d0849d3fb2f6, type: 3}
+  - {fileID: 6790059889003179949, guid: 4acb9c747149d06439b33942ec4c6c77, type: 3}
+  - {fileID: 4733899549280218656, guid: d17e7e1c857b3e9499416103af6e2195, type: 3}
+  - {fileID: 8449467521182080502, guid: 38e7d8a9c2494a4449d0e8edb6e01c8d, type: 3}
+  - {fileID: 1941787422353503347, guid: 519e69a1852afbd44a36d7b93cea8576, type: 3}
+  - {fileID: 8086089287372568130, guid: 1df44eabc5ff9584387fce43fc13fbda, type: 3}
+  - {fileID: 5068894384470248211, guid: 356672dd04c25684bbc6f87479db7225, type: 3}
+  - {fileID: 8327416059522653977, guid: a4d7427ccac1aa94e8f1ae32e58c3a12, type: 3}
+  - {fileID: 3172687888725299707, guid: b9dbca153d478b24e9b965fbbddc4a9b, type: 3}
   ownedTowers: []
   summonLog: 1
+  boardLog: 0
 --- !u!114 &7012402871630413712
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -199,7 +233,7 @@ MonoBehaviour:
   worldCamera: {fileID: 0}
   unitLayer:
     serializedVersion: 2
-    m_Bits: 8192
+    m_Bits: 32
 --- !u!114 &5106607783468869301
 MonoBehaviour:
   m_ObjectHideFlags: 0
