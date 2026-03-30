@@ -61,7 +61,6 @@ public class SummonUnit : MonoBehaviour
     
     private int summonSequence = 0;
 
-
     private void Awake()
     {
         if (boardSystem == null)
