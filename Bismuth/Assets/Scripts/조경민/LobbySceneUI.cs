@@ -94,7 +94,7 @@ public class LobbySceneUI : MonoBehaviour
     public void OnClickStart()
     {
         // TODO : 씬인덱스 설정후 주석해제
-        // GameSceneManager.Instance.ChangeScene(2);
+        GameSceneManager.Instance.ChangeScene(GetSceneIndex());
     }
 
     public void OnClickEasy()
@@ -138,12 +138,15 @@ public class LobbySceneUI : MonoBehaviour
 
         _startButton.SetActive(_currentDifficulty != Difficulty.None);
     }
+
+    private int GetSceneIndex()
+        => (_currentMapIndex * 3) + (int)_currentDifficulty;
 }
 
 public enum Difficulty
 {
     None,
-    Easy,
-    Normal,
-    Hard
+    Easy = 2,
+    Normal = 3,
+    Hard = 4
 }
