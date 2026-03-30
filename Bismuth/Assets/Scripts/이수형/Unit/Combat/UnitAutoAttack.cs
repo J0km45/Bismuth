@@ -7,9 +7,12 @@ public class UnitAutoAttack : MonoBehaviour
     [SerializeField] private UnitStat unitStat;
     [SerializeField] private UnitAttackSensor attackSensor;
 
+    
+
     [Header("Debug")]
     [SerializeField] private bool attackLog = true;
 
+    private TowerUnit towerUnit;
     private MonsterController currentTarget;
     private float attackInterval = 1f;
     private float attackTimer = 0f;
@@ -18,6 +21,7 @@ public class UnitAutoAttack : MonoBehaviour
     {
         if (unitStat == null)
             unitStat = GetComponent<UnitStat>();
+        towerUnit = GetComponent<TowerUnit>();
 
         EnsureSensor();
     }
@@ -45,7 +49,7 @@ public class UnitAutoAttack : MonoBehaviour
             return;
 
         attackTimer -= attackInterval;
-        DoDebugAttack(currentTarget);
+        DoAttack(currentTarget);
     }
 
     public void RefreshFromCurrentStat()
@@ -137,15 +141,25 @@ public class UnitAutoAttack : MonoBehaviour
         }
     }
 
+    private void DoAttack(MonsterController target)
+    {
+        if (target == null || CombatManager.Instance == null)
+            return;
+
+        CombatManager.Instance.DamageOccured(towerUnit, target);
+    }
+
+
     private void DoDebugAttack(MonsterController target)
     {
         if (!attackLog || target == null)
             return;
 
         DebugTool.Log(
-            $"공격 판정 - {name} -> {target.name} | Power={unitStat.AttackPower} | Type={unitStat.attackTypes} | Range={unitStat.Range}",
+            $"공격 판정 - {name} -> {target.name} | Power={unitStat.AttackPower} | HP={target.CurrentHp} / {target.MaxHp} ",
             DebugType.Unit,
             this
         );
+        
     }
 }
