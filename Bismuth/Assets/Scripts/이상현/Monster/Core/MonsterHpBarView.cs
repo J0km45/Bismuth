@@ -10,9 +10,12 @@ public class MonsterHpBarView : MonoBehaviour
     [Tooltip("체력 비율 표시할 Fill 이미지")]
     [SerializeField] private Image _fillImage;
 
+    [SerializeField] private Canvas _canvas;
+
     private void Reset()
     {
         _monsterController = GetComponentInParent<MonsterController>();
+        _canvas = GetComponentInParent<Canvas>();
     }
 
     private void Awake()
@@ -21,6 +24,14 @@ public class MonsterHpBarView : MonoBehaviour
         {
             _monsterController = GetComponentInParent<MonsterController>();
         }
+        if (_canvas == null)
+        {
+                _canvas = GetComponentInChildren<Canvas>();
+        }
+
+        _canvas.sortingLayerName = "UI";
+
+
     }
 
     private void OnEnable() => _monsterController.HealthChanged += HandleHealthChanged;
