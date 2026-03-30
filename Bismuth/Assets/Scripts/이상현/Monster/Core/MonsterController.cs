@@ -23,6 +23,9 @@ public class MonsterController : MonoBehaviour
     [Tooltip("현재 사용 중인 몬스터 데이터")]
     [SerializeField] private MonsterDataSO _monsterData;
 
+    [Tooltip("최대 체력")]
+    [SerializeField, Min(0f)] private float _maxHp;
+    
     [Tooltip("현재 체력")]
     [SerializeField, Min(0f)] private float _currentHp;
 
@@ -38,8 +41,10 @@ public class MonsterController : MonoBehaviour
 
     public event Action<MonsterController> ReachedBase;
     public event Action<MonsterController> Died;
+    public event Action<MonsterController> HealthChanged;
 
     public MonsterDataSO MonsterData => _monsterData;
+    public float MaxHp => _maxHp;
     public float CurrentHp => _currentHp;
     public int DamageToBase => _damageToBase;
     public int KillReward => _killReward;
@@ -90,6 +95,7 @@ public class MonsterController : MonoBehaviour
     public void Initialize(WaypointPath path, MonsterRuntimeValues runtimeValues)
     {
         _monsterData = runtimeValues.MonsterData;
+        _maxHp = runtimeValues.CurrentHp;
         _currentHp = runtimeValues.CurrentHp;
         _damageToBase = runtimeValues.DamageToBase;
         _killReward = runtimeValues.KillReward;
@@ -99,6 +105,8 @@ public class MonsterController : MonoBehaviour
 
         _mover.Initialize(path, runtimeValues.MoveSpeed);
         _isInitialized = true;
+        
+        HealthChanged?.Invoke(this);
     }
 
     public void TakeDamage(float damage)
@@ -108,6 +116,7 @@ public class MonsterController : MonoBehaviour
         if (_hasReachedBase) return;
 
         _currentHp = Mathf.Max(0f, _currentHp - damage);
+        HealthChanged?.Invoke(this);
 
         if (_currentHp <= 0f)
         {
