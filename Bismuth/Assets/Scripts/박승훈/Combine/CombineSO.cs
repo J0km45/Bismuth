@@ -5,13 +5,13 @@ using UnityEngine;
 public class CombineSO : ScriptableObject
 {
     [Header("━━━━ 합성 시트 데이터 ━━━━")] [Tooltip("구글시트 합성 시트 전체 데이터")] 
-    [SerializeField] private List<CombineData> datas = new List<CombineData>();
-
-    public List<CombineData> Data => datas;
+    [SerializeField] private List<CombineData> combineDatas = new List<CombineData>();
+    public List<CombineData> CombineDatas => combineDatas;
+    
     
     public void ClearUnits()
     {
-        datas.Clear();
+        combineDatas.Clear();
     }
 
     /// <summary>
@@ -20,6 +20,6 @@ public class CombineSO : ScriptableObject
     public void AddUnit(CombineData data)
     {
         if (data != null)
-            datas.Add(data);
+            combineDatas.Add(data);
     }
 }
