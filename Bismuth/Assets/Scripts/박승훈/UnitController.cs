@@ -8,7 +8,6 @@ public class UnitController : MonoBehaviour
 
     private void Awake()
     {
-        
         if(_synergyManager == null)
             _synergyManager = GameObject.Find("GameManager")?.GetComponent<SynergyManager>();
     }
@@ -16,6 +15,7 @@ public class UnitController : MonoBehaviour
     private void Start()
     {
         _unitStat = GetComponent<UnitStat>();
+        _unitStat.OnBoard = true;
     }
 
     private void OnDestroy()
@@ -31,6 +31,8 @@ public class UnitController : MonoBehaviour
             DebugTool.Log("UnitStat 없음", DebugType.Unit, this);
             return;
         }
+        
+        _unitStat.OnBoard = false;
         
         _synergyManager.OnUnitRemoved?.Invoke(_unitStat);
     }
