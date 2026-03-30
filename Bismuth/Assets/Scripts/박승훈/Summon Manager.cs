@@ -47,8 +47,7 @@ public class SummonManager : MonoBehaviour
             DebugTool.Warnning("디스폰에 실패했습니다.", DebugType.Summon, this);
         }
     }
-
-    //return success;
+    
     /// <summary>
     /// 유닛 합성 메서드
     /// 합성 결과 유닛 매개변수로 입력

@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
+using UnityEngine.Events;
 
 
-public class CombineMangager : MonoBehaviour
+public class CombineManager : MonoBehaviour
 {
     [SerializeField] private SummonManager _summonManager;
     [SerializeField] private UnitCatalogManager _unitCatalogManager;
@@ -11,143 +13,188 @@ public class CombineMangager : MonoBehaviour
     
     [SerializeField] private UnitSO _units;
     [SerializeField] private CombineSO _combineSO;
-
-    private Dictionary<int, int[]> _combineList = new(); 
-
-    // 결과 유닛으로 재료 유닛 찾기
-    private Dictionary<int, int[]> ResultToSourceDict = new();
+    
+    //보유중인 유닛의 중복 개수
+    private Dictionary<int, int> _ownedUnitCounts = new();
     // 재료 유닛으로 결과 유닛 찾기
-    private Dictionary<int, int[]> SourceToResultDict = new();
+    private Dictionary<int, List<int>> SourceToRecipeDict = new();
+    public List<int[]> CombineList = new();
 
     [SerializeField] private bool _log = true;
 
-    public string log1;
-    public string log2;
+    public UnityEvent<int> OnAddUnit;
+    public UnityEvent<int> OnRemoveUnit;
+    
     
     private void Awake()
     {
         Init();
     }
 
-    private void Start()
+    public void OnEnable()
     {
-        PrintCombineList();
+        OnAddUnit.AddListener(AddOwnedUnit);
+        OnAddUnit.AddListener(PrintCombineList);
+        OnRemoveUnit.AddListener(RemoveOwnedUnit);
     }
 
-    public void GetCombineUnitList()
+    public void OnDisable()
     {
-        for (int i = 0; i < _summonUnit.OwnedTowers.Count; i++)
-        {
-            UnitData data = _summonUnit.OwnedTowers[i].unitData;
-            int unitId = data.Id;
-
-            if(SourceToResultDict.ContainsKey(unitId))
-            {
-                foreach (var id in ResultToSourceDict)
-                {
-                    for (int j = 0; j < id.Value.Length; j++)
-                    {
-                        if (id.Value[j] == unitId)
-                        {
-                            if (!_combineList.ContainsKey(id.Key))
-                            {
-                                _combineList.Add(id.Key, ResultToSourceDict[id.Key]);
-                                DebugTool.Log($"{id.Key} + {ResultToSourceDict[id.Key][j]}", DebugType.Combine, this);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        string combineList = "[조합 가능 목록}\n";
-        for (int i = 0; i < _combineList.Count; i++)
-        {
-            foreach (var id in _combineList)
-            {
-                for (int j = 0; j < id.Value.Length; j++)
-                    combineList += $"{id.Value[j]} + ";
-                
-                combineList += $"= {id.Key}\n";
-            }
-        }
-        DebugTool.Log(combineList, DebugType.Combine, this);
-        
-        // return _combineList;
-    }
-    
-    // 결과 유닛에 필요한 재료 유닛
-    public void InitResultToSourceDict()
-    {
-        // 조합법 수 만큼 반복
-        for (int i = 0; i < _combineSO.CombineDatas.Count; i++)
-        {
-            CombineData data = _combineSO.CombineDatas[i];
-            ResultToSourceDict.Add(data.ResultUnit, data.SourceUnit);
-        
-            log1 += $"{data.ResultUnit} = {data.SourceUnit[0]} + {data.SourceUnit[1]} + {data.SourceUnit[2]}\n";
-        }
+        OnAddUnit.RemoveListener(AddOwnedUnit);
+        OnAddUnit.RemoveListener(PrintCombineList);
+        OnRemoveUnit.RemoveListener(RemoveOwnedUnit);
     }
 
-    // 모든 유닛에 대하여 합성 결과 유닛
+    // 보유한 유닛으로 조합 가능 여부 판단
+    public bool CanCombine(CombineData recipe)
+    {
+        Dictionary<int, int> requiredUnit = new();
+
+        foreach (int sourceId in recipe.SourceUnit)
+        {
+            if(sourceId == 0)
+                continue;
+            
+            if (requiredUnit.ContainsKey(sourceId))
+                requiredUnit[sourceId]++;
+            else
+                requiredUnit.Add(sourceId, 1);
+        }
+
+        foreach (var reaquired in requiredUnit)
+        {
+            if (!_ownedUnitCounts.TryGetValue(reaquired.Key, out int ownedCount))
+                return false;
+            if (ownedCount < reaquired.Value)
+                return false;
+        }
+
+        return true;
+    }
+
+    // 모든 합성법 초기화 
     public void InitSourceToResultDict()
     {
+        SourceToRecipeDict.Clear();
+        
         // 모든 유닛 수 만큼 반복
-        for (int i = 0; i < _units.Units.Count; i++)
+        for (int recipeIndex = 0; recipeIndex < _combineSO.CombineDatas.Count; recipeIndex++)
         {
-            UnitData sourceData = _units.Units[i];
-            log2 += $"{sourceData.Id} : ";
-            List<int> resultList = new();
+            CombineData data = _combineSO.CombineDatas[recipeIndex];
             
+            HashSet<int> uniqueSources = new HashSet<int>(data.SourceUnit);
             // 합성법 수 만큼 반복
-            for (int j = 0; j < _combineSO.CombineDatas.Count; j++)
+            foreach (int sourceId in uniqueSources)
             {
-                CombineData resultdata = _combineSO.CombineDatas[j];
-                // 해당 합성법에 재료 유닛과 비교
-                bool add = false;
-                foreach (int sourseUnit in resultdata.SourceUnit)
+                if (sourceId == 0)
+                    continue;
+                // 유닛이 합성법 재료에 있으면 리스트에 추가 
+                if (!SourceToRecipeDict.TryGetValue(sourceId, out List<int> resultList))
                 {
-                    // 유닛이 합성법 재료에 있으면 리스에 추가 
-                    if (sourceData.Id == sourseUnit)
-                    {
-                        resultList.Add(resultdata.ResultUnit);
-                        log2 += $"{resultdata.ResultUnit}";
-                        add = true;
-                        // 동일 유닛 2개 합성법 1회만 추가
-                        break;
-                    }
+                    resultList = new();
+                    SourceToRecipeDict.Add(sourceId, resultList);
                 }
-                if (j < _combineSO.CombineDatas.Count - 1 && add)
-                    log2 += ", ";
-            }
-
-            // 유닛에 해당하는 조합법이 있으면 추가
-            if (resultList.Count > 0)
-            {
-                log2 += "\n";
-                SourceToResultDict.Add(sourceData.Id, resultList.ToArray());
+                
+                resultList.Add(recipeIndex);
             }
         }
     }
-
-    private void PrintCombineList()
+    
+    // 유닛으로 만들 수 있는 합성법 추가
+    private List<int> GetRelatedRecipe()
     {
-        DebugTool.Log(log1, DebugType.Combine, this);
-        DebugTool.Log(log2, DebugType.Combine, this);
+        List<int> result = new();
+        HashSet<int> addedRecipes = new();
+
+        foreach (var owned in _ownedUnitCounts)
+        {
+            int ownedUnitId = owned.Key;
+            if (!SourceToRecipeDict.TryGetValue(ownedUnitId, out List<int> resultList))
+                continue;
+
+            foreach (int recipeIndex in resultList)
+            {
+                if (addedRecipes.Add(recipeIndex))
+                {
+                    result.Add(recipeIndex);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    // 유닛 생성 시 해당유닛 보유량 변경
+    private void AddOwnedUnit(int unitId)
+    {
+        if(_ownedUnitCounts.ContainsKey(unitId))
+            _ownedUnitCounts[unitId]++;
+        else
+            _ownedUnitCounts.Add(unitId, 1);
+    }
+
+    // 유닛 삭제 시 해당 유닛 보유량 변경
+    private void RemoveOwnedUnit(int unitId)
+    {
+        if (!_ownedUnitCounts.ContainsKey(unitId))
+            return;
+            
+        _ownedUnitCounts[unitId]--;
+        if (_ownedUnitCounts[unitId] == 0)
+            _ownedUnitCounts.Remove(unitId);
+    }
+
+    // 추가된 조합법 리스트 중 조합 가능 여부 출력
+    private void PrintCombineList(int a)
+    {
+        StringBuilder log = new();
+        log.AppendLine("[관련 조합법 목록]");
+
+        List<int> recipes = GetRelatedRecipe();
+        CombineList.Clear();
+
+        foreach (int recipeIndex in recipes)
+        {
+            CombineData recipe = _combineSO.CombineDatas[recipeIndex];
+            List<int> validSources = new();
+            
+            List<int> ids = new();
+            foreach (int sourceId in recipe.SourceUnit)
+            {
+                if (sourceId == 0)
+                    continue;
+                validSources.Add(sourceId);
+            }
+
+            for (int i = 0; i < validSources.Count; i++)
+            {
+                log.Append(validSources[i]);
+                ids.Add(validSources[i]);
+                if (i < validSources.Count - 1)
+                    log.Append(" + ");
+            }
+
+            log.Append($" = {recipe.ResultUnit}");
+            ids.Add(recipe.ResultUnit);
+            if (CanCombine(recipe))
+                log.Append(" [조합 가능]");
+            else
+                log.Append(" [조합 불가]");
+            
+            log.AppendLine();
+            CombineList.Add(ids.ToArray());
+        }
+        string result = log.ToString();
+        DebugTool.Log(result, DebugType.Combine, this);
     }
 
     private void Init()
     {
-        log1 = "[조합법 목록][결과 : 재료 + 재료 + 재료]\n";
-        log2 = "[조합법 목록][재료 : 재료로 생산 가능한 유닛 리스트]\n";
-        
         _summonManager = GetComponent<SummonManager>();
         _unitCatalogManager = GetComponent<UnitCatalogManager>();
         _summonUnit = GetComponent<SummonUnit>();
         
         DebugTool.DebugSelect(DebugType.Combine, _log);
-
-        InitResultToSourceDict();
         InitSourceToResultDict();
     }
 }
