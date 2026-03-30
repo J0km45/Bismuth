@@ -32,6 +32,8 @@ public class UnitAttackSensor : MonoBehaviour
 
     private void CacheReferences()
     {
+        this.gameObject.layer = LayerMask.NameToLayer("Default");
+
         if (sensorCollider == null)
             sensorCollider = GetComponent<CircleCollider2D>();
 

@@ -85,7 +85,7 @@ public class TowerLongPressDragHandler : MonoBehaviour
         pressedTime = Time.time;
         pressedScreenPos = screenPos;
 
-        DebugTool.Log("타워 홀드 시작", DebugType.Unit, this);
+        DebugTool.Log($"타워({towerUnit.CurrentSlot.name}) 홀드 시작", DebugType.Unit, this);
         return true;
     }
     //private void OnMouseDown()
