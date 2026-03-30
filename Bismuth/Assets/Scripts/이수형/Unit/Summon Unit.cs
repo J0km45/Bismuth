@@ -141,6 +141,8 @@ public class SummonUnit : MonoBehaviour
 
         UnitStat stat = ApplyUnitStat(createdTower.gameObject, data);
 
+        EnsureAutoAttack(createdTower.gameObject);
+
         synergyManager?.OnUnitCreated?.Invoke(stat);
         
         PrintStat(stat);
@@ -371,5 +373,17 @@ public class SummonUnit : MonoBehaviour
                       $"Synerge2 : {stat.SynergIDs[1]}\n" +
                       $"Synerge3 : {stat.SynergIDs[2]}\n"
             , DebugType.Summon, this);
+    }
+
+    private void EnsureAutoAttack(GameObject unitObject)
+    {
+        if (unitObject == null)
+            return;
+
+        UnitAutoAttack autoAttack = unitObject.GetComponent<UnitAutoAttack>();
+        if (autoAttack == null)
+            autoAttack = unitObject.AddComponent<UnitAutoAttack>();
+
+        autoAttack.RefreshFromCurrentStat();
     }
 }
