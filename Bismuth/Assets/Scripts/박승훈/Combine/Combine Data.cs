@@ -1,30 +1,21 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 [System.Serializable]
 public class CombineData
 {
     [Header("━━━━ 조합 정보 ━━━━")]
+    [Tooltip("조합 대상")] [SerializeField] private int resultUnit;
     [Tooltip("유닛 티어")] [SerializeField] private int tier;
-    [Tooltip("조합 대상")] [SerializeField] private string resultUnit;
-    [Tooltip("재료 유닛 1")] [SerializeField] private string sourceUnit1;
-    [Tooltip("필요 개수 2")] [SerializeField] private int sourceUnit1Count;
-    [Tooltip("재료 유닛 2")] [SerializeField] private string sourceUnit2;
-    [Tooltip("필요 개수 2")] [SerializeField] private int sourceUnit2Count;
-    [Tooltip("재료 유닛 2")] [SerializeField] private string sourceUnit3;
-    [Tooltip("필요 개수 3")] [SerializeField] private int sourceUnit3Count;
+    [Tooltip("재료 유닛 1")] [SerializeField] private int[] sourceUnit = new int[3];
     
+    public int ResultUnit => resultUnit;
     public int Tier => tier;
-    public string ResultUnit => resultUnit;
-    public string SourceUnit1 => sourceUnit1;
-    public int SourceUnit1Count => sourceUnit1Count;
-    public string SourceUnit2 => sourceUnit2;
-    public int SourceUnit2Count => sourceUnit2Count;
-    public string SourceUnit3 => sourceUnit3;
-    public int SourceUnit3Count => sourceUnit3Count;
+    public int[] SourceUnit => sourceUnit;
     
     public static CombineData CreateFromSheetRow(string[] line)
     {
-        if (line == null || line.Length < 8) return null;
+        if (line == null || line.Length < 5) return null;
         if (string.IsNullOrWhiteSpace(line[0]) || !int.TryParse(line[0].Trim(), out _)) return null;
 
         var data = new CombineData();
@@ -36,13 +27,10 @@ public class CombineData
     private void InitFromSheetRow(string[] line)
     {
         int.TryParse(SafeGet(line, 0), out tier);
-        resultUnit = SafeGet(line, 1);
-        sourceUnit1 = SafeGet(line, 2);
-        int.TryParse(SafeGet(line, 3), out sourceUnit1Count);
-        sourceUnit2 = SafeGet(line, 4);
-        int.TryParse(SafeGet(line, 5), out sourceUnit2Count);
-        sourceUnit3 = SafeGet(line, 6);
-        int.TryParse(SafeGet(line, 7), out sourceUnit3Count);
+        int.TryParse(SafeGet(line, 1), out resultUnit);
+        int.TryParse(SafeGet(line, 2), out sourceUnit[0]);
+        int.TryParse(SafeGet(line, 3), out sourceUnit[1]);
+        int.TryParse(SafeGet(line, 4), out sourceUnit[2]);
     }
 
     private static string SafeGet(string[] arr, int index)
