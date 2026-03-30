@@ -7,9 +7,12 @@ public class UnitAutoAttack : MonoBehaviour
     [SerializeField] private UnitStat unitStat;
     [SerializeField] private UnitAttackSensor attackSensor;
 
+    
+
     [Header("Debug")]
     [SerializeField] private bool attackLog = true;
 
+    private TowerUnit towerUnit;
     private MonsterController currentTarget;
     private float attackInterval = 1f;
     private float attackTimer = 0f;
@@ -18,6 +21,7 @@ public class UnitAutoAttack : MonoBehaviour
     {
         if (unitStat == null)
             unitStat = GetComponent<UnitStat>();
+        towerUnit = GetComponent<TowerUnit>();
 
         EnsureSensor();
     }
@@ -46,7 +50,6 @@ public class UnitAutoAttack : MonoBehaviour
 
         attackTimer -= attackInterval;
         DoAttack(currentTarget);
-        DoDebugAttack(currentTarget);
     }
 
     public void RefreshFromCurrentStat()
@@ -140,7 +143,10 @@ public class UnitAutoAttack : MonoBehaviour
 
     private void DoAttack(MonsterController target)
     {
-        target.TakeDamage(unitStat.AttackPower);
+        if (target == null || CombatManager.Instance == null)
+            return;
+
+        CombatManager.Instance.DamageOccured(towerUnit, target);
     }
 
 
