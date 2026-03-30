@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using UnityEngine;
 
 [Serializable]
@@ -61,7 +62,7 @@ public class SynergyData
             if (!int.TryParse(activeCountText, out int activeCount))
                 continue;
 
-            List<string> effectValues = new();
+            List<float> effectValues = new();
 
             // 효과값 읽기 Q 열 까지
             for (int col = activeColumn + 1; col < nextActiveColumn; col++)
@@ -74,7 +75,16 @@ public class SynergyData
                 if (string.IsNullOrWhiteSpace(cell))
                     continue;
 
-                effectValues.Add(cell);
+                string normalizedCell = cell.Trim();
+
+                if (!float.TryParse(
+                        normalizedCell,
+                        NumberStyles.Float,
+                        CultureInfo.InvariantCulture,
+                        out float effectValue))
+                    continue;
+
+                effectValues.Add(effectValue);
             }
 
             SynergyLevelData levelData = new SynergyLevelData();

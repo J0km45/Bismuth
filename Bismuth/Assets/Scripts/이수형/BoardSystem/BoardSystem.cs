@@ -37,8 +37,12 @@ public class BoardSystem : MonoBehaviour
 
     private Dictionary<PlacementSlot, SlotData> slotMap = new Dictionary<PlacementSlot, SlotData>();
 
+    [SerializeField] private bool _log = true;
+
     private void Awake()
     {
+        DebugTool.DebugSelect(DebugType.Board, _log);
+        
         if (Instance != null && Instance != this)
         {
             DebugTool.Warnning("BoardSystem이 중복 생성되었습니다.", DebugType.Board, this);
@@ -47,6 +51,7 @@ public class BoardSystem : MonoBehaviour
         Instance = this;
         RebuildBoard();
     }
+    
 
     private void OnDestroy()
     {
@@ -307,10 +312,10 @@ public class BoardSystem : MonoBehaviour
             DebugTool.Warnning("placementSlotRoot가 비어 있습니다.", DebugType.Board, this);
             return false;
         }
-
+        
         PlacementSlot[] slots = placementSlotRoot.GetComponentsInChildren<PlacementSlot>(true);
         List<SlotData> emptySlots = new List<SlotData>();
-
+        
         foreach (PlacementSlot slot in slots)
         {
             if (slot == null)
@@ -323,11 +328,14 @@ public class BoardSystem : MonoBehaviour
             {
                 emptySlots.Add(slotData);
                 continue;
-                
             }
         }
+        if (emptySlots.Count <= 0)
+            return false;
+        
         int randomIndex = Random.Range(0, emptySlots.Count);
-
+        
+        
         emptySlot = emptySlots[randomIndex];
 
         return true;
