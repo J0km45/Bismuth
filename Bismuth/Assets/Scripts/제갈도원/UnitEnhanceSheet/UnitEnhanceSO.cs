@@ -4,11 +4,11 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "UnitEnhanceSO", menuName = "Bismuth/Unit Enhance Table")]
 public class UnitEnhanceSO : ScriptableObject
 {
-    [Header("유닛별 강화 수치")] [SerializeField] private List<UnitEnhanceData> _rows = new();
+    [Header("유닛별 강화 수치")] [SerializeField] private List<UnitEnhanceData> unitEnhanceDatas = new();
 
     private Dictionary<int, UnitEnhanceData> _dataByUnitId = new();
 
-    public IReadOnlyList<UnitEnhanceData> Rows => _rows;
+    public IReadOnlyList<UnitEnhanceData> UnitEnhanceDatas => unitEnhanceDatas;
 
     private void OnEnable()
     {
@@ -17,7 +17,7 @@ public class UnitEnhanceSO : ScriptableObject
 
     public void SetRows(List<UnitEnhanceData> rows)
     {
-        _rows = rows != null ? new List<UnitEnhanceData>(rows) : new List<UnitEnhanceData>();
+        unitEnhanceDatas = rows != null ? new List<UnitEnhanceData>(rows) : new List<UnitEnhanceData>();
         RebuildCache();
     }
 
@@ -25,9 +25,9 @@ public class UnitEnhanceSO : ScriptableObject
     {
         _dataByUnitId.Clear();
 
-        for (int i = 0; i < _rows.Count; i++)
+        for (int i = 0; i < unitEnhanceDatas.Count; i++)
         {
-            UnitEnhanceData data = _rows[i];
+            UnitEnhanceData data = unitEnhanceDatas[i];
             if (data == null) continue;
 
             if (_dataByUnitId.ContainsKey(data.UnitId))

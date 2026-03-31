@@ -349,7 +349,8 @@ public class SummonUnit : MonoBehaviour
         stat.Tier = unitData.Tier;
         stat.Level = 1;
         stat.Name = unitData.UnitName;
-        stat.AttackPower = unitData.AttackPower;
+        stat.BaseAttackPower = unitData.AttackPower;
+        stat.CurrentAttackPower = stat.BaseAttackPower;
         stat.AttackSpeed = unitData.AttackSpeed;
         stat.CritChance = unitData.CriticalChance;
         stat.Range = unitData.Range;
@@ -405,7 +406,7 @@ public class SummonUnit : MonoBehaviour
         DebugTool.Log($"ID : {stat.Id}\n" +
                       $"Tier : {stat.Tier}\n" +
                       $"Name : {stat.Name}\n" +
-                      $"AttackPower : {stat.AttackPower}\n" +
+                      $"AttackPower : {stat.BaseAttackPower}\n" +
                       $"AttackSpeed : {stat.AttackSpeed}\n" +
                       $"CritChance : {stat.CritChance}\n" +
                       $"Range : {stat.Range}\n" +
