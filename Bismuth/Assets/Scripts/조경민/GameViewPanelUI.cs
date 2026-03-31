@@ -65,7 +65,7 @@ public class GameViewPanelUI : MonoBehaviour
     {
         _pausePanel.SetActive(!_isPausePanelOpened);
         UpdatePauseButton();
-        TimeScaleController.Instance.SetPausePanel(!_isPausePanelOpened);
+        TimeScaleController.Instance.SetPausePanel(_isPausePanelOpened);
     }
 
     // 배속 버튼 밝기 조정

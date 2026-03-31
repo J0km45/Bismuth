@@ -31,7 +31,7 @@ public class GameSceneManager : MonoBehaviour
     // 씬 재시작
     public void ReloadScene()
     {
-        Time.timeScale = 1f;
+        TimeScaleController.Instance.ResetState();
         SceneManager.LoadScene(CurrentSceneIndex());
     }
 

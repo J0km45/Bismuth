@@ -46,6 +46,6 @@ public class PauseInputHandler : MonoBehaviour
     {
         _pausePopup.transform.SetAsLastSibling();
         _pausePopup.SetActive(!_isPausePopupOpened);
-        TimeScaleController.Instance.SetPausePopup(!_isPausePopupOpened);
+        TimeScaleController.Instance.SetPausePopup(_isPausePopupOpened);
     }
 }
