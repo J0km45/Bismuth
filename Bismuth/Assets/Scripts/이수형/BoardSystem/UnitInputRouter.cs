@@ -9,17 +9,24 @@ public class UnitPointerInputRouter : MonoBehaviour
 
     [Header("Layers")]
     [SerializeField] private LayerMask unitLayer;
+    [SerializeField] private GameObject unitInfoPanel;
 
     private void Awake()
     {
         if (worldCamera == null)
             worldCamera = Camera.main;
+        //DebugTool.Log($"UnitInfoPanel 찾아볼까", DebugType.Unit, this);
+        //unitInfoPanel = GameObject.Find("CombatCanvas").transform.Find("ControlPanel").transform.Find("UnitInfoPanel").gameObject;
+        //DebugTool.Log($"UnitInfoPanel 찾음: {unitInfoPanel.name}", DebugType.UI, this);
+
     }
 
     private void Update()
     {
         if (!Input.GetMouseButtonDown(0))
             return;
+
+        GameObject.Find("CombatCanvas").transform.Find("ControlPanel").transform.Find("UnitInfoPanel").gameObject.SetActive(false);
 
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
         {
@@ -48,7 +55,7 @@ public class UnitPointerInputRouter : MonoBehaviour
             return;
         }
 
-        bool started = dragHandler.BeginPress((Vector2)Input.mousePosition);
+        bool started = dragHandler.BeginPress((Vector2)Input.mousePosition, unitInfoPanel);
         if (started)
         {
             DebugTool.Log(
@@ -57,7 +64,17 @@ public class UnitPointerInputRouter : MonoBehaviour
                 this
             );
         }
+        unitInfoPanel.SetActive(true);
+
+
     }
+
+    //private void SendUnitInfo()
+    //{
+
+    //    CollectUnitInfo collectUnitInfo = unitInfoPanel.GetComponent<CollectUnitInfo>();
+    //    unitInfoPanel.SetActive(true);
+    //}
 
     private Vector3 GetMouseWorld()
     {
