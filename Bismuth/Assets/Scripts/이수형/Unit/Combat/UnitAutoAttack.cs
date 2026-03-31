@@ -10,7 +10,7 @@ public class UnitAutoAttack : MonoBehaviour
     
 
     [Header("Debug")]
-    [SerializeField] private bool attackLog = true;
+    [SerializeField] private bool attackLog = false;
 
     private TowerUnit towerUnit;
     private MonsterController currentTarget;

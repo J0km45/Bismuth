@@ -43,6 +43,7 @@ public class SummonUnit : MonoBehaviour
     [SerializeField] private CellHighlight cellHighlight;
     [SerializeField] private Camera worldCamera;
     [SerializeField] private UnitCatalogManager unitCatalogManager;
+    [SerializeField] private CombineManager combineManager;
      
     [Header("Data")]
     [SerializeField] private List<UnitSO> units = new List<UnitSO>(4);
@@ -80,6 +81,9 @@ public class SummonUnit : MonoBehaviour
         
         if (unitCatalogManager == null)
             unitCatalogManager = GetComponent<UnitCatalogManager>();
+        
+        if (combineManager == null)
+            combineManager = GetComponent<CombineManager>();
     }
 
     private void Start()
@@ -156,6 +160,7 @@ public class SummonUnit : MonoBehaviour
         DebugTool.Log("EnsureAttack까지 실행완료", DebugType.Summon, this);
         synergyManager?.OnUnitCreated?.Invoke(stat);
         unitCatalogManager.OnSummonUnit?.Invoke(stat);
+        combineManager.OnAddUnit?.Invoke(stat.Id);
         
         PrintStat(stat);
         DebugTool.Log("PrintStat까지 실행완료", DebugType.Summon, this);
@@ -184,6 +189,7 @@ public class SummonUnit : MonoBehaviour
         if (index < 0)
             return false;
 
+        combineManager.OnRemoveUnit?.Invoke(ownedTowers[index].Id);
         ownedTowers.RemoveAt(index);
         return true;
     }
