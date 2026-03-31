@@ -29,6 +29,9 @@ public class MonsterController : MonoBehaviour
     [Tooltip("현재 체력")]
     [SerializeField, Min(0f)] private float _currentHp;
 
+    [Tooltip("기본 방어력")]
+    [SerializeField, Min(0f)] private float _baseDefense;
+
     [Tooltip("기지 피해")]
     [SerializeField, Min(0)] private int _damageToBase;
 
@@ -48,7 +51,8 @@ public class MonsterController : MonoBehaviour
     public float CurrentHp => _currentHp;
     public int DamageToBase => _damageToBase;
     public int KillReward => _killReward;
-    
+    public float BaseDefense => _baseDefense;
+
     private void Reset()
     {
         _mover = GetComponent<MonsterMover>();
@@ -99,6 +103,7 @@ public class MonsterController : MonoBehaviour
         _currentHp = runtimeValues.CurrentHp;
         _damageToBase = runtimeValues.DamageToBase;
         _killReward = runtimeValues.KillReward;
+        _baseDefense = runtimeValues.Defense;
 
         _hasDied = false;
         _hasReachedBase = false;
@@ -160,4 +165,5 @@ public struct MonsterRuntimeValues
     public int DamageToBase;
     public int KillReward;
     public float MoveSpeed;
+    public float Defense;
 }

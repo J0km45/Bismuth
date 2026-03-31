@@ -388,7 +388,8 @@ public class BoardSystem : MonoBehaviour
         
         
         emptySlot = emptySlots[randomIndex];
-
+    
+        DebugTool.Log($"{emptySlot.worldCenter}", DebugType.Board, this);
         return true;
     }
 }

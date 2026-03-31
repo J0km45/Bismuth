@@ -28,6 +28,7 @@ public class UnitPointerInputRouter : MonoBehaviour
         }
 
         Vector3 mouseWorld = GetMouseWorld();
+        DebugTool.Log($"마우스 월드 좌표: {mouseWorld}", DebugType.Board, this);
 
         Collider2D hit = Physics2D.OverlapPoint(mouseWorld, unitLayer);
         if (hit == null)

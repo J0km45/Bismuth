@@ -52,9 +52,19 @@ public class LocalizationManager : MonoBehaviour
         OnLocalizationLoaded?.Invoke(); // 변경 후 받아오기용
     }
 
-    public string Get(string key)
+    public string Get(string key, params object[] args)
     {
-        return _table.TryGetValue(key, out var value) ? value : key;
+        if (!_table.TryGetValue(key, out string value))
+        {
+            return key;
+        }
+
+        if (args.Length > 0)
+        {
+            return string.Format(value, args);
+        }
+
+        return value;
     }
 
     public void ChangeLanguage(Language language)

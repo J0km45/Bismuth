@@ -127,7 +127,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SummonManager
   summonUnit: {fileID: 0}
-  SummonLog: 0
+  BoardLog: 1
 --- !u!114 &3586491415078184626
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -233,7 +233,7 @@ MonoBehaviour:
   worldCamera: {fileID: 0}
   unitLayer:
     serializedVersion: 2
-    m_Bits: 32
+    m_Bits: 1024
 --- !u!114 &5106607783468869301
 MonoBehaviour:
   m_ObjectHideFlags: 0

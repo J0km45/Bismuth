@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class TitleSceneUI : MonoBehaviour
 {
@@ -15,12 +16,22 @@ public class TitleSceneUI : MonoBehaviour
     [Tooltip("환경 설정 팝업")]
     [SerializeField] private GameObject _settingsPopup;
 
-    private void Start()
+    private void OnEnable()
     {
-        // TODO : 로컬라이징 수정
-        _startText.text = "START";
-        _settingsText.text = "SETTINGS";
-        _quitText.text = "QUIT";
+        LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
+        RefreshText();
+    }
+
+    private void OnDisable()
+    {
+        LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
+    }
+
+    private void RefreshText()
+    {
+        _startText.text = LocalizationManager.Instance.Get("START_GAME");
+        _settingsText.text = LocalizationManager.Instance.Get("OPTIONS");
+        _quitText.text = LocalizationManager.Instance.Get("QUIT");
     }
 
     // 게임 시작 버튼 (로비화면으로)

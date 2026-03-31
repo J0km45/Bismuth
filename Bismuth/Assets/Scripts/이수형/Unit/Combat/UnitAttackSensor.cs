@@ -9,6 +9,8 @@ public class UnitAttackSensor : MonoBehaviour
     [SerializeField] private CircleCollider2D sensorCollider;
     [SerializeField] private LayerMask monsterLayerMask;
     [SerializeField] private UnitStat unitStat;
+    [SerializeField] private LineRenderer lineRenderer;
+    [SerializeField] private AttackRangeVisualizer rangeVisualizer;
 
     private readonly List<MonsterController> monstersInRange = new();
 
@@ -24,19 +26,50 @@ public class UnitAttackSensor : MonoBehaviour
 
     private void Awake()
     {
+        
         CacheReferences();
+        AddComponent();
+
+        
+        
         ConfigureCollider();
         TrySetDefaultMonsterLayer();
         SyncRadiusFromUnitStat();
+
+        if (rangeVisualizer != null)
+            rangeVisualizer.Show();
     }
 
+    private void AddComponent()
+    {
+        lineRenderer = this.gameObject.AddComponent<LineRenderer>();
+        lineRenderer.material = new Material(Shader.Find("Sprites/Default"));
+        lineRenderer.sortingOrder = 10;
+
+        this.gameObject.AddComponent<AttackRangeVisualizer>();
+
+        
+    }
     private void CacheReferences()
     {
+        this.gameObject.layer = LayerMask.NameToLayer("Default");
+
         if (sensorCollider == null)
             sensorCollider = GetComponent<CircleCollider2D>();
 
         if (unitStat == null)
             unitStat = GetComponentInParent<UnitStat>();
+
+        if (lineRenderer == null)
+            lineRenderer = GetComponent<LineRenderer>();
+
+        if (rangeVisualizer == null)
+            rangeVisualizer = GetComponent<AttackRangeVisualizer>();
+
+
+
+
+
     }
 
     public void SyncRadiusFromUnitStat()
@@ -48,6 +81,8 @@ public class UnitAttackSensor : MonoBehaviour
 
         float radius = Mathf.Max(0.01f, unitStat.Range);
         sensorCollider.radius = radius;
+
+        rangeVisualizer.Init(sensorCollider, lineRenderer);
     }
 
     private void ConfigureCollider()

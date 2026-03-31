@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 6649212302675941098}
   - component: {fileID: 5492671902364682871}
   - component: {fileID: 8637135535358880129}
+  - component: {fileID: 8000153876097570602}
   m_Layer: 0
   m_Name: DataManager
   m_TagString: Untagged
@@ -90,3 +91,21 @@ MonoBehaviour:
     <Url>k__BackingField: https://docs.google.com/spreadsheets/d/1VOCm6Ea1lZwR6bHObUN7oggKR4U9nOfGWR_bl1s3nK4/edit?gid=883043207#gid=883043207
     <Type>k__BackingField: 1
   log: 0
+--- !u!114 &8000153876097570602
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8868012073444114695}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1b3c746f93976243a2a2430d3dd58a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SynergyDataController
+  synergySo: {fileID: 11400000, guid: ae19ff350cd21684392c987d6ab5e999, type: 2}
+  _synergySheet:
+    <Url>k__BackingField: https://docs.google.com/spreadsheets/d/1VOCm6Ea1lZwR6bHObUN7oggKR4U9nOfGWR_bl1s3nK4/edit?gid=244418096#gid=244418096
+    <Type>k__BackingField: 1
+  _rows: []
+  log: 1
