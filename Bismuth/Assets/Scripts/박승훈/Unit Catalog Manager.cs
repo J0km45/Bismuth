@@ -9,18 +9,18 @@ public class UnitCatalogManager : MonoBehaviour
 {
     [SerializeField] private UnitSO unitSO;
     [SerializeField] private UnitCatalogSO unitCatalogSO;
-    
+
     private Dictionary<int, bool> unitCatalog = new();
     public Dictionary<int, bool> UnitCatalog => unitCatalog;
 
     public UnityEvent<UnitStat> OnSummonUnit;
 
     [SerializeField] private bool _log = true;
-    
+
     private void Start()
     {
         DebugTool.DebugSelect(DebugType.Catalog, _log);
-        
+
         InitCatalog();
         LoadUnitCatalog();
     }
@@ -34,10 +34,10 @@ public class UnitCatalogManager : MonoBehaviour
     {
         OnSummonUnit.RemoveListener(AddUnitCatalog);
     }
-    
+
     private void Update()
     {
-        if(Keyboard.current.spaceKey.wasPressedThisFrame)
+        if (Keyboard.current.spaceKey.wasPressedThisFrame)
             PrintAllUnitCatalog();
     }
 
@@ -46,23 +46,23 @@ public class UnitCatalogManager : MonoBehaviour
     {
         if (unitCatalog.ContainsKey(stat.Id))
         {
-            if(!unitCatalog[stat.Id])
+            if (!unitCatalog[stat.Id])
             {
                 unitCatalog[stat.Id] = true;
-                
+
                 for (int i = 0; i < unitCatalog.Count; ++i)
                 {
-                    if(unitCatalogSO.UnitCatalog[i].UnitId == stat.Id)
+                    if (unitCatalogSO.UnitCatalog[i].UnitId == stat.Id)
                     {
                         unitCatalogSO.UnitCatalog[i].Name = stat.Name;
                         unitCatalogSO.UnitCatalog[i].UnitId = stat.Id;
                         unitCatalogSO.UnitCatalog[i].Summoned = unitCatalog[stat.Id];
                     }
                 }
-                
+
                 PrintUnitCatalog(stat);
             }
-            else 
+            else
                 DebugTool.Log($"[{stat.Id} : {stat.Name}] 이미 도감에 추가되었습니다.", DebugType.Catalog, this);
         }
         else
@@ -73,11 +73,11 @@ public class UnitCatalogManager : MonoBehaviour
     private void ClearUnitCatalog()
     {
         unitCatalog.Clear();
-        
-        if(unitCatalogSO.FirstInit)
+
+        if (unitCatalogSO.FirstInit)
             unitCatalogSO.UnitCatalog.Clear();
     }
-    
+
     // 도감 초기화
     private void InitCatalog()
     {
@@ -92,7 +92,7 @@ public class UnitCatalogManager : MonoBehaviour
             }
             unitCatalog.Add(data.Id, false);
             // DebugTool.Log($"{data.UnitName}", DebugType.Catalog, this);
-            
+
             if (unitCatalogSO.FirstInit)
             {
                 DebugTool.Log("유닛 도감 최초 초기화", DebugType.Catalog, this);
@@ -102,7 +102,7 @@ public class UnitCatalogManager : MonoBehaviour
         }
         unitCatalogSO.FirstInit = false;
     }
-    
+
     // 유닛 도감 로딩
     private void LoadUnitCatalog()
     {
@@ -110,15 +110,15 @@ public class UnitCatalogManager : MonoBehaviour
         {
             unitCatalog[pair.UnitId] = pair.Summoned;
         }
-        
+
         PrintAllUnitCatalog();
     }
-    
+
     // 유닛 도감 전체 출력
     private void PrintAllUnitCatalog()
     {
         string dict = "[유닛 도감 개방 목록]\n";
-        foreach (KeyValuePair<int,bool> key in unitCatalog)
+        foreach (KeyValuePair<int, bool> key in unitCatalog)
             dict += $"{key.Key.ToString()} : {key.Value}\n";
 
         DebugTool.Log(dict, DebugType.Catalog, this);
