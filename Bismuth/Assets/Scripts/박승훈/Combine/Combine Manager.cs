@@ -25,7 +25,6 @@ public class CombineManager : MonoBehaviour
 
     public UnityEvent<int> OnAddUnit;
     public UnityEvent<int> OnRemoveUnit;
-    public UnityEvent<int> OnCombineUnit;
     
     public event Action OnCombineListChanged;
 
@@ -39,8 +38,6 @@ public class CombineManager : MonoBehaviour
         OnAddUnit.AddListener(AddOwnedUnit);
         OnAddUnit.AddListener(PrintCombineList);
         
-        OnCombineUnit.AddListener(CombineUnit);
-        
         OnRemoveUnit.AddListener(RemoveOwnedUnit);
         OnRemoveUnit.AddListener(PrintCombineList);
     }
@@ -49,8 +46,6 @@ public class CombineManager : MonoBehaviour
     {
         OnAddUnit.RemoveListener(AddOwnedUnit);
         OnAddUnit.RemoveListener(PrintCombineList);
-        
-        OnCombineUnit.RemoveListener(CombineUnit);
         
         OnRemoveUnit.RemoveListener(RemoveOwnedUnit);
         OnRemoveUnit.RemoveListener(PrintCombineList);
@@ -61,10 +56,10 @@ public class CombineManager : MonoBehaviour
     /// 매개변수로 인덱스 입력
     /// </summary>
     /// <param name="index"></param>
-    public void CombineUnit(int index)
+    public bool CombineUnit(int index)
     {
         if (index < 0 || index >= CombineList.Count)
-            return;
+            return false;
         
         int[] recipe = CombineList[index];
         int length = recipe.Length;
@@ -73,7 +68,7 @@ public class CombineManager : MonoBehaviour
         if (recipe[length - 1] == 0)
         {
             DebugTool.Warnning("재료 유닛이 부족합니다.", DebugType.Combine, this);
-            return;
+            return false;
         }
         
         // 마지막에서 두번 째 : 결과 유닛 ID
@@ -96,7 +91,7 @@ public class CombineManager : MonoBehaviour
         if (data == null)
         {
             DebugTool.Log($"{resultUnitId} : 결과 유닛을 찾지 못했습니다.", DebugType.Combine, this);
-            return;
+            return false;
         }
 
         // 소비할 유닛 목록
@@ -126,7 +121,7 @@ public class CombineManager : MonoBehaviour
             if (foundTower == null)
             {
                 DebugTool.Warnning($"재료유닛 ID {needId} 이(가) 부족합니다.", DebugType.Combine, this);
-                return;
+                return false;
             }
             selectUnits.Add(foundTower);
             consumeTargets.Add(foundTower);
@@ -140,6 +135,7 @@ public class CombineManager : MonoBehaviour
         
         // 결과 유닛 생성
         _summonManager.SummonCombineUnit(data);
+        return true;
     }
     
 
