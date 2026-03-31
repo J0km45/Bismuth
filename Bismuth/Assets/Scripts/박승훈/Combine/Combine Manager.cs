@@ -8,7 +8,6 @@ using UnityEngine.Events;
 public class CombineManager : MonoBehaviour
 {
     [SerializeField] private SummonManager _summonManager;
-    [SerializeField] private UnitCatalogManager _unitCatalogManager;
     [SerializeField] private SummonUnit _summonUnit;
     
     [SerializeField] private UnitSO _units;
@@ -18,6 +17,8 @@ public class CombineManager : MonoBehaviour
     private Dictionary<int, int> _ownedUnitCounts = new();
     // 재료 유닛으로 결과 유닛 찾기
     private Dictionary<int, List<int>> sourceToRecipeDict = new();
+    
+    // 실제 합성 가능한 리스트
     public List<int[]> CombineList = new();
 
     [SerializeField] private bool _log = true;
@@ -317,7 +318,6 @@ public class CombineManager : MonoBehaviour
     private void Init()
     {
         _summonManager = GetComponent<SummonManager>();
-        _unitCatalogManager = GetComponent<UnitCatalogManager>();
         _summonUnit = GetComponent<SummonUnit>();
         
         DebugTool.DebugSelect(DebugType.Combine, _log);

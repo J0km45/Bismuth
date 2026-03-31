@@ -35,7 +35,7 @@ public class UnitData
 
     [Tooltip("치명타 확률 (0~1)\n0.1 = 10%, 0.14 = 14%")] [Range(0f, 1f)] [SerializeField]
     private float criticalChance;
-
+    
     [Tooltip("공격 사거리 (타일 수)")] [Min(1)] [SerializeField]
     private float attackRange;
 
