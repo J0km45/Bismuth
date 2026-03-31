@@ -7,6 +7,7 @@ public class CombinationScrollViewUI : MonoBehaviour
     [SerializeField] private GameObject _pairPrefab; // 2개 조합 프리팹
     [SerializeField] private GameObject _trioPrefab; // 3개조합 프리팹
     [SerializeField] private CombineManager _combineManager;
+    [SerializeField] private PlayerUIController _playerUIController;
 
     private List<GameObject> _combinations = new List<GameObject>();
 
@@ -52,7 +53,7 @@ public class CombinationScrollViewUI : MonoBehaviour
             int resultId = recipe[length - 2];
             bool canCombine = recipe[length - 1] == 1; // 0이면 조합 불가, 1이면 조합 가능
 
-            combi.Init(_combineManager, index);
+            combi.Init(_playerUIController, index);
             combi.SetData(sourceIds, resultId, canCombine);
         }
 

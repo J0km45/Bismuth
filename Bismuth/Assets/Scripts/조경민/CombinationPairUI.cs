@@ -12,7 +12,7 @@ public class CombinationPairUI : MonoBehaviour, ICombinationUI
     [Header("━━━━ 조합 대상 이미지 ━━━━")]
     [SerializeField] private Image _resultIcon;
 
-    private CombineManager _combineManager;
+    private PlayerUIController _playerUIController;
     private int _index;
 
     private Button _button;
@@ -23,9 +23,9 @@ public class CombinationPairUI : MonoBehaviour, ICombinationUI
         _button.onClick.AddListener(OnClickCombine);
     }
 
-    public void Init(CombineManager combineManager, int index)
+    public void Init(PlayerUIController playerUIController, int index)
     {
-        _combineManager = combineManager;
+        _playerUIController = playerUIController;
         _index = index;
     }
 
@@ -47,6 +47,7 @@ public class CombinationPairUI : MonoBehaviour, ICombinationUI
 
     private void OnClickCombine()
     {
-        _combineManager.CombineUnit(_index);
+        _playerUIController.OnUnitCombine(_index);
+        DebugTool.Log($"유닛 합성 버튼 눌림 / 인덱스 : {_index}", DebugType.Combine, this);
     }
 }

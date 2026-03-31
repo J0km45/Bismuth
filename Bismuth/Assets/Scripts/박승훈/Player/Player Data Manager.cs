@@ -4,7 +4,7 @@ using UnityEngine.Events;
 
 public class PlayerDataManager : MonoBehaviour
 {
-    [SerializeField] private SynergyManager _synergyManager;
+    [SerializeField] private ControlPanelUI _controlPanelUI;
     
     [Header("━━━━ 플레이어 스탯 데이터 ━━━━")]
     [Tooltip("플레이어 스탯 SO")]
@@ -16,47 +16,46 @@ public class PlayerDataManager : MonoBehaviour
     [Tooltip("플레이어 소지 골드")]
     [SerializeField] private int _gold;
     
-    private void Awake()
-    {
-        Init();
-        PlayerStatInit();
-    }
-
-    public int Level
-    {
-        get => _level; 
-        set => _level = value;
-    }
-    
-
-    public int Gold
-    {
-        get => _gold; 
-        set => _gold = value;
-    }
-    
     [Tooltip("최대 베이스 체력")]
     [SerializeField] private int _maxBaseHealth;
     public int MaxBaseHealth { get => _maxBaseHealth; set => _maxBaseHealth = value; }
     
     [Tooltip("현재 베이스 체력")]
     [SerializeField] private int _currentBaseHealth;
+    
+    private void Awake()
+    {
+        PlayerStatInit();
+    }
+    
+    public int Level
+    {
+        get => _level;
+        set
+        {
+            _level = value;
+            _controlPanelUI.RefreshLevel();
+        }
+    }
+
+    public int Gold
+    {
+        get => _gold;
+        set
+        {
+            _gold = value;
+            _controlPanelUI.RefreshGold();
+        }
+    }
 
     public int CurrentBaseHealth
     {
-        get => _currentBaseHealth; 
-        set => _currentBaseHealth = value;
-    }
-
-    private void Start()
-    {
-        Init();
-        PlayerStatInit();
-    }
-
-    private void Init()
-    {
-        _synergyManager = GetComponent<SynergyManager>();
+        get => _currentBaseHealth;
+        set
+        {
+            _currentBaseHealth = value;
+            // 베이스 체력 UI 리프레시
+        }
     }
 
     private void PlayerStatInit()

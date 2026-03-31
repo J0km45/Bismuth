@@ -33,7 +33,7 @@ public class SummonChanceData
         SummonChanceData data = new();
 
         data._enhancementLevel = nextLevel; // 강화 단계
-        data._level = $"{nextLevel + 1} 단계";
+        data._level = $"{nextLevel} 단계";
         data._tier1 = ParseFloat(SafeGet(line, 1));         // b
         data._tier2 = ParseFloat(SafeGet(line, 2));         // c
         data._tier3 = ParseFloat(SafeGet(line, 3));         // d

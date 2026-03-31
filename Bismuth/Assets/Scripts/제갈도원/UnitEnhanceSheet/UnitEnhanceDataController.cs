@@ -24,7 +24,7 @@ public class UnitEnhanceDataController : MonoBehaviour
         // SO가 있으면 먼저 기본값 로드
         if (unitEnhanceSo != null)
         {
-            _rows = new List<UnitEnhanceData>(unitEnhanceSo.Rows);
+            _rows = new List<UnitEnhanceData>(unitEnhanceSo.UnitEnhanceDatas);
             RebuildCache();
             DebugTool.Log($"[유닛 강화] SO {_rows.Count}행 로드 완료", DebugType.Data, this);
         }
