@@ -15,6 +15,7 @@ public class UnitAutoAttack : MonoBehaviour
 
     [Header("Debug")]
     [SerializeField] private bool attackLog = false;
+    
 
     private TowerUnit towerUnit;
     private MonsterController currentTarget;
@@ -27,6 +28,8 @@ public class UnitAutoAttack : MonoBehaviour
     private bool hasEnteredAttackState = false;
     private bool hasAppliedHit = false;
 
+    private bool isRanged = false;
+
     private void Awake()
     {
         if (unitStat == null)
@@ -37,6 +40,7 @@ public class UnitAutoAttack : MonoBehaviour
 
         towerUnit = GetComponent<TowerUnit>();
         EnsureSensor();
+        attackAnimationIndex = unitStat.Range > 1f ? 2 : 0;
     }
 
     private void Start()

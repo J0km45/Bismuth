@@ -70,7 +70,7 @@ public class TowerLongPressDragHandler : MonoBehaviour
 
         UpdateDrag();
     }
-    public bool BeginPress(Vector2 screenPos)
+    public bool BeginPress(Vector2 screenPos, GameObject unitInfoPanel)
     {
         if (isActiveAndEnabled == false)
             return false;
@@ -84,8 +84,13 @@ public class TowerLongPressDragHandler : MonoBehaviour
         isDragging = false;
         pressedTime = Time.time;
         pressedScreenPos = screenPos;
-
+        
         DebugTool.Log($"타워({towerUnit.CurrentSlot.name}) 홀드 시작", DebugType.Unit, this);
+
+        unitInfoPanel.GetComponent<CollectUnitInfo>().CollectInfo(this.gameObject);
+
+
+
         return true;
     }
     //private void OnMouseDown()
