@@ -7,8 +7,7 @@ public class PauseInputHandler : MonoBehaviour
 
     [Tooltip("일시정지 팝업")]
     [SerializeField] private GameObject _pausePopup;
-
-    private bool _isPausePopupOpened => _pausePopup.activeSelf;
+    [SerializeField] private GameObject _settingsPopup;
 
     private void Awake()
     {
@@ -39,13 +38,18 @@ public class PauseInputHandler : MonoBehaviour
 
     public void OnEsc(InputAction.CallbackContext context)
     {
+        if (_settingsPopup.activeSelf)
+        {
+            _settingsPopup.SetActive(false);
+            TimeScaleController.Instance.SetSettingsPopup(false);
+            return;
+        }
         TogglePausePopup();
     }
 
     public void TogglePausePopup()
     {
-        _pausePopup.transform.SetAsLastSibling();
-        _pausePopup.SetActive(!_isPausePopupOpened);
-        TimeScaleController.Instance.SetPausePopup(_isPausePopupOpened);
+        _pausePopup.SetActive(!_pausePopup.activeSelf);
+        TimeScaleController.Instance.SetPausePopup(_pausePopup.activeSelf);
     }
 }
