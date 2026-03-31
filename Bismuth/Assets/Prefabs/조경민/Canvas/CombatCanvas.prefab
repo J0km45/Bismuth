@@ -4549,7 +4549,7 @@ GameObject:
   - component: {fileID: 4816884216035766935}
   - component: {fileID: 1128393139462299908}
   m_Layer: 5
-  m_Name: SkillBackground
+  m_Name: Description
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -8138,6 +8138,8 @@ GameObject:
   - component: {fileID: 937918238930509087}
   - component: {fileID: 367513067578344078}
   - component: {fileID: 4559619955204348962}
+  - component: {fileID: 4526716884139624106}
+  - component: {fileID: 9176925757495718663}
   m_Layer: 5
   m_Name: UnitInfoPanel
   m_TagString: Untagged
@@ -8208,6 +8210,40 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &4526716884139624106
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4791990413868985401}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 66acede2c9d1d364494e4b0c6ec3a6ca, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitInfoPanelUI
+  _nameText: {fileID: 3166210878177184049}
+  _levelText: {fileID: 3613949424952672132}
+  _tierText: {fileID: 1984949706694485662}
+  _statText: {fileID: 7974476478370680588}
+  _upgradeText: {fileID: 5804583181660188094}
+  _sellText: {fileID: 3292294746964187148}
+  _descriptionText: {fileID: 4527535686091597628}
+  _tagGroup: {fileID: 8673522233943273940}
+  _synergyTagPrefab: {fileID: 4130428589814362684, guid: 96366181b37a19f4ead32394650e3e94, type: 3}
+--- !u!114 &9176925757495718663
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4791990413868985401}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 807fb21129c4b854f9d94430743d6103, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CollectUnitInfo
+  selectedUnit: {fileID: 0}
 --- !u!1 &4820005268619000297
 GameObject:
   m_ObjectHideFlags: 0
@@ -11168,7 +11204,7 @@ GameObject:
   - component: {fileID: 8673522233943273940}
   - component: {fileID: 8013640260596699475}
   m_Layer: 5
-  m_Name: TierSynergy
+  m_Name: TagGroup
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -13949,9 +13985,9 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 8673522233943273940}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 250, y: -25}
   m_SizeDelta: {x: 100, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5852591576616882131
@@ -15976,7 +16012,7 @@ GameObject:
   - component: {fileID: 2260618726893860850}
   - component: {fileID: 4527535686091597628}
   m_Layer: 5
-  m_Name: SkillText
+  m_Name: DescriptionText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -16029,7 +16065,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Skiil Name
+  m_text: Description
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 1c219f38ffbdaeb418a6460efcd30204, type: 2}
   m_sharedMaterial: {fileID: -4919029486418043733, guid: 1c219f38ffbdaeb418a6460efcd30204, type: 2}
