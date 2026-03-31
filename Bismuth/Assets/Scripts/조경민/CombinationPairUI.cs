@@ -61,7 +61,7 @@ public class CombinationPairUI : MonoBehaviour, ICombinationUI
             }
         }
 
-        _summonManager.SummonCombineUnit(_data); // 조합된 유닛 소환
+        //_summonManager.SummonCombineUnit(_data); // 조합된 유닛 소환
     }
 
     private List<TowerUnit> GetRemoveUnits(CombineData data)
