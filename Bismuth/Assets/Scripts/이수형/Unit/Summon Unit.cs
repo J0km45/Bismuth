@@ -347,6 +347,7 @@ public class SummonUnit : MonoBehaviour
 
         stat.Id = unitData.Id;
         stat.Tier = unitData.Tier;
+        stat.Level = 1;
         stat.Name = unitData.UnitName;
         stat.AttackPower = unitData.AttackPower;
         stat.AttackSpeed = unitData.AttackSpeed;
