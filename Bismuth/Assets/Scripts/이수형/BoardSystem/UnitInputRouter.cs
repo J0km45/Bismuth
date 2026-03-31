@@ -26,13 +26,14 @@ public class UnitPointerInputRouter : MonoBehaviour
         if (!Input.GetMouseButtonDown(0))
             return;
 
-        GameObject.Find("CombatCanvas").transform.Find("ControlPanel").transform.Find("UnitInfoPanel").gameObject.SetActive(false);
+        
 
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
         {
             DebugTool.Log("유닛 입력 무시 - UI 위 클릭", DebugType.Unit, this);
             return;
         }
+        GameObject.Find("CombatCanvas").transform.Find("ControlPanel").transform.Find("UnitInfoPanel").gameObject.SetActive(false);
 
         Vector3 mouseWorld = GetMouseWorld();
         DebugTool.Log($"마우스 월드 좌표: {mouseWorld}", DebugType.Board, this);
