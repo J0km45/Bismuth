@@ -66,7 +66,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerDataManager
   _synergyManager: {fileID: 0}
   _playerStat: {fileID: 11400000, guid: 28eeee6c0f831f44393f56fedd1c9222, type: 2}
-  _level: 1
+  _level: 4
   _gold: 0
   _maxBaseHealth: 0
   _currentBaseHealth: 0
@@ -127,7 +127,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SummonManager
   summonUnit: {fileID: 0}
-  BoardLog: 1
+  BoardLog: 0
 --- !u!114 &3586491415078184626
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -141,11 +141,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CombineMangager
   _summonManager: {fileID: 0}
-  _unitCatalogManager: {fileID: 0}
   _summonUnit: {fileID: 0}
   _units: {fileID: 11400000, guid: cd09fb10c1adca94facd263909f98d92, type: 2}
   _combineSO: {fileID: 11400000, guid: 0dfded2c1c40dd54498084b03b040f27, type: 2}
-  _log: 1
+  _log: 0
   OnAddUnit:
     m_PersistentCalls:
       m_Calls: []
@@ -225,7 +224,7 @@ MonoBehaviour:
   - {fileID: 3172687888725299707, guid: b9dbca153d478b24e9b965fbbddc4a9b, type: 3}
   ownedTowers: []
   summonLog: 1
-  boardLog: 1
+  boardLog: 0
 --- !u!114 &7012402871630413712
 MonoBehaviour:
   m_ObjectHideFlags: 0
