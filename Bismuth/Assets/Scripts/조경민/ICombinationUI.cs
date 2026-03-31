@@ -1,5 +1,7 @@
+using System.Collections.Generic;
+
 public interface ICombinationUI
 {
-    public void Init(SummonManager summonManager, SummonUnit summonUnit);
-    public void SetData(CombineData data, bool canCombine);
+    public void Init(CombineManager combineManager, int index);
+    public void SetData(List<int> sourceIds, int resultId, bool canCombine);
 }
