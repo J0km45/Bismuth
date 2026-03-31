@@ -7,7 +7,7 @@ public class CollectUnitInfo : MonoBehaviour
     {
         selectedUnit = unit;
         UnitStat unitStat = unit.GetComponent<UnitStat>();
-        DebugTool.Log($"Unit Id: {unitStat.Id}, Unit AttackPower: {unitStat.AttackPower}, Unit AttackSpeed: {unitStat.AttackSpeed} ",DebugType.UI,this);
+        DebugTool.Log($"Unit Id: {unitStat.Id}, Unit AttackPower: {unitStat.CurrentAttackPower}, Unit AttackSpeed: {unitStat.AttackSpeed} ",DebugType.UI,this);
 
 
     }

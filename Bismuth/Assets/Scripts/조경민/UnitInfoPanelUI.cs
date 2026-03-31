@@ -51,7 +51,7 @@ public class UnitInfoPanelUI : MonoBehaviour
         _nameText.text = unitStat.Name;
         _levelText.text = $"Lv {unitStat.Level}";
         _tierText.text = $"{unitStat.Tier} 단계";
-        _statText.text = $"공격력 : {unitStat.AttackPower}\n공속 : {unitStat.AttackSpeed}";
+        _statText.text = $"공격력 : {unitStat.CurrentAttackPower}\n공속 : {unitStat.AttackSpeed}";
         _descriptionText.text = "설명";
 
         for (int i = 0; i < unitStat.SynergIDs.Length; i++)
