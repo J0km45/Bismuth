@@ -472,6 +472,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: MonsterSpawner
       objectReference: {fileID: 0}
+    - target: {fileID: 4847692746524259837, guid: 3d99f514897f6104389c0d1cee15f835, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 8622819986383826409, guid: 3d99f514897f6104389c0d1cee15f835, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0.65317
@@ -525,17 +529,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 3d99f514897f6104389c0d1cee15f835, type: 3}
---- !u!114 &1449846340 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 651773196946485032, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
-  m_PrefabInstance: {fileID: 3511358965301611800}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 828684002203c9f44b0b24e6e4bcd2be, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SummonManager
 --- !u!114 &1449846341 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8140035803927745397, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
@@ -591,7 +584,15 @@ PrefabInstance:
     - target: {fileID: 496947781755680397, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
       value: 
-      objectReference: {fileID: 1449846340}
+      objectReference: {fileID: 2122227704}
+    - target: {fileID: 496947781755680397, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: OnSummonUnit
+      objectReference: {fileID: 0}
+    - target: {fileID: 496947781755680397, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: PlayerUIController, Assembly-CSharp
+      objectReference: {fileID: 0}
     - target: {fileID: 1148112932772845760, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
       propertyPath: m_AnchorMax.x
       value: 0
@@ -620,6 +621,10 @@ PrefabInstance:
       propertyPath: _combineManager
       value: 
       objectReference: {fileID: 1449846342}
+    - target: {fileID: 5181009744710553500, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
+      propertyPath: _playerUIController
+      value: 
+      objectReference: {fileID: 2122227704}
     - target: {fileID: 5231677636261445379, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
       propertyPath: m_Pivot.x
       value: 0
@@ -711,10 +716,6 @@ PrefabInstance:
     - target: {fileID: 8297800164729030232, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
       propertyPath: m_SizeDelta.y
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8584002196519971116, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
-      propertyPath: m_Value
-      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -1045,6 +1046,28 @@ Camera:
   m_CorrespondingSourceObject: {fileID: 3230664656192739124, guid: 2b1144a24b50f0d4dbb27a4242da1a01, type: 3}
   m_PrefabInstance: {fileID: 1086029730391716965}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &2122227704 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3962914728387289638, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
+  m_PrefabInstance: {fileID: 3511358965301611800}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 574c64fe9cf686944b2b71f1098a0b81, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerUIController
+--- !u!114 &2131290261 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 7358752814444049304, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
+  m_PrefabInstance: {fileID: 1748222982}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5aa02fffde1a19449ae09a69e2f23caa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ControlPanelUI
 --- !u!1001 &1086029730391716965
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1114,10 +1137,22 @@ PrefabInstance:
       propertyPath: m_Name
       value: GameManager
       objectReference: {fileID: 0}
+    - target: {fileID: 5106607783468869301, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
+      propertyPath: _log
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7012402871630413712, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
       propertyPath: worldCamera
       value: 
       objectReference: {fileID: 2092645846}
+    - target: {fileID: 8423151259897990698, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
+      propertyPath: _controlPanelUI
+      value: 
+      objectReference: {fileID: 2131290261}
+    - target: {fileID: 8554172300313096461, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
+      propertyPath: summonLog
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 8554172300313096461, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
       propertyPath: boardSystem
       value: 
