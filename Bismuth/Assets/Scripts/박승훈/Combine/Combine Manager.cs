@@ -8,7 +8,6 @@ using UnityEngine.Events;
 public class CombineManager : MonoBehaviour
 {
     [SerializeField] private SummonManager _summonManager;
-    [SerializeField] private UnitCatalogManager _unitCatalogManager;
     [SerializeField] private SummonUnit _summonUnit;
     
     [SerializeField] private UnitSO _units;
@@ -317,7 +316,6 @@ public class CombineManager : MonoBehaviour
     private void Init()
     {
         _summonManager = GetComponent<SummonManager>();
-        _unitCatalogManager = GetComponent<UnitCatalogManager>();
         _summonUnit = GetComponent<SummonUnit>();
         
         DebugTool.DebugSelect(DebugType.Combine, _log);
