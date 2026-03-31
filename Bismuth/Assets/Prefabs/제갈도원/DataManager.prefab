@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 5492671902364682871}
   - component: {fileID: 8637135535358880129}
   - component: {fileID: 8000153876097570602}
+  - component: {fileID: 8363880137115345349}
   m_Layer: 0
   m_Name: DataManager
   m_TagString: Untagged
@@ -108,4 +109,21 @@ MonoBehaviour:
     <Url>k__BackingField: https://docs.google.com/spreadsheets/d/1VOCm6Ea1lZwR6bHObUN7oggKR4U9nOfGWR_bl1s3nK4/edit?gid=244418096#gid=244418096
     <Type>k__BackingField: 1
   _rows: []
+  log: 0
+--- !u!114 &8363880137115345349
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8868012073444114695}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3674fdc7586f26418d2425d4e46d187, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitEnhanceDataController
+  unitEnhanceSheet:
+    <Url>k__BackingField: https://docs.google.com/spreadsheets/d/1VOCm6Ea1lZwR6bHObUN7oggKR4U9nOfGWR_bl1s3nK4/edit?gid=1861623999#gid=1861623999
+    <Type>k__BackingField: 1
+  rows: []
   log: 0
