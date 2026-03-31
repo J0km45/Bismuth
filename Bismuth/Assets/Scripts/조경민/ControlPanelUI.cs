@@ -83,15 +83,4 @@ public class ControlPanelUI : MonoBehaviour
     {
         _combinationScrollView.SetActive(!_isCombinationSVOpened);
     }
-
-    // TODO : 뽑기랑 확률증가는 다른곳에서 연결 필요
-    public void OnClickDraw()
-    {
-        // 일반 뽑기
-    }
-
-    public void OnClickUpgrade()
-    {
-        // 확률 +
-    }
 }
