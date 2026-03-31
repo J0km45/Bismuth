@@ -24,6 +24,7 @@ public class CombineManager : MonoBehaviour
 
     public UnityEvent<int> OnAddUnit;
     public UnityEvent<int> OnRemoveUnit;
+    public UnityEvent<int> OnCombineUnit;
     
     private void Awake()
     {
@@ -35,6 +36,8 @@ public class CombineManager : MonoBehaviour
         OnAddUnit.AddListener(AddOwnedUnit);
         OnAddUnit.AddListener(PrintCombineList);
         
+        OnCombineUnit.AddListener(CombineUnit);
+        
         OnRemoveUnit.AddListener(RemoveOwnedUnit);
         OnRemoveUnit.AddListener(PrintCombineList);
     }
@@ -44,9 +47,98 @@ public class CombineManager : MonoBehaviour
         OnAddUnit.RemoveListener(AddOwnedUnit);
         OnAddUnit.RemoveListener(PrintCombineList);
         
+        OnCombineUnit.RemoveListener(CombineUnit);
+        
         OnRemoveUnit.RemoveListener(RemoveOwnedUnit);
         OnRemoveUnit.RemoveListener(PrintCombineList);
     }
+
+    /// <summary>
+    /// 합성소에서 버튼 클릭 시 호출 하는 함수
+    /// 매개변수로 인덱스 입력
+    /// </summary>
+    /// <param name="index"></param>
+    public void CombineUnit(int index)
+    {
+        if (index < 0 || index >= CombineList.Count)
+            return;
+        
+        int[] recipe = CombineList[index];
+        int length = recipe.Length;
+        
+        // 마지막 인덱스 = 조합 가능 여부
+        if (recipe[length - 1] == 0)
+        {
+            DebugTool.Warnning("재료 유닛이 부족합니다.", DebugType.Combine, this);
+            return;
+        }
+        
+        // 마지막에서 두번 째 : 결과 유닛 ID
+        int resultUnitId = recipe[length - 2];
+        // 앞쪽 인덱스 재료 유닛들
+        int sourceUnitCount = length - 2;
+        
+        UnitData data = null;
+        
+        foreach (UnitData unit in _units.Units)
+        {
+            if (resultUnitId == unit.Id)
+            {
+                data = unit;
+                break;
+            }
+        }
+        
+        // 결과 대상 탐색 실패
+        if (data == null)
+        {
+            DebugTool.Log($"{resultUnitId} : 결과 유닛을 찾지 못했습니다.", DebugType.Combine, this);
+            return;
+        }
+
+        // 소비할 유닛 목록
+        List<TowerUnit> consumeTargets = new();
+        // 이미 소비한 유닛 중복 선택 방지
+        HashSet<TowerUnit> selectUnits = new();
+        
+        // 재료 유닛 필요한 만큼 찾기
+        for (int i = 0; i < sourceUnitCount; i++)
+        {
+            int needId = recipe[i];
+            TowerUnit foundTower = null;
+            
+            foreach (SummonUnit.SummonedTowerRecord unit in _summonUnit.OwnedTowers)
+            {
+                if(unit.towerUnit == null)
+                    continue;
+                if (unit.Id != needId)
+                    continue;
+                if (selectUnits.Contains(unit.towerUnit))
+                    continue;
+                
+                foundTower = unit.towerUnit;
+                break;
+            }
+
+            if (foundTower == null)
+            {
+                DebugTool.Warnning($"재료유닛 ID {needId} 이(가) 부족합니다.", DebugType.Combine, this);
+                return;
+            }
+            selectUnits.Add(foundTower);
+            consumeTargets.Add(foundTower);
+        }
+        
+        // 찾은 필요 재료들을 제거
+        foreach (TowerUnit unit in consumeTargets)
+        {
+            _summonManager.DespawnUnit(unit);
+        }
+        
+        // 결과 유닛 생성
+        _summonManager.SummonCombineUnit(data);
+    }
+    
 
     // 보유한 유닛으로 조합 가능 여부 판단
     private bool CanCombine(CombineData recipe)
@@ -203,6 +295,7 @@ public class CombineManager : MonoBehaviour
 
             log.Append($" = {recipe.ResultUnit}");
             ids.Add(recipe.ResultUnit);
+            ids.Add(CanCombine(recipe) ? 1 : 0);
 
             if (CanCombine(recipe))
                 log.Append(" [조합 가능]");
