@@ -17,6 +17,8 @@ public class CombineManager : MonoBehaviour
     private Dictionary<int, int> _ownedUnitCounts = new();
     // 재료 유닛으로 결과 유닛 찾기
     private Dictionary<int, List<int>> sourceToRecipeDict = new();
+    
+    // 실제 합성 가능한 리스트
     public List<int[]> CombineList = new();
 
     [SerializeField] private bool _log = true;
