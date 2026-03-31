@@ -15,8 +15,8 @@ public class GameViewPanelUI : MonoBehaviour
     [SerializeField] private Image _pauseButtonImage;
 
     [Header("━━━━ 패널 ━━━━")]
-    [Tooltip("환경설정 팝업")]
-    [SerializeField] private GameObject _settingsPopup;
+    [Tooltip("Esc 팝업")]
+    [SerializeField] private GameObject _pausePopup;
     [Tooltip("일시정지 패널")]
     [SerializeField] private GameObject _pausePanel;
 
@@ -45,11 +45,11 @@ public class GameViewPanelUI : MonoBehaviour
         _waveText.text = "Wave 00 (00/00)";
     }
 
-    // 환경설정 버튼
-    public void OnClickSettings()
+    // Esc 버튼
+    public void OnClickEsc()
     {
-        _settingsPopup.SetActive(true);
-        TimeScaleController.Instance.SetSettingsPopup(true);
+        _pausePopup.SetActive(true);
+        TimeScaleController.Instance.SetPausePopup(true);
     }
 
     // 배속 버튼
