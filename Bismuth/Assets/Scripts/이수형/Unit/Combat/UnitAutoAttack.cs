@@ -50,6 +50,7 @@ public class UnitAutoAttack : MonoBehaviour
 
         attackTimer -= attackInterval;
         DoAttack(currentTarget);
+        attackInterval = 1f / Mathf.Max(0.01f, unitStat.AttackSpeed);
     }
 
     public void RefreshFromCurrentStat()
@@ -129,7 +130,7 @@ public class UnitAutoAttack : MonoBehaviour
         }
 
         currentTarget = attackSensor.GetFirstTarget();
-        attackTimer = 0f;
+
 
         if (currentTarget != null && attackLog)
         {
@@ -152,7 +153,7 @@ public class UnitAutoAttack : MonoBehaviour
 
         if(CombatManager.Instance.DamageOccured(towerUnit, target))
         {
-            anim.PlayAttackAnimation(0);
+            anim.PlayAttackAnimation(0, unitStat.AttackSpeed);
         }
     }
 

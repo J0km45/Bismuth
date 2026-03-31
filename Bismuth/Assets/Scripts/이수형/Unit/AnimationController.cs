@@ -27,7 +27,7 @@ public class AnimationController : MonoBehaviour
         spum.OverrideControllerInit();
     }
 
-    public void PlayAttackAnimation(int index)
+    public void PlayAttackAnimation(int index, float attackSpeed)
     {
         DebugTool.Log($"공격 애니메이션 재생: 인덱스 {index}", DebugType.Unit, this);
         if (spum == null)
@@ -35,6 +35,7 @@ public class AnimationController : MonoBehaviour
             Debug.LogError("SPUM_Prefabs가 초기화되지 않았습니다.");
             return;
         }
+        spum._anim.speed = attackSpeed;
         spum.PlayAnimation(PlayerState.ATTACK, index);
     }
 }

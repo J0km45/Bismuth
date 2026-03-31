@@ -13,6 +13,10 @@ public class UnitAttackSensor : MonoBehaviour
     [SerializeField] private AttackRangeVisualizer rangeVisualizer;
     [Header("Debug")]
     [SerializeField] private bool sensorLog = true;
+    [Header("Scan")]
+    [SerializeField, Min(1)] private int overlapBufferSize = 32;
+
+    private Collider2D[] overlapResults;
 
     private readonly List<MonsterController> monstersInRange = new();
 
@@ -34,6 +38,7 @@ public class UnitAttackSensor : MonoBehaviour
         ConfigureCollider();
         TrySetDefaultMonsterLayer();
         SyncRadiusFromUnitStat();
+        EnsureOverlapBuffer();
 
         if (rangeVisualizer != null)
             rangeVisualizer.Show();
@@ -167,6 +172,7 @@ public class UnitAttackSensor : MonoBehaviour
 
             monstersInRange.RemoveAt(i);
         }
+        RefreshTargetsFromPhysics();
     }
 
     private void OnTriggerEnter2D(Collider2D other)
@@ -269,6 +275,62 @@ public class UnitAttackSensor : MonoBehaviour
         float maxScale = Mathf.Max(Mathf.Abs(lossyScale.x), Mathf.Abs(lossyScale.y));
 
         return sensorCollider.radius * maxScale;
+    }
+    private void EnsureOverlapBuffer()
+    {
+        if (overlapResults == null || overlapResults.Length != overlapBufferSize)
+            overlapResults = new Collider2D[overlapBufferSize];
+    }
+
+    private void RefreshTargetsFromPhysics()
+    {
+        EnsureOverlapBuffer();
+
+        Vector2 center = GetWorldCenter();
+        float radius = GetWorldRadius();
+
+        int hitCount = Physics2D.OverlapCircleNonAlloc(
+            center,
+            radius,
+            overlapResults,
+            monsterLayerMask);
+
+        if (hitCount >= overlapResults.Length && sensorLog)
+        {
+            DebugTool.Warnning(
+                $"[UnitAttackSensor] overlap buffer가 가득 찼습니다. size={overlapResults.Length}",
+                DebugType.Unit,
+                this
+            );
+        }
+
+        for (int i = 0; i < hitCount; i++)
+        {
+            Collider2D hit = overlapResults[i];
+            if (hit == null)
+                continue;
+
+            MonsterController monster = hit.GetComponentInParent<MonsterController>();
+            if (!IsTargetUsable(monster))
+                continue;
+
+            if (!IsActuallyInRange(monster))
+                continue;
+
+            if (monstersInRange.Contains(monster))
+                continue;
+
+            monstersInRange.Add(monster);
+
+            if (sensorLog)
+            {
+                DebugTool.Log(
+                    $"[UnitAttackSensor] 물리스캔으로 타겟 복구: {monster.name}",
+                    DebugType.Unit,
+                    this
+                );
+            }
+        }
     }
 
     private void OnDrawGizmosSelected()
