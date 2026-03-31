@@ -55,22 +55,12 @@ public class SummonManager : MonoBehaviour
     /// Combine Manager 에서 메서드 호출
     /// </summary>
     /// <param name="combineData"></param>
-    public void SummonCombineUnit(CombineData combineData)
+    public void SummonCombineUnit(UnitData unitData)
     {
         if (summonUnit == null)
             DebugTool.Log("[합성] 존재 하지 않는 유닛입니다.", DebugType.Unit, this);
         
-        UnitData resultdata = new UnitData();
-        
-        foreach (UnitData data in summonUnit.Units[combineData.Tier - 1].Units)
-        {
-            if (combineData.ResultUnit == data.Id)
-                resultdata = data;
-            else
-                DebugTool.Log("존재 하지 않는 유닛입니다.", DebugType.Unit, this);
-        }
-        
-        bool success = summonUnit.TrySummonAndPlace(resultdata);
+        bool success = summonUnit.TrySummonAndPlace(unitData);
 
         if (!success)
         {
