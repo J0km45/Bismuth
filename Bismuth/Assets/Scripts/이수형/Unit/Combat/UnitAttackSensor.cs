@@ -11,6 +11,8 @@ public class UnitAttackSensor : MonoBehaviour
     [SerializeField] private UnitStat unitStat;
     [SerializeField] private LineRenderer lineRenderer;
     [SerializeField] private AttackRangeVisualizer rangeVisualizer;
+    [Header("Debug")]
+    [SerializeField] private bool sensorLog = true;
 
     private readonly List<MonsterController> monstersInRange = new();
 
@@ -26,12 +28,9 @@ public class UnitAttackSensor : MonoBehaviour
 
     private void Awake()
     {
-        
         CacheReferences();
-        AddComponent();
+        EnsureRuntimeComponents();
 
-        
-        
         ConfigureCollider();
         TrySetDefaultMonsterLayer();
         SyncRadiusFromUnitStat();
@@ -40,15 +39,27 @@ public class UnitAttackSensor : MonoBehaviour
             rangeVisualizer.Show();
     }
 
-    private void AddComponent()
+    private void EnsureRuntimeComponents()
     {
-        lineRenderer = this.gameObject.AddComponent<LineRenderer>();
-        lineRenderer.material = new Material(Shader.Find("Sprites/Default"));
-        lineRenderer.sortingOrder = 10;
+        if (lineRenderer == null)
+        {
+            lineRenderer = GetComponent<LineRenderer>();
 
-        this.gameObject.AddComponent<AttackRangeVisualizer>();
+            if (lineRenderer == null)
+            {
+                lineRenderer = gameObject.AddComponent<LineRenderer>();
+                lineRenderer.material = new Material(Shader.Find("Sprites/Default"));
+                lineRenderer.sortingOrder = 10;
+            }
+        }
 
-        
+        if (rangeVisualizer == null)
+        {
+            rangeVisualizer = GetComponent<AttackRangeVisualizer>();
+
+            if (rangeVisualizer == null)
+                rangeVisualizer = gameObject.AddComponent<AttackRangeVisualizer>();
+        }
     }
     private void CacheReferences()
     {
@@ -126,18 +137,35 @@ public class UnitAttackSensor : MonoBehaviour
 
     public bool Contains(MonsterController monster)
     {
-        if (monster == null)
+        if (!IsTargetUsable(monster))
             return false;
 
-        return monstersInRange.Contains(monster);
+        return monstersInRange.Contains(monster) && IsActuallyInRange(monster);
     }
 
     public void PruneInvalidTargets()
     {
         for (int i = monstersInRange.Count - 1; i >= 0; i--)
         {
-            if (!IsTargetUsable(monstersInRange[i]))
-                monstersInRange.RemoveAt(i);
+            MonsterController monster = monstersInRange[i];
+
+            bool removable =
+                !IsTargetUsable(monster) ||
+                !IsActuallyInRange(monster);
+
+            if (!removable)
+                continue;
+
+            if (sensorLog && monster != null)
+            {
+                DebugTool.Log(
+                    $"[UnitAttackSensor] 범위 목록에서 제거: {monster.name}",
+                    DebugType.Unit,
+                    this
+                );
+            }
+
+            monstersInRange.RemoveAt(i);
         }
     }
 
@@ -158,7 +186,14 @@ public class UnitAttackSensor : MonoBehaviour
         if (monster == null)
             return;
 
-        monstersInRange.Remove(monster);
+        if (monstersInRange.Remove(monster) && sensorLog)
+        {
+            DebugTool.Log(
+                $"[UnitAttackSensor] 범위 이탈 감지: {monster.name}",
+                DebugType.Unit,
+                this
+            );
+        }
     }
 
     private void OnDisable()
@@ -175,12 +210,22 @@ public class UnitAttackSensor : MonoBehaviour
         if (!IsTargetUsable(monster))
             return;
 
+        if (!IsActuallyInRange(monster))
+            return;
+
         if (monstersInRange.Contains(monster))
             return;
 
         monstersInRange.Add(monster);
 
-        DebugTool.Log($"[UnitAttackSensor] Registered monster: {monster.name}",DebugType.Unit,this);
+        if (sensorLog)
+        {
+            DebugTool.Log(
+                $"[UnitAttackSensor] 타겟 등록: {monster.name}",
+                DebugType.Unit,
+                this
+            );
+        }
     }
 
     private bool IsMonsterLayer(int layer)
@@ -193,14 +238,51 @@ public class UnitAttackSensor : MonoBehaviour
         return monster != null && monster.gameObject.activeInHierarchy;
     }
 
+    private bool IsActuallyInRange(MonsterController monster)
+    {
+        if (monster == null || sensorCollider == null)
+            return false;
+
+        Vector3 sensorCenter = GetWorldCenter();
+        Vector3 targetPosition = monster.transform.position;
+
+        float radius = GetWorldRadius();
+        float sqrDistance = (targetPosition - sensorCenter).sqrMagnitude;
+
+        return sqrDistance <= radius * radius;
+    }
+
+    private Vector3 GetWorldCenter()
+    {
+        if (sensorCollider == null)
+            return transform.position;
+
+        return sensorCollider.transform.TransformPoint(sensorCollider.offset);
+    }
+
+    private float GetWorldRadius()
+    {
+        if (sensorCollider == null)
+            return 0f;
+
+        Vector3 lossyScale = sensorCollider.transform.lossyScale;
+        float maxScale = Mathf.Max(Mathf.Abs(lossyScale.x), Mathf.Abs(lossyScale.y));
+
+        return sensorCollider.radius * maxScale;
+    }
+
     private void OnDrawGizmosSelected()
     {
         CircleCollider2D circle = sensorCollider != null ? sensorCollider : GetComponent<CircleCollider2D>();
         if (circle == null)
             return;
 
+        Vector3 center = circle.transform.TransformPoint(circle.offset);
+        Vector3 lossyScale = circle.transform.lossyScale;
+        float radius = circle.radius * Mathf.Max(Mathf.Abs(lossyScale.x), Mathf.Abs(lossyScale.y));
+
         Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(transform.position, circle.radius);
+        Gizmos.DrawWireSphere(center, radius);
     }
 
     private void OnValidate()
