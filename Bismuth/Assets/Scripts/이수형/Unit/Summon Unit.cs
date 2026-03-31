@@ -104,6 +104,11 @@ public class SummonUnit : MonoBehaviour
 
     public bool TrySummonAndPlace(UnitData data)
     {
+        DebugTool.Log(
+            $"소환 시도",
+            DebugType.Summon,
+            this
+        );
         if (data == null)
         {
             DebugTool.Warnning("소환할 UnitData가 없습니다.", DebugType.Summon, this);
@@ -141,17 +146,25 @@ public class SummonUnit : MonoBehaviour
         }
 
         PrepareSpawnedTower(createdTower, data);
+        DebugTool.Log("PrepareSpawnedTower까지 실행완료",DebugType.Summon,this);
 
         UnitStat stat = ApplyUnitStat(createdTower.gameObject, data);
 
-        EnsureAutoAttack(createdTower.gameObject);
+        SetAnimationController(createdTower.gameObject);
 
+        EnsureAutoAttack(createdTower.gameObject);
+        DebugTool.Log("EnsureAttack까지 실행완료", DebugType.Summon, this);
         synergyManager?.OnUnitCreated?.Invoke(stat);
         unitCatalogManager.OnSummonUnit?.Invoke(stat);
         
         PrintStat(stat);
+        DebugTool.Log("PrintStat까지 실행완료", DebugType.Summon, this);
+
+        
 
         RegisterOwnedTower(data, createdTower, stat);
+        
+
 
         DebugTool.Log(
             $"소환 성공 - {data.UnitName} / 티어 {data.Tier} / 슬롯 {emptySlot.slot.name}",
@@ -304,6 +317,7 @@ public class SummonUnit : MonoBehaviour
 
         unit.gameObject.name = data.Id.ToString();
 
+
         TowerLongPressDragHandler dragHandler = unit.GetComponent<TowerLongPressDragHandler>();
 
 
@@ -338,6 +352,19 @@ public class SummonUnit : MonoBehaviour
         stat.SynergIDs = unitData.SynergyIDs;
         DebugTool.Log("스탯 맵핑 완료", DebugType.Data, this);
         return stat;
+    }
+
+    private void SetAnimationController(GameObject unitObject)
+    {
+        if (unitObject == null)
+            return;
+        DebugTool.Log("애니메이션 컨트롤러 설정 시도", DebugType.Unit, this);
+        AnimationController anim = unitObject.GetComponent<AnimationController>();
+        if (anim == null)
+        {
+            anim = unitObject.AddComponent<AnimationController>();
+        }
+        anim.Initialize();
     }
 
     private void RegisterOwnedTower(UnitData data, TowerUnit towerUnit, UnitStat stat)
