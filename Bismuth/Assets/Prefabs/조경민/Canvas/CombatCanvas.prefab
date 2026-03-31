@@ -10319,6 +10319,7 @@ GameObject:
   - component: {fileID: 7255379339228219547}
   - component: {fileID: 6753460409612193351}
   - component: {fileID: 7604176668385253151}
+  - component: {fileID: 5181009744710553500}
   m_Layer: 5
   m_Name: CombinationScrollView
   m_TagString: Untagged
@@ -10415,6 +10416,25 @@ MonoBehaviour:
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &5181009744710553500
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5951458653977317484}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 66cf01d22f3ef29428b01ff795dd78d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombinationScrollViewUI
+  _combinationContent: {fileID: 448463180332944991}
+  _pairPrefab: {fileID: 5868183331169119118, guid: 4173874d68025314ca648b9f52d30f9f, type: 3}
+  _trioPrefab: {fileID: 6335979043362375650, guid: 709dea748f93be24e9edbcf6faed62a5, type: 3}
+  _combineManager: {fileID: 0}
+  _combineSO: {fileID: 11400000, guid: 0dfded2c1c40dd54498084b03b040f27, type: 2}
+  _summonManager: {fileID: 0}
+  _summonUnit: {fileID: 0}
 --- !u!1 &5991655110331039751
 GameObject:
   m_ObjectHideFlags: 0
