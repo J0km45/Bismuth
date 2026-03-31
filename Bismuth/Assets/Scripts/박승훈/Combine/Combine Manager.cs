@@ -26,6 +26,8 @@ public class CombineManager : MonoBehaviour
     public UnityEvent<int> OnRemoveUnit;
     public UnityEvent<int> OnCombineUnit;
     
+    public event Action OnCombineListChanged;
+
     private void Awake()
     {
         Init();
@@ -141,7 +143,7 @@ public class CombineManager : MonoBehaviour
     
 
     // 보유한 유닛으로 조합 가능 여부 판단
-    private bool CanCombine(CombineData recipe)
+    public bool CanCombine(CombineData recipe)
     {
         Dictionary<int, int> requiredUnit = new();
 
@@ -308,6 +310,8 @@ public class CombineManager : MonoBehaviour
         }
 
         DebugTool.Log(log.ToString(), DebugType.Combine, this);
+
+        OnCombineListChanged?.Invoke();
     }
 
     private void Init()
