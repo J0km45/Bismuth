@@ -186,13 +186,23 @@ public class MonsterSpawner : MonoBehaviour
         monsterController.Died += HandleMonsterDied;
     }
     
-    // SO 원본을 전투 시작값으로 복사
+    
+    // TODO: 기지피해, 처치보상, 웨이브 성장치 계산까지 함께 필요해지면 별도 계산 책임으로 분리
     private MonsterRuntimeValues BuildRuntimeValues(MonsterDataSO monsterData)
     {
+        float currentHp = monsterData.BaseHp;
+        
+        // 현재 웨이브가 사용하는 난이도 보정 ID로 적 체력 계수를 찾는다.
+        if (_difficultyModifierTable.TryGetById(_waveData.DifficultyModifierId,
+                out DifficultyModifierEntry difficultyModifierEntry))
+        {
+            currentHp *= difficultyModifierEntry.EnemyHpMultiplier;
+        }
+        
         return new MonsterRuntimeValues
         {
             MonsterData = monsterData,
-            CurrentHp = monsterData.BaseHp,
+            CurrentHp = currentHp,
             DamageToBase = monsterData.BaseDamageToBase,
             KillReward = monsterData.KillReward,
             MoveSpeed = monsterData.MoveSpeed
