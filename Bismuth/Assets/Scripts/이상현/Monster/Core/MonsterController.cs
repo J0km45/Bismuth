@@ -114,7 +114,7 @@ public class MonsterController : MonoBehaviour
         HealthChanged?.Invoke(this);
     }
 
-    public void TakeDamage(float damage)
+    public void TakeDamage(float damage, GameObject hitEffect)
     {
         if (damage <= 0f) return;
         if (_hasDied) return;
@@ -135,6 +135,9 @@ public class MonsterController : MonoBehaviour
             Died?.Invoke(this);
             gameObject.SetActive(false);
         }
+        GameObject hit = Instantiate(hitEffect, transform.position, Quaternion.identity);
+        hit.AddComponent<HitEffectSpawner>();
+
     }
 
     private IEnumerator DeactivateAfterDelay()
