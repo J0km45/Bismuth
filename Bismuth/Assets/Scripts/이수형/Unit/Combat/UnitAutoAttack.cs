@@ -6,7 +6,7 @@ public class UnitAutoAttack : MonoBehaviour
     [Header("References")]
     [SerializeField] private UnitStat unitStat;
     [SerializeField] private UnitAttackSensor attackSensor;
-
+    [SerializeField] private AnimationController anim;
     
 
     [Header("Debug")]
@@ -22,7 +22,7 @@ public class UnitAutoAttack : MonoBehaviour
         if (unitStat == null)
             unitStat = GetComponent<UnitStat>();
         towerUnit = GetComponent<TowerUnit>();
-
+        anim = GetComponent<AnimationController>();
         EnsureSensor();
     }
 
@@ -144,9 +144,16 @@ public class UnitAutoAttack : MonoBehaviour
     private void DoAttack(MonsterController target)
     {
         if (target == null || CombatManager.Instance == null)
+        {
+            DebugTool.Warnning("공격 대상 또는 CombatManager 참조가 없습니다.", DebugType.Unit, this);
             return;
+        }
 
-        CombatManager.Instance.DamageOccured(towerUnit, target);
+
+        if(CombatManager.Instance.DamageOccured(towerUnit, target))
+        {
+            anim.PlayAttackAnimation(0);
+        }
     }
 
 
