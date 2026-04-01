@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 
@@ -28,6 +29,12 @@ public class MonsterSpawner : MonoBehaviour
     [Tooltip("소환 로그 출력")]
     [SerializeField] private bool _enableSpawnLog = true;
     
+    public WaveDataSO CurrentWaveData => _waveData;
+    public bool IsSpawning => _isSpawning;
+    
+    public event Action<MonsterController> MonsterSpawned;
+    public event Action<WaveDataSO> WaveSpawnCompleted;
+    
     private Coroutine _spawnRoutine;
     private bool _isSpawning;
     
@@ -36,26 +43,69 @@ public class MonsterSpawner : MonoBehaviour
         if (_spawnOnStart == false) return;
         StartSpawn();
     }
-    
-    [ContextMenu("웨이브 소환 시작")]
-    public void StartSpawn()
+
+    public bool SetWaveData(WaveDataSO waveData)
     {
-        if (Application.isPlaying == false)
+        if (waveData == null)
         {
-            DebugTool.Error("플레이 모드에서만 실행할 수 있습니다.",DebugType.Enemy, this);
-            return;
+            DebugTool.Error("설정할 웨이브 데이터가 비어 있습니다.", DebugType.Enemy, this);
+            return false;
         }
 
         if (_isSpawning || _spawnRoutine != null)
         {
-            DebugTool.Error("이미 소환 중입니다.", DebugType.Enemy, this);
-            return;
+            DebugTool.Error("소환 중에는 웨이브 데이터를 교체할 수 없습니다.", DebugType.Enemy, this);
+            return false;
+        }
+
+        _waveData = waveData;
+        return true;
+    }
+    
+    [ContextMenu("웨이브 소환 시작")]
+    public void StartSpawn()
+    {
+        StartSpawn(true);
+    }
+    
+    public void StartSpawn(bool initializeBaseHealth)
+    {
+        if (Application.isPlaying == false)
+        {
+            DebugTool.Error("플레이 모드에서만 실행할 수 있습니다.", DebugType.Enemy, this); return;
+        }
+
+        if (_isSpawning || _spawnRoutine != null)
+        {
+            DebugTool.Error("이미 소환 중입니다.", DebugType.Enemy, this); return;
         }
 
         if (ValidateSpawnSettings() == false) return;
-        
+            
+
+        if (initializeBaseHealth &&
+            _difficultyModifierTable.TryGetById(
+                _waveData.DifficultyModifierId, out DifficultyModifierEntry difficultyModifier))
+        {
+            int startingBaseHp =
+                MonsterRuntimeValueCalculator.CalculateStartingHomeBaseHp(
+                    _homeBaseHealth.BaseMaxHp,
+                    difficultyModifier);
+
+            _homeBaseHealth.InitializeBaseHealth(startingBaseHp);
+        }
+
         _isSpawning = true;
         _spawnRoutine = StartCoroutine(SpawnWaveRoutine());
+    }
+    
+    public void StopSpawn()
+    {
+        if (_spawnRoutine == null) return;
+
+        StopCoroutine(_spawnRoutine);
+        _spawnRoutine = null;
+        _isSpawning = false;
     }
     
     private bool ValidateSpawnSettings()
@@ -136,7 +186,9 @@ public class MonsterSpawner : MonoBehaviour
         
         _spawnRoutine = null;
         _isSpawning = false;
-        
+
+        WaveSpawnCompleted?.Invoke(_waveData);
+
         if (_enableSpawnLog)
         {
             DebugTool.Log($"웨이브 {_waveData.WaveNumber} 소환 완료", DebugType.Enemy, this);
@@ -155,8 +207,7 @@ public class MonsterSpawner : MonoBehaviour
         {
             DebugTool.Error(
                 $"몬스터 프리팹이 비어 있습니다. ID : {entry.MonsterData.Id}",
-                DebugType.Enemy,
-                this);
+                DebugType.Enemy, this);
             return;
         }
 
@@ -184,36 +235,41 @@ public class MonsterSpawner : MonoBehaviour
         monsterController.Initialize(_waypointPath, runtimeValues);
         monsterController.ReachedBase += HandleMonsterReachedBase;
         monsterController.Died += HandleMonsterDied;
+        
+        MonsterSpawned?.Invoke(monsterController);
     }
     
-    
-    // TODO: 기지피해, 처치보상, 웨이브 성장치 계산까지 함께 필요해지면 별도 계산 책임으로 분리
     private MonsterRuntimeValues BuildRuntimeValues(MonsterDataSO monsterData)
     {
-        float currentHp = monsterData.BaseHp;
-        
-        // 현재 웨이브가 사용하는 난이도 보정 ID로 적 체력 계수를 찾는다.
-        if (_difficultyModifierTable.TryGetById(_waveData.DifficultyModifierId,
-                out DifficultyModifierEntry difficultyModifierEntry))
+        if (_difficultyModifierTable.TryGetById(_waveData.DifficultyModifierId, out DifficultyModifierEntry difficultyModifier) == false)
         {
-            currentHp *= difficultyModifierEntry.EnemyHpMultiplier;
+            DebugTool.Error(
+                $"난이도 보정 ID를 찾지 못했습니다. ID : {_waveData.DifficultyModifierId}",
+                DebugType.Enemy,
+                this);
+
+            return new MonsterRuntimeValues
+            {
+                MonsterData = monsterData,
+                CurrentHp = monsterData.BaseHp,
+                DamageToBase = monsterData.BaseDamageToBase,
+                KillReward = MonsterRuntimeValueCalculator.CalculateKillReward(monsterData),
+                MoveSpeed = monsterData.MoveSpeed,
+                Defense = MonsterRuntimeValueCalculator.CalculateDefense(monsterData, _waveData.WaveNumber)
+            };
         }
-        
-        return new MonsterRuntimeValues
-        {
-            MonsterData = monsterData,
-            CurrentHp = currentHp,
-            DamageToBase = monsterData.BaseDamageToBase,
-            KillReward = monsterData.KillReward,
-            MoveSpeed = monsterData.MoveSpeed
-        };
+
+        return MonsterRuntimeValueCalculator.BuildRuntimeValues(
+            monsterData,
+            _waveData,
+            difficultyModifier,
+            _homeBaseHealth.MaxHp);
     }
 
     // 종료 이벤트 해제
     private void UnsubscribeMonsterEvents(MonsterController monster)
     {
-        if (monster == null)
-            return;
+        if (monster == null) return;
 
         monster.ReachedBase -= HandleMonsterReachedBase;
         monster.Died -= HandleMonsterDied;
@@ -222,8 +278,7 @@ public class MonsterSpawner : MonoBehaviour
     // 기지 도달 처리
     private void HandleMonsterReachedBase(MonsterController monster)
     {
-        if (monster == null)
-            return;
+        if (monster == null) return;
 
         UnsubscribeMonsterEvents(monster);
         _homeBaseHealth.ApplyDamage(monster.DamageToBase);
@@ -232,8 +287,7 @@ public class MonsterSpawner : MonoBehaviour
     // 사망 처리
     private void HandleMonsterDied(MonsterController monster)
     {
-        if (monster == null)
-            return;
+        if (monster == null) return;
 
         UnsubscribeMonsterEvents(monster);
     }

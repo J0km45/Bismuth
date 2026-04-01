@@ -24,37 +24,37 @@ public class DifficultyWaveSet
     public IReadOnlyList<WaveDataSO> Waves => _waves;
 }
 
-[CreateAssetMenu(fileName = "MapBattleConfigSO", menuName = "Data/Battle/Map Battle Config")]
+[CreateAssetMenu(fileName = "MapBattleConfig", menuName = "Data/Battle/Map Battle Config")]
 public class MapBattleConfigSO : ScriptableObject
 {
-    [Header("====맵 기본 정보====")]
-    [Tooltip("맵의 아이디")]
-    [SerializeField, Min(0)] private int _mapId;
-    
-    [Tooltip("맵의 이름")]
+    [Header("====기본 정보====")]
+    [Tooltip("이 설정이 어떤 맵용인지 구분하기 위한 이름")]
     [SerializeField] private string _mapName;
-    
-    [Header("====난이도별 웨이브 시트====")]
-    [Tooltip("맵에서 선택 가능한 난이도별 웨이브 세트 목록")]
-    [SerializeField] private List<DifficultyWaveSet> _difficultyWaveSets = new();
-        
-    public int MapId => _mapId;
-    public string MapName => _mapName;
-    public IReadOnlyList<DifficultyWaveSet> DifficultyWaveSets => _difficultyWaveSets;
 
-    public bool TryGetWaveSet(BattleDifficulty difficulty, out DifficultyWaveSet result)
-    {
-        foreach (DifficultyWaveSet waveSet in _difficultyWaveSets)
-        {
-            if (waveSet.Difficulty == difficulty)
-            {
-                result = waveSet;
-                return true;
-            }
-        }
+    [Tooltip("이 설정이 어떤 난이도용인지 구분하기 위한 이름")]
+    [SerializeField] private string _difficultyName;
+
+    [Header("====웨이브 묶음====")]
+    [Tooltip("이 씬이 순서대로 실행할 웨이브 목록")]
+    [SerializeField] private List<WaveDataSO> _waves = new();
         
-        result = null;
-        return false;
+    public string MapName => _mapName;
+    public string DifficultyName => _difficultyName;
+    public int WaveCount => _waves.Count;
+    public IReadOnlyList<WaveDataSO> Waves => _waves;
+
+    /// <summary>
+    /// 스포너는 웨이브 1개만 실행하고, 이 SO는 그 웨이브 목록만 보관한다.
+    /// </summary>
+    public bool TryGetWaveAt(int index, out WaveDataSO waveData)
+    {
+        waveData = null;
+
+        if (_waves == null) return false;
+        if (index < 0 || index >= _waves.Count) return false;
+        
+        waveData = _waves[index];
+        return waveData != null;
     }
     
 }

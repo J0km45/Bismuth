@@ -10,18 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 227430d99f341e041a2aa06cc7bc1beb, type: 3}
-  m_Name: Monster_40006
+  m_Name: Monster_40104
   m_EditorClassIdentifier: Assembly-CSharp::MonsterDataSO
-  _id: 40006
-  _displayName: "\uD06C\uD234\uB8E8"
-  _category: 1
-  _prefab: {fileID: 763517839117729578, guid: 0e93c07c815f1b44185eb204c204b574, type: 3}
-  _baseHp: 4900
-  _hpGrowth: 145
-  _baseDefense: 8
-  _defenseGrowth: 0.7
-  _moveSpeed: 2
+  _id: 40104
+  _displayName: "\uC0C8\uB07C \uBC14\uB2E4\uBC40"
+  _category: 0
+  _prefab: {fileID: 6566218118581398097, guid: f6231c318389a124f999105cc390f60b, type: 3}
+  _baseHp: 60
+  _hpGrowth: 8.5
+  _baseDefense: 1
+  _defenseGrowth: 0.02
+  _moveSpeed: 1.6
   _waitTime: 0
-  _moveType: 0
-  _baseDamageToBase: 100
-  _killReward: 20
+  _moveType: 1
+  _baseDamageToBase: 1
+  _killReward: 1
