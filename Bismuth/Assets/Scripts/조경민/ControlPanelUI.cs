@@ -81,6 +81,7 @@ public class ControlPanelUI : MonoBehaviour
 
     public void OnClickCombination()
     {
+        if (!_isCombinationSVOpened) _combinationScrollView.transform.SetAsLastSibling();
         _combinationScrollView.SetActive(!_isCombinationSVOpened);
     }
 }
