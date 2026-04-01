@@ -133,6 +133,8 @@ public class CombineManager : MonoBehaviour
             _summonManager.DespawnUnit(unit);
         }
         
+        DebugTool.Log($"{resultUnitId} 생성",  DebugType.Combine, this);
+        
         // 결과 유닛 생성
         _summonManager.SummonCombineUnit(data);
         return true;
