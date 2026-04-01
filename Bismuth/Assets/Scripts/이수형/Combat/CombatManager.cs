@@ -398,8 +398,8 @@ public class CombatManager : MonoBehaviour
         float clampedCritChance = Mathf.Clamp01(critChance);
         float crit = (Random.value < clampedCritChance) ? 0.5f : 0f;
 
-        int normalDamage = damageCalculator.CalculateNormalDamage(attackPower, target.BaseDefense, crit);
-        int skillDamage = damageCalculator.CalculateSkillDamage(attackPower, target.BaseDefense, crit);
+        int normalDamage = damageCalculator.CalculateNormalDamage(unitStat, attackPower, target.BaseDefense, crit);
+        int skillDamage = damageCalculator.CalculateSkillDamage(unitStat, attackPower, target.BaseDefense, crit);
         int finalDamage = normalDamage + skillDamage;
         dealtDamage = finalDamage;
 
