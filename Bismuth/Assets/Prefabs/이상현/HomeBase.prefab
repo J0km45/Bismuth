@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 6327001764992705446}
   - component: {fileID: 2528711320130290667}
-  - component: {fileID: 6934803645692654942}
   m_Layer: 0
   m_Name: HomeBase
   m_TagString: Untagged
@@ -45,18 +44,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8e1f2714c8dd4d468f38061e02d4342, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HomeBaseHealth
-  _maxHp: 10
-  _currentHp: 0
---- !u!114 &6934803645692654942
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4762217630087876040}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 63675800248930244871f9301a51b6c5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::HomeBaseHealthDebugListener
-  _homeBaseHealth: {fileID: 2528711320130290667}
+  _baseMaxHp: 100
+  _maxHp: 100
+  _currentHp: 100

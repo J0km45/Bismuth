@@ -7,15 +7,18 @@ using UnityEngine;
 /// </summary>
 public class HomeBaseHealth : MonoBehaviour
 {
-    [Header("====기지 체력====")]
-    [Tooltip("기지 최대 체력")]
-    [SerializeField, Min(1)] private int _maxHp = 100;
-    
+    [Tooltip("난이도 적용 전, 기지가 원래 가지고 있는 기본 최대 체력\n아군 기지 체력은 여기만 입력하세요!")]
+    [SerializeField, Min(1)] private int _baseMaxHp = 10;
+
+    [Tooltip("난이도 보정 등이 반영된 현재 최대 체력")]
+    [SerializeField, Min(1)] private int _maxHp = 10;
+
     [Tooltip("현재 체력")]
     [SerializeField, Min(0)] private int _currentHp;
     
     private bool _hasDied;
     
+    public int BaseMaxHp => _baseMaxHp;
     public int MaxHp => _maxHp;
     public int CurrentHp => _currentHp;
     public bool IsDead => _currentHp <= 0;
@@ -25,14 +28,22 @@ public class HomeBaseHealth : MonoBehaviour
     
     private void Awake()
     {
-        _currentHp = _maxHp;
-        _hasDied = false;
+        ResetToBaseHealth();
     }
 
     private void OnValidate()
     {
-        if (_maxHp < 1) _maxHp = 1;
-        
+        _baseMaxHp = Mathf.Max(1, _baseMaxHp);
+
+        if (Application.isPlaying == false)
+        {
+            _maxHp = _baseMaxHp;
+            _currentHp = _maxHp;
+            _hasDied = false;
+            return;
+        }
+
+        _maxHp = Mathf.Max(1, _maxHp);
         _currentHp = Mathf.Clamp(_currentHp, 0, _maxHp);
     }
 
@@ -51,10 +62,18 @@ public class HomeBaseHealth : MonoBehaviour
         Died?.Invoke(this);
     }
     
-    [ContextMenu("기지 체력 1 감소 테스트")]
-    private void DebugApplyOneDamage()
+    public void ResetToBaseHealth()
     {
-        if (Application.isPlaying == false) return;
-        ApplyDamage(1);
+        _maxHp = _baseMaxHp;
+        _currentHp = _maxHp;
+        _hasDied = false;
     }
+    
+    public void InitializeBaseHealth(int maxHp)
+    {
+        _maxHp = Mathf.Max(1, maxHp);
+        _currentHp = _maxHp;
+        _hasDied = false;
+    }
+    
 }
