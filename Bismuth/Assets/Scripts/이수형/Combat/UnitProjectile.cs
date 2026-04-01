@@ -31,6 +31,7 @@ public class UnitProjectile : MonoBehaviour
 
     private bool isAoe;
     private bool isWarriorBonusAttack;
+    private bool isWizardBonusAttack;
     private float explosionRadius;
 
     private float lifeTimer;
@@ -43,7 +44,7 @@ public class UnitProjectile : MonoBehaviour
     private void Awake()
     {
         poolMember = GetComponent<ProjectilePoolMember>();
-        
+
 
     }
 
@@ -71,6 +72,7 @@ public class UnitProjectile : MonoBehaviour
     GameObject owner,
     bool isAoe,
     bool isWarriorBonusAttack,
+    bool isWizardBonusAttack,
     float explosionRadius,
     float moveSpeed,
     float hitDistance,
@@ -85,6 +87,7 @@ public class UnitProjectile : MonoBehaviour
         this.owner = owner;
         this.isAoe = isAoe;
         this.isWarriorBonusAttack = isWarriorBonusAttack;
+        this.isWizardBonusAttack = isWizardBonusAttack;
         this.explosionRadius = Mathf.Max(0.01f, explosionRadius);
         this.moveSpeed = Mathf.Max(0.1f, moveSpeed);
         this.hitDistance = Mathf.Max(0.01f, hitDistance);
@@ -169,6 +172,7 @@ public class UnitProjectile : MonoBehaviour
                 sourceName,
                 isAoe,
                 isWarriorBonusAttack,
+                isWizardBonusAttack,
                 explosionRadius,
                 impactPosition,
                 unitStat
@@ -244,6 +248,7 @@ public class UnitProjectile : MonoBehaviour
         critChance = 0f;
         isAoe = false;
         isWarriorBonusAttack = false;
+        isWizardBonusAttack = false;
         explosionRadius = 0f;
         lifeTimer = 0f;
     }

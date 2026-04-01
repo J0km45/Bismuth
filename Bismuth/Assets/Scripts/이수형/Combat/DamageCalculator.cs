@@ -3,6 +3,7 @@ using UnityEngine;
 public class DamageCalculator : MonoBehaviour
 {
     private const int WarriorSynergyId = (int)SynergyManager.SynergyType.Warrior;
+    private const int WizardSynergyId = (int)SynergyManager.SynergyType.Magician;
 
     [Header("Synergy")]
     [SerializeField] private SynergySO synergySO;
@@ -35,13 +36,77 @@ public class DamageCalculator : MonoBehaviour
 
     public int CalculateSkillDamage(float damageDealt, float defense, float crit)
     {
-        return CalculateSkillDamage(null, damageDealt, defense, crit);
+        return CalculateSkillDamage(null, damageDealt, defense, crit, false);
     }
 
     public int CalculateSkillDamage(UnitStat attackerStat, float damageDealt, float defense, float crit)
     {
-        // 현재 스킬 대미지는 미구현 상태 유지
-        return 0;
+        return CalculateSkillDamage(attackerStat, damageDealt, defense, crit, false);
+    }
+
+    public int CalculateSkillDamage(UnitStat attackerStat, float damageDealt, float defense, float crit, bool isWizardBonusAttack)
+    {
+        if (!isWizardBonusAttack)
+            return 0;
+
+        float wizardBonusPercent = GetWizardDamageBonusPercent(attackerStat);
+        if (wizardBonusPercent <= 0f)
+            return 0;
+
+        float calculatedDamage = damageDealt * (wizardBonusPercent * 0.01f) * (1f + crit) * (100f / (defense + 100f));
+
+        if (synergyLog)
+        {
+            DebugTool.Log(
+                $"마법사 추가 대미지 적용 | unit={attackerStat?.Name ?? "None"}, bonusPercent={wizardBonusPercent:F2}, raw={damageDealt:F2}, result={calculatedDamage:F2}",
+                DebugType.Synergy,
+                this
+            );
+        }
+
+        if (Random.value < calculatedDamage - (int)calculatedDamage)
+            return (int)calculatedDamage + 1;
+
+        return (int)calculatedDamage;
+    }
+
+
+    private float GetWizardDamageBonusPercent(UnitStat attackerStat)
+    {
+        if (!HasSynergyTag(attackerStat, WizardSynergyId))
+            return 0f;
+
+        TryResolveSynergyManager();
+
+        if (synergyManager == null)
+        {
+            WarnMissingSynergyManager();
+            return 0f;
+        }
+
+        if (synergySO == null)
+        {
+            WarnMissingSynergySo();
+            return 0f;
+        }
+
+        SynergyData wizardData = GetSynergyData(WizardSynergyId);
+        if (wizardData == null || wizardData.Levels == null || wizardData.Levels.Count == 0)
+            return 0f;
+
+        int activeCount = synergyManager.GetSynergyLevel(WizardSynergyId);
+        float bonus = GetMatchedBonus(wizardData, activeCount);
+
+        if (synergyLog && bonus > 0f)
+        {
+            DebugTool.Log(
+                $"마법사 추가 대미지 비율 적용 | unit={attackerStat.Name}, active={activeCount}, bonus={bonus:F2}",
+                DebugType.Synergy,
+                this
+            );
+        }
+
+        return bonus;
     }
 
     private float GetWarriorAttackMultiplier(UnitStat attackerStat)

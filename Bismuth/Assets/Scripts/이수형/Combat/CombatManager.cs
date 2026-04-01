@@ -21,7 +21,7 @@ public class CombatManager : MonoBehaviour
     [SerializeField, Min(0.1f)] private float projectileMaxLifetime = 4f;
     [SerializeField] private ProjectilePool projectilePool;
     [SerializeField] private bool projectileLog = false;
-    
+
 
     [Header("AOE")]
     [SerializeField] private LayerMask monsterLayerMask;
@@ -67,15 +67,15 @@ public class CombatManager : MonoBehaviour
 
     public bool DamageOccured(GameObject unit, MonsterController currentTarget)
     {
-        return DamageOccured(unit, currentTarget, null, false);
+        return DamageOccured(unit, currentTarget, null, false, false);
     }
 
     public bool DamageOccured(GameObject unit, MonsterController currentTarget, UnitAttackSensor attackSensor)
     {
-        return DamageOccured(unit, currentTarget, attackSensor, false);
+        return DamageOccured(unit, currentTarget, attackSensor, false, false);
     }
 
-    public bool DamageOccured(GameObject unit, MonsterController currentTarget, UnitAttackSensor attackSensor, bool isWarriorBonusAttack)
+    public bool DamageOccured(GameObject unit, MonsterController currentTarget, UnitAttackSensor attackSensor, bool isWarriorBonusAttack, bool isWizardBonusAttack)
     {
         TowerUnit towerUnit = unit.GetComponent<TowerUnit>();
 
@@ -90,9 +90,9 @@ public class CombatManager : MonoBehaviour
         }
 
         if (unitStat.Range > 1.3f)
-            return FireProjectiles(unit, towerUnit, unitStat, targets, isWarriorBonusAttack);
+            return FireProjectiles(unit, towerUnit, unitStat, targets, isWarriorBonusAttack, isWizardBonusAttack);
 
-        return ApplyHitscan(unit, unitStat, towerUnit != null ? towerUnit.name : unitStat.Name, targets, isWarriorBonusAttack);
+        return ApplyHitscan(unit, unitStat, towerUnit != null ? towerUnit.name : unitStat.Name, targets, isWarriorBonusAttack, isWizardBonusAttack);
     }
 
     public bool ResolveProjectileHit(
@@ -104,6 +104,7 @@ public class CombatManager : MonoBehaviour
     string sourceName,
     bool isAoe,
     bool isWarriorBonusAttack,
+    bool isWizardBonusAttack,
     float explosionRadius,
     Vector3 impactPosition,
     UnitStat unitStat)
@@ -120,7 +121,8 @@ public class CombatManager : MonoBehaviour
                 sourceName,
                 unitStat,
                 unit,
-                isWarriorBonusAttack
+                isWarriorBonusAttack,
+                isWizardBonusAttack
             );
         }
 
@@ -133,7 +135,8 @@ public class CombatManager : MonoBehaviour
             "투사체",
             unitStat,
             unit,
-            isWarriorBonusAttack
+            isWarriorBonusAttack,
+            isWizardBonusAttack
         );
     }
 
@@ -201,7 +204,7 @@ public class CombatManager : MonoBehaviour
         return attackSensor.GetTargets(targetCount, currentTarget);
     }
 
-    private bool ApplyHitscan(GameObject unit, UnitStat unitStat, string sourceName, List<MonsterController> targets, bool isWarriorBonusAttack)
+    private bool ApplyHitscan(GameObject unit, UnitStat unitStat, string sourceName, List<MonsterController> targets, bool isWarriorBonusAttack, bool isWizardBonusAttack)
     {
         GameObject hitEffect = GetHitEffect(unitStat);
         int appliedCount = 0;
@@ -221,7 +224,8 @@ public class CombatManager : MonoBehaviour
                 "히트스캔",
                 unitStat,
                 unit,
-                isWarriorBonusAttack
+                isWarriorBonusAttack,
+                isWizardBonusAttack
             );
 
             if (success)
@@ -240,7 +244,7 @@ public class CombatManager : MonoBehaviour
         return appliedCount > 0;
     }
 
-    private bool FireProjectiles(GameObject unit, TowerUnit towerUnit, UnitStat unitStat, List<MonsterController> targets, bool isWarriorBonusAttack)
+    private bool FireProjectiles(GameObject unit, TowerUnit towerUnit, UnitStat unitStat, List<MonsterController> targets, bool isWarriorBonusAttack, bool isWizardBonusAttack)
     {
         GameObject projectilePrefab = GetProjectilePrefab(unitStat);
         GameObject hitEffect = GetHitEffect(unitStat);
@@ -287,6 +291,7 @@ public class CombatManager : MonoBehaviour
                 unit,
                 isAoe,
                 isWarriorBonusAttack,
+                isWizardBonusAttack,
                 explosionRadius,
                 projectileSpeed,
                 projectileHitDistance,
@@ -317,7 +322,8 @@ public class CombatManager : MonoBehaviour
     string sourceName,
     UnitStat unitStat,
     GameObject unit,
-    bool isWarriorBonusAttack)
+    bool isWarriorBonusAttack,
+    bool isWizardBonusAttack)
     {
         EnsureAoeBuffer();
 
@@ -353,7 +359,8 @@ public class CombatManager : MonoBehaviour
                 "투사체 폭발",
                 unitStat,
                 unit,
-                isWarriorBonusAttack
+                isWarriorBonusAttack,
+                isWizardBonusAttack
             );
 
             if (success)
@@ -389,7 +396,8 @@ public class CombatManager : MonoBehaviour
     string attackChannel,
     UnitStat unitStat,
     GameObject unit,
-    bool isWarriorBonusAttack)
+    bool isWarriorBonusAttack,
+    bool isWizardBonusAttack)
     {
         if (!IsTargetValid(target))
             return false;
@@ -399,7 +407,7 @@ public class CombatManager : MonoBehaviour
         float crit = (Random.value < clampedCritChance) ? 0.5f : 0f;
 
         int normalDamage = damageCalculator.CalculateNormalDamage(unitStat, attackPower, target.BaseDefense, crit);
-        int skillDamage = damageCalculator.CalculateSkillDamage(unitStat, attackPower, target.BaseDefense, crit);
+        int skillDamage = damageCalculator.CalculateSkillDamage(unitStat, attackPower, target.BaseDefense, crit, isWizardBonusAttack);
         int finalDamage = normalDamage + skillDamage;
         dealtDamage = finalDamage;
 
@@ -418,7 +426,7 @@ public class CombatManager : MonoBehaviour
         unitStat.DealtDamage += dealtDamage;
 
         DebugTool.Log(
-            $"{attackChannel} 피해 적용 | source={sourceName}, target={target.name}, final={finalDamage}, normal={normalDamage}, skill={skillDamage}, crit={(crit > 0f ? "Yes" : "No")}, warriorBonus={isWarriorBonusAttack}",
+            $"{attackChannel} 피해 적용 | source={sourceName}, target={target.name}, final={finalDamage}, normal={normalDamage}, skill={skillDamage}, crit={(crit > 0f ? "Yes" : "No")}, warriorBonus={isWarriorBonusAttack}, wizardBonus={isWizardBonusAttack}",
             DebugType.Unit,
             this
         );
@@ -526,19 +534,20 @@ public class CombatManager : MonoBehaviour
 
         if (unitStat.SynergIDs != null && unitStat.SynergIDs.Length > 1)
         {
-            if(unitStat.Tier < 3)
+            if (unitStat.Tier < 3)
             {
                 int synergyIndex = unitStat.SynergIDs[1] - 50003;
                 if (synergyIndex >= 0 && synergyIndex < sourceList.Count)
                     return sourceList[synergyIndex];
-            }else
+            }
+            else
             {
                 int synergyIndex = unitStat.Id - 10032;
                 if (synergyIndex >= 0 && synergyIndex < sourceList.Count)
                     return sourceList[synergyIndex];
             }
 
-                
+
         }
 
         return sourceList[0];

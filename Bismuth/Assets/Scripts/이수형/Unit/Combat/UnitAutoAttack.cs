@@ -21,11 +21,14 @@ public class UnitAutoAttack : MonoBehaviour
     [SerializeField] private SkillCast skillCast;
 
     private const int GunnerSynergyId = (int)SynergyManager.SynergyType.Gunner;
+    private const int WizardSynergyId = (int)SynergyManager.SynergyType.Magician;
+    private const float WizardBonusCooldownSeconds = 5f;
 
     [Header("Synergy")]
     [SerializeField] private SynergyDataController synergyDataController;
 
     private bool warnedMissingGunnerSynergyDataController = false;
+    private bool warnedMissingWizardSynergyDataController = false;
 
 
     private TowerUnit towerUnit;
@@ -42,7 +45,9 @@ public class UnitAutoAttack : MonoBehaviour
     private bool isRanged = false;
 
     private bool currentAttackIsWarriorBonus = false;
+    private bool currentAttackIsWizardBonus = false;
     private int pendingWarriorExtraAttackCount = 0;
+    private float nextWizardBonusReadyTime = 0f;
 
     private void Awake()
     {
@@ -131,9 +136,11 @@ public class UnitAutoAttack : MonoBehaviour
         hasEnteredAttackState = false;
         hasAppliedHit = false;
         currentAttackIsWarriorBonus = false;
+        currentAttackIsWizardBonus = false;
         pendingWarriorExtraAttackCount = 0;
 
         nextAttackReadyTime = Time.time + attackInterval;
+        nextWizardBonusReadyTime = Time.time + WizardBonusCooldownSeconds;
 
         if (anim != null)
             anim.ResetAnimatorSpeed();
@@ -238,6 +245,7 @@ public class UnitAutoAttack : MonoBehaviour
         hasEnteredAttackState = false;
         hasAppliedHit = false;
         currentAttackIsWarriorBonus = isWarriorBonusAttack;
+        currentAttackIsWizardBonus = CanUseWizardBonusThisAttack();
 
         nextAttackReadyTime = Time.time + attackInterval;
 
@@ -252,7 +260,7 @@ public class UnitAutoAttack : MonoBehaviour
         if (attackLog)
         {
             DebugTool.Log(
-                $"공격 시작 | target={lockedTarget.name}, interval={attackInterval:F3}, animSpeed={playback.AnimatorSpeed:F2}, animDuration={playback.ActualDuration:F3}, hitNormalized={hitNormalizedTime:F2}, warriorBonus={currentAttackIsWarriorBonus}",
+                $"공격 시작 | target={lockedTarget.name}, interval={attackInterval:F3}, animSpeed={playback.AnimatorSpeed:F2}, animDuration={playback.ActualDuration:F3}, hitNormalized={hitNormalizedTime:F2}, warriorBonus={currentAttackIsWarriorBonus}, wizardBonus={currentAttackIsWizardBonus}",
                 DebugType.Unit,
                 this
             );
@@ -347,13 +355,17 @@ public class UnitAutoAttack : MonoBehaviour
             this.gameObject,
             lockedTarget,
             attackSensor,
-            currentAttackIsWarriorBonus
+            currentAttackIsWarriorBonus,
+            currentAttackIsWizardBonus
         );
+
+        if (success && currentAttackIsWizardBonus)
+            ConsumeWizardBonus();
 
         if (attackLog)
         {
             DebugTool.Log(
-                $"히트 판정 | target={lockedTarget.name}, normalized={normalizedTime:F2}, success={success}, warriorBonus={currentAttackIsWarriorBonus}",
+                $"히트 판정 | target={lockedTarget.name}, normalized={normalizedTime:F2}, success={success}, warriorBonus={currentAttackIsWarriorBonus}, wizardBonus={currentAttackIsWizardBonus}",
                 DebugType.Unit,
                 this
             );
@@ -380,7 +392,7 @@ public class UnitAutoAttack : MonoBehaviour
         if (attackLog)
         {
             DebugTool.Log(
-                $"공격 종료 | lockedTarget={(lockedTarget != null ? lockedTarget.name : "None")}, warriorBonus={currentAttackIsWarriorBonus}",
+                $"공격 종료 | lockedTarget={(lockedTarget != null ? lockedTarget.name : "None")}, warriorBonus={currentAttackIsWarriorBonus}, wizardBonus={currentAttackIsWizardBonus}",
                 DebugType.Unit,
                 this
             );
@@ -390,6 +402,7 @@ public class UnitAutoAttack : MonoBehaviour
         hasEnteredAttackState = false;
         hasAppliedHit = false;
         currentAttackIsWarriorBonus = false;
+        currentAttackIsWizardBonus = false;
         lockedTarget = null;
 
         if (anim != null)
@@ -411,6 +424,7 @@ public class UnitAutoAttack : MonoBehaviour
         hasEnteredAttackState = false;
         hasAppliedHit = false;
         currentAttackIsWarriorBonus = false;
+        currentAttackIsWizardBonus = false;
         lockedTarget = null;
 
         if (anim != null)
@@ -477,6 +491,89 @@ public class UnitAutoAttack : MonoBehaviour
 
         StartAttack(currentTarget, true);
         return true;
+    }
+
+
+    private bool CanUseWizardBonusThisAttack()
+    {
+        if (unitStat == null)
+            return false;
+
+        if (!HasSynergyTag(WizardSynergyId))
+            return false;
+
+        if (Time.time < nextWizardBonusReadyTime)
+            return false;
+
+        float bonusPercent = GetWizardDamageBonusPercent();
+        return bonusPercent > 0f;
+    }
+
+    private void ConsumeWizardBonus()
+    {
+        nextWizardBonusReadyTime = Time.time + WizardBonusCooldownSeconds;
+
+        if (attackLog)
+        {
+            DebugTool.Log(
+                $"마법사 추가 대미지 발동 | nextReadyTime={nextWizardBonusReadyTime:F2}",
+                DebugType.Synergy,
+                this
+            );
+        }
+    }
+
+    private float GetWizardDamageBonusPercent()
+    {
+        if (unitStat == null)
+            return 0f;
+
+        if (!HasSynergyTag(WizardSynergyId))
+            return 0f;
+
+        if (CombatManager.Instance == null)
+            return 0f;
+
+        TryResolveSynergyDataController();
+
+        if (synergyDataController == null)
+        {
+            WarnMissingWizardSynergyDataController();
+            return 0f;
+        }
+
+        SynergyData wizardData = synergyDataController.GetById(WizardSynergyId);
+        if (wizardData == null || wizardData.Levels == null || wizardData.Levels.Count == 0)
+            return 0f;
+
+        int activeCount = CombatManager.Instance.GetSynergyLevel(WizardSynergyId);
+        float bonusPercent = 0f;
+
+        for (int i = 0; i < wizardData.Levels.Count; i++)
+        {
+            SynergyLevelData level = wizardData.Levels[i];
+            if (level == null)
+                continue;
+
+            if (activeCount < level.ActiveCount)
+                continue;
+
+            if (level.EffectValues == null || level.EffectValues.Count == 0)
+                continue;
+
+            bonusPercent = level.EffectValues[0];
+        }
+
+        if (attackLog && bonusPercent > 0f)
+        {
+            DebugTool.Log(
+                $"마법사 추가 대미지 준비 가능 | unit={unitStat.Name}, active={activeCount}, bonusPercent={bonusPercent:F2}",
+                DebugType.Synergy,
+                this
+            );
+        }
+
+        return bonusPercent;
     }
 
     private float GetGunnerAttackSpeedBonusPercent()
@@ -565,5 +662,12 @@ public class UnitAutoAttack : MonoBehaviour
         DebugTool.Warnning("SynergyDataController 참조가 없어 거너 공속 시너지를 적용하지 않습니다.", DebugType.Synergy, this);
     }
 
+    private void WarnMissingWizardSynergyDataController()
+    {
+        if (warnedMissingWizardSynergyDataController)
+            return;
 
+        warnedMissingWizardSynergyDataController = true;
+        DebugTool.Warnning("SynergyDataController 참조가 없어 마법사 추가 대미지 시너지를 적용하지 않습니다.", DebugType.Synergy, this);
+    }
 }
