@@ -8,7 +8,7 @@ public class SynergyScrollViewUI : MonoBehaviour
     [SerializeField] private Transform _synergyContent; // 시너지 스크롤뷰 속 Content
     [SerializeField] private SynergyUI _synergyPrefab;
     [SerializeField] private SynergyManager _synergyManager;
-    [SerializeField] private SynergyDataController _synergyData;
+    [SerializeField] private SynergySO _synergySO;
 
     private List<SynergyUI> _synergys = new List<SynergyUI>(); // 존재하는 시너지 프리팹 리스트
 
@@ -40,7 +40,7 @@ public class SynergyScrollViewUI : MonoBehaviour
             int count = pair.Value.Count;
 
             SynergyUI synergy = Instantiate(_synergyPrefab, _synergyContent);
-            synergy.SetData(synergyId, count, _synergyData);
+            synergy.SetData(synergyId, count, _synergySO);
             _synergys.Add(synergy);
         }
     }
@@ -48,7 +48,7 @@ public class SynergyScrollViewUI : MonoBehaviour
     // 시너지 활성화 여부 체크
     private bool IsActivated(int synergyId, int count)
     {
-        SynergyData data = _synergyData.GetById(synergyId);
+        SynergyData data = GetSynergyData(synergyId);
 
         return count >= data.Levels[0].ActiveCount;
     }
@@ -56,10 +56,20 @@ public class SynergyScrollViewUI : MonoBehaviour
     // 현재 시너지 수가 최대 시너지 수에 얼마나 가까운지 체크
     private float GetProgress(int synergyId, int count)
     {
-        SynergyData data = _synergyData.GetById(synergyId);
+        SynergyData data = GetSynergyData(synergyId);
         int maxCount = data.Levels[data.Levels.Count - 1].ActiveCount;
 
         return (float)count / maxCount;
+    }
+
+    private SynergyData GetSynergyData(int synergyId)
+    {
+        foreach (SynergyData row in _synergySO.Rows)
+        {
+            if (row.ID == synergyId) return row;
+        }
+
+        return null;
     }
 
     // _synergys 리스트에 있는 모든 프리팹 삭제 후 리스트 비워줌

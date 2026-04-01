@@ -18,9 +18,9 @@ public class SynergyUI : MonoBehaviour, IPointerClickHandler
     [SerializeField] private TMP_Text _dNameText; // 설명칸에 들어갈 시너지 이름 텍스트
     [SerializeField] private TMP_Text _descriptionText; // 시너지 설명
 
-    public void SetData(int synergyId, int count, SynergyDataController synergyData)
+    public void SetData(int synergyId, int count, SynergySO synergySO)
     {
-        SynergyData data = synergyData.GetById(synergyId);
+        SynergyData data = GetSynergyData(synergyId, synergySO);
 
         // 시너지 이름
         _hNameText.text = data.SynergyName;
@@ -45,6 +45,16 @@ public class SynergyUI : MonoBehaviour, IPointerClickHandler
         }
 
         _icon.sprite = isActive ? activeSprite : inactiveSprite;
+    }
+
+    private SynergyData GetSynergyData(int synergyId, SynergySO synergySO)
+    {
+        foreach (SynergyData row in synergySO.Rows)
+        {
+            if (row.ID == synergyId) return row;
+        }
+
+        return null;
     }
 
     private string GetDescriptionText(SynergyData data, int count)
