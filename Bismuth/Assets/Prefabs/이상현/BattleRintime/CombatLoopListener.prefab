@@ -1,0 +1,64 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &5299301866268413341
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1177926297872732085}
+  - component: {fileID: 173414845100109975}
+  m_Layer: 0
+  m_Name: CombatLoopListener
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1177926297872732085
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5299301866268413341}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.38607, y: -2.04603, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &173414845100109975
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5299301866268413341}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 63675800248930244871f9301a51b6c5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombatLoopEventSampleListener
+  _monsterSpawner: {fileID: 0}
+  _battleWaveRunner: {fileID: 0}
+  _homeBaseHealth: {fileID: 0}
+  _trackedMonsterCount: 0
+  _diedMonsterCount: 0
+  _reachedBaseMonsterCount: 0
+  _currentWaveNumber: 0
+  _runnerAliveMonsterCount: 0
+  _battleCompleted: 0
+  _battleFailed: 0
+  _lastKillReward: 0
+  _lastWaveClearReward: 0
+  _rewardPreviewTotal: 0
+  _nextWaveNumber: 0
+  _intermissionStarted: 0
+  _lastIntermissionDuration: 0
+  _lastIntermissionRemainingTime: 0
+  _intermissionEnded: 0

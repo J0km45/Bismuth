@@ -391,15 +391,20 @@ public class BattleWaveRunner : MonoBehaviour
         }
 
         bool wasIntermissionActive = _isIntermissionActive;
+        float previousRemainingTime = _intermissionRemainingTime;
 
         _isIntermissionActive = false;
         _intermissionRemainingTime = 0f;
 
-        if (notifyEnded && wasIntermissionActive)
+        if (notifyEnded == false || wasIntermissionActive == false)
+            return;
+        
+        if (previousRemainingTime > 0f)
         {
             IntermissionTimeChanged?.Invoke(_intermissionRemainingTime);
-            IntermissionEnded?.Invoke();
         }
+
+        IntermissionEnded?.Invoke();
     }
     
     private void NotifyWaveClearReward(WaveDataSO clearedWave)
