@@ -15,11 +15,18 @@ public class UnitAutoAttack : MonoBehaviour
     [SerializeField] private bool forceHitOnEarlyExit = true;
 
     [Header("Debug")]
-    [SerializeField] private bool attackLog = false;
+    [SerializeField] private bool attackLog = true;
 
     [Header("Skill")]
     [SerializeField] private SkillCast skillCast;
-    
+
+    private const int GunnerSynergyId = (int)SynergyManager.SynergyType.Gunner;
+
+    [Header("Synergy")]
+    [SerializeField] private SynergyDataController synergyDataController;
+
+    private bool warnedMissingGunnerSynergyDataController = false;
+
 
     private TowerUnit towerUnit;
     private MonsterController currentTarget;
@@ -144,26 +151,10 @@ public class UnitAutoAttack : MonoBehaviour
     private float CalculateAttackInterval()
     {
         float attackSpeedPerSecond = Mathf.Max(0.01f, unitStat.AttackSpeed);
-        if (unitStat.SynergIDs[1] == 50004)
-        {
-            int synergyCount = CombatManager.Instance.GetSynergyLevel(50004);
-            if (synergyCount > 10)// 거너 시너지 임시
-            {
-                attackSpeedPerSecond *= 3f;
-            }
-            else if (synergyCount > 8)
-            {
-                attackSpeedPerSecond *= 2.0f;
-            }
-            else if (synergyCount > 6)
-            {
-                attackSpeedPerSecond *= 1.5f;
-            }
-            else if (synergyCount > 3)
-            {
-                attackSpeedPerSecond *= 1.25f;
-            }
-        }
+
+        float gunnerBonusPercent = GetGunnerAttackSpeedBonusPercent();
+        attackSpeedPerSecond *= 1f + gunnerBonusPercent * 0.01f;
+
         return 1f / attackSpeedPerSecond;
     }
 
@@ -486,6 +477,92 @@ public class UnitAutoAttack : MonoBehaviour
 
         StartAttack(currentTarget, true);
         return true;
+    }
+
+    private float GetGunnerAttackSpeedBonusPercent()
+    {
+        if (unitStat == null)
+            return 0f;
+
+        if (!HasSynergyTag(GunnerSynergyId))
+            return 0f;
+
+        if (CombatManager.Instance == null)
+            return 0f;
+
+        TryResolveSynergyDataController();
+
+        if (synergyDataController == null)
+        {
+            WarnMissingGunnerSynergyDataController();
+            return 0f;
+        }
+
+        SynergyData gunnerData = synergyDataController.GetById(GunnerSynergyId);
+        if (gunnerData == null || gunnerData.Levels == null || gunnerData.Levels.Count == 0)
+            return 0f;
+
+        int activeCount = CombatManager.Instance.GetSynergyLevel(GunnerSynergyId);
+        float bonusPercent = 0f;
+
+        for (int i = 0; i < gunnerData.Levels.Count; i++)
+        {
+            SynergyLevelData level = gunnerData.Levels[i];
+            if (level == null)
+                continue;
+
+            if (activeCount < level.ActiveCount)
+                continue;
+
+            if (level.EffectValues == null || level.EffectValues.Count == 0)
+                continue;
+
+            // 거너 시너지는 첫 번째 effect value를 공속 증가량(%)으로 사용
+            bonusPercent = level.EffectValues[0];
+        }
+
+        if (attackLog && bonusPercent > 0f)
+        {
+            DebugTool.Log(
+                $"거너 공속 보너스 적용 | unit={unitStat.Name}, active={activeCount}, bonusPercent={bonusPercent:F2}",
+                DebugType.Synergy,
+                this
+            );
+        }
+
+        return bonusPercent;
+    }
+
+    private bool HasSynergyTag(int synergyId)
+    {
+        if (unitStat == null || unitStat.SynergIDs == null)
+            return false;
+
+        for (int i = 0; i < unitStat.SynergIDs.Length; i++)
+        {
+            if (unitStat.SynergIDs[i] == synergyId)
+                return true;
+        }
+
+        return false;
+    }
+
+    private void TryResolveSynergyDataController()
+    {
+        if (synergyDataController != null)
+            return;
+
+        synergyDataController = FindAnyObjectByType<SynergyDataController>();
+
+    }
+
+    private void WarnMissingGunnerSynergyDataController()
+    {
+        if (warnedMissingGunnerSynergyDataController)
+            return;
+
+        warnedMissingGunnerSynergyDataController = true;
+        DebugTool.Warnning("SynergyDataController 참조가 없어 거너 공속 시너지를 적용하지 않습니다.", DebugType.Synergy, this);
     }
 
 
