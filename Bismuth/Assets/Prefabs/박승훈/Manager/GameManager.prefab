@@ -13,7 +13,6 @@ GameObject:
   - component: {fileID: 8423151259897990698}
   - component: {fileID: 3962914728387289638}
   - component: {fileID: 8140035803927745397}
-  - component: {fileID: 1530194266059505261}
   - component: {fileID: 651773196946485032}
   - component: {fileID: 3586491415078184626}
   - component: {fileID: 8554172300313096461}
@@ -87,6 +86,8 @@ MonoBehaviour:
   _player: {fileID: 0}
   _summonManger: {fileID: 0}
   _combineManger: {fileID: 0}
+  _unitEnhanceSO: {fileID: 11400000, guid: a63d15e893752584497909e9d1b163f3, type: 2}
+  _unitInfoPanelUI: {fileID: 0}
 --- !u!114 &8140035803927745397
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -131,19 +132,6 @@ MonoBehaviour:
         m_CallState: 2
   _unitCount: 0
   _log: 0
---- !u!114 &1530194266059505261
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4351018382781704222}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2bf592ea7c5d32449afaad94627f94ac, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::UnitEnhanceManager
-  _unitEnhanceData: {fileID: 0}
 --- !u!114 &651773196946485032
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -179,9 +167,6 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnRemoveUnit:
-    m_PersistentCalls:
-      m_Calls: []
-  OnCombineUnit:
     m_PersistentCalls:
       m_Calls: []
 --- !u!114 &8554172300313096461
@@ -234,6 +219,7 @@ MonoBehaviour:
   - {fileID: 6188591979903708380, guid: 5c2fd64178a439d439a6a5b59075bc96, type: 3}
   - {fileID: 4640666574542266821, guid: d0da38d0f3f2b8345a7d7e82c1c5498c, type: 3}
   - {fileID: 8882535156457615749, guid: 498f4429640af9841ab0d9ee4218d8ad, type: 3}
+  - {fileID: 8882535156457615749, guid: 70e0b1a8d18eed74daa663b1ca6b4494, type: 3}
   - {fileID: 4886766703146375633, guid: 6ec72174fb9ebc24a8aa0f4f1707be26, type: 3}
   - {fileID: 4653548259735551513, guid: 6fa2cb4aa71333d4a950eb8f3281c906, type: 3}
   - {fileID: 6931192240088861300, guid: d2df0755e10c79a4b9f56653f3c4629f, type: 3}
@@ -253,7 +239,7 @@ MonoBehaviour:
   - {fileID: 8327416059522653977, guid: a4d7427ccac1aa94e8f1ae32e58c3a12, type: 3}
   - {fileID: 3172687888725299707, guid: b9dbca153d478b24e9b965fbbddc4a9b, type: 3}
   ownedTowers: []
-  summonLog: 1
+  summonLog: 0
   boardLog: 0
 --- !u!114 &7012402871630413712
 MonoBehaviour:
@@ -271,6 +257,7 @@ MonoBehaviour:
   unitLayer:
     serializedVersion: 2
     m_Bits: 1024
+  unitInfoPanel: {fileID: 0}
 --- !u!114 &5106607783468869301
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -288,4 +275,4 @@ MonoBehaviour:
   OnSummonUnit:
     m_PersistentCalls:
       m_Calls: []
-  _log: 1
+  _log: 0
