@@ -18,6 +18,12 @@ public class CatalogUIController : MonoBehaviour
     [SerializeField] private TextMeshProUGUI _leftPageTitle;   // 왼쪽 페이지 번호 텍스트
     [SerializeField] private TextMeshProUGUI _rightPageTitle;  // 오른쪽 페이지 번호 텍스트
 
+    [Header("━━━━ 상세 패널 ━━━━")]
+    [SerializeField] private GameObject _detailPanel;            // 상세 정보 패널
+    [SerializeField] private Image _illustration;                // 상세 패널 이미지
+    [SerializeField] private TextMeshProUGUI _unitNameText;      // 상세 패널 이름
+    [SerializeField] private TextMeshProUGUI _descriptionText;   // 상세 패널 설명
+
     private int _currentSpread; // 현재 펼쳐진 양면 페이지 인덱스
     private Coroutine _spreadRoutine;    // 페이지 갱신 코루틴
 
@@ -41,12 +47,20 @@ public class CatalogUIController : MonoBehaviour
         ShowSpread(_currentSpread);
     }
 
-    // 도감 버튼 클릭
+    // 도감 버튼 클릭(토글)
     public void OpenCatalog()
     {
-        // 도감을 열기 전에 최신 소환 상태 반영
-        RefreshSummonedState();
-        _encyclopediaPopup.SetActive(true);
+        bool isOpening = !_encyclopediaPopup.activeSelf;
+
+        if (isOpening)
+        {
+            _encyclopediaPopup.SetActive(true);
+            RefreshSummonedState();   
+        }
+        else
+        {
+            _encyclopediaPopup.SetActive(false);
+        }
     }
 
     public void CloseCatalog()
@@ -110,7 +124,7 @@ public class CatalogUIController : MonoBehaviour
         _spreadRoutine = null;
     }
 
-    
+
     // 페이지
     private void UpdatePageTitles()
     {
@@ -131,9 +145,6 @@ public class CatalogUIController : MonoBehaviour
         label.text = pageNumber > 0 ? $"Page {pageNumber}" : "";
     }
 
-    // 미소환 유닛을 어둡게 표시할 색상
-    private static readonly Color _dimColor = new Color(0.2f, 0.2f, 0.2f, 1f);
-
     private void FillGrid(Transform grid, int startIndex)
     {
         List<UnitData> units = _unitSO.Units;
@@ -145,23 +156,18 @@ public class CatalogUIController : MonoBehaviour
 
             // 슬롯 프리팹 생성
             GameObject slot = Instantiate(_slotPrefab, grid);
-            Image icon = slot.transform.Find("Icon").GetComponent<Image>();
+            CatalogSlotUI slotUI = slot.GetComponent<CatalogSlotUI>();
 
             // 해당 인덱스에 유닛 데이터가 없으면 빈 슬롯 처리
             if (unitIndex >= units.Count)
             {
-                icon.sprite = null;
-                icon.color = new Color(0.3f, 0.3f, 0.3f, 0.3f);
+                slotUI.SetEmpty();
                 continue;
             }
 
             UnitData unitData = units[unitIndex];
-
-            // 유닛 아이콘 표시
-            icon.sprite = unitData.Icon;
-
-            // 소환한 유닛이면 밝게, 아니면 어둡게 표시
-            icon.color = IsUnitSummoned(unitData.Id) ? Color.white : _dimColor;
+            bool isSummoned = IsUnitSummoned(unitData.Id);
+            slotUI.SetData(unitData, isSummoned, this);
         }
     }
 
@@ -186,5 +192,18 @@ public class CatalogUIController : MonoBehaviour
 
         // 목록에 없으면 미소환 처리
         return false;
+    }
+
+    public void ShowUnitDetail(UnitData unitData)
+    {
+        _detailPanel.SetActive(true);
+        _illustration.sprite = unitData.Sprite;
+        _unitNameText.text = unitData.UnitName;
+        _descriptionText.text = unitData.Id.ToString();
+    }
+
+    public void CloseUnitDetail()
+    {
+        _detailPanel.SetActive(false);
     }
 }

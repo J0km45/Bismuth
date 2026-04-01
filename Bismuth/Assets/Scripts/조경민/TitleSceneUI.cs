@@ -1,6 +1,5 @@
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class TitleSceneUI : MonoBehaviour
 {
@@ -15,7 +14,6 @@ public class TitleSceneUI : MonoBehaviour
     [Header("━━━━ 패널 ━━━━")]
     [Tooltip("환경 설정 팝업")]
     [SerializeField] private GameObject _settingsPopup;
-    [SerializeField] private LocalizationManager _localizationManager;
 
     private void Start()
     {
