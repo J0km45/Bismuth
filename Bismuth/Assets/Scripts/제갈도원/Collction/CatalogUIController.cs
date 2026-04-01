@@ -158,7 +158,7 @@ public class CatalogUIController : MonoBehaviour
             UnitData unitData = units[unitIndex];
 
             // 유닛 아이콘 표시
-            icon.sprite = unitData.Sprite;
+            icon.sprite = unitData.Icon;
 
             // 소환한 유닛이면 밝게, 아니면 어둡게 표시
             icon.color = IsUnitSummoned(unitData.Id) ? Color.white : _dimColor;
