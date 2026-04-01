@@ -40,7 +40,8 @@ public class UnitAutoAttack : MonoBehaviour
 
         towerUnit = GetComponent<TowerUnit>();
         EnsureSensor();
-        attackAnimationIndex = unitStat.Range > 1f ? 2 : 0;
+        //attackAnimationIndex = unitStat.Range > 1f ? 2 : 0;
+        
     }
 
     private void Start()
@@ -85,6 +86,7 @@ public class UnitAutoAttack : MonoBehaviour
             anim = GetComponent<AnimationController>();
 
         EnsureSensor();
+        attackAnimationIndex = unitStat != null && unitStat.Range > 1f ? 2 : 0;
 
         if (unitStat == null)
         {
@@ -306,7 +308,7 @@ public class UnitAutoAttack : MonoBehaviour
             return;
         }
 
-        bool success = CombatManager.Instance.DamageOccured(towerUnit, lockedTarget);
+        bool success = CombatManager.Instance.DamageOccured(towerUnit, lockedTarget, attackSensor);
 
         if (attackLog)
         {
