@@ -114,11 +114,11 @@ public class MonsterController : MonoBehaviour
         HealthChanged?.Invoke(this);
     }
 
-    public void TakeDamage(float damage, GameObject hitEffect)
+    public bool TakeDamage(float damage, GameObject hitEffect)
     {
-        if (damage <= 0f) return;
-        if (_hasDied) return;
-        if (_hasReachedBase) return;
+        if (damage <= 0f) return false;
+        if (_hasDied) return false;
+        if (_hasReachedBase) return false;
 
         _currentHp = Mathf.Max(0f, _currentHp - damage);
         HealthChanged?.Invoke(this);
@@ -134,6 +134,7 @@ public class MonsterController : MonoBehaviour
 
             Died?.Invoke(this);
             gameObject.SetActive(false);
+            return true;
         }
 
         if (hitEffect != null)
@@ -153,7 +154,7 @@ public class MonsterController : MonoBehaviour
                 }
             }
         }
-
+        return false;
 
     }
 

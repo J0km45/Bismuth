@@ -308,7 +308,7 @@ public class UnitAutoAttack : MonoBehaviour
             return;
         }
 
-        bool success = CombatManager.Instance.DamageOccured(towerUnit, lockedTarget, attackSensor);
+        bool success = CombatManager.Instance.DamageOccured(this.gameObject, lockedTarget, attackSensor);
 
         if (attackLog)
         {
