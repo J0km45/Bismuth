@@ -80,7 +80,7 @@ public class CombatManager : MonoBehaviour
             return false;
         }
 
-        if (unitStat.Range > 1f)
+        if (unitStat.Range > 1.3f)
             return FireProjectiles(towerUnit, unitStat, targets);
 
         return ApplyHitscan(unitStat, towerUnit != null ? towerUnit.name : unitStat.Name, targets);
