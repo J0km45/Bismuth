@@ -22,7 +22,7 @@ public class CatalogSerializer
         CatalogSaveData saveData = CatalogSaveData.FromCatalogSO(unitCatalogSO);
 
         // Json 은 문자열임
-        string json = JsonUtility.ToJson(saveData);
+        string json = JsonUtility.ToJson(saveData, true);
 
         // 이걸 이제 실제 파일에 저장
         File.WriteAllText(SavePath, json);
