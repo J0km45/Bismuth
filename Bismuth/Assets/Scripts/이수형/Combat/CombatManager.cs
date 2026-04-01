@@ -564,4 +564,9 @@ public class CombatManager : MonoBehaviour
         if (aoeOverlapResults == null || aoeOverlapResults.Length != aoeOverlapBufferSize)
             aoeOverlapResults = new Collider2D[aoeOverlapBufferSize];
     }
+
+    public int GetSynergyLevel(int synergyId)
+    {
+        return synergyManager.GetSynergyLevel(synergyId);
+    }
 }

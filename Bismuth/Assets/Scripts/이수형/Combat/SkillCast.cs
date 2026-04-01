@@ -27,7 +27,7 @@ public class SkillCast : MonoBehaviour
 
     public void SynergyWizardCast()
     {
-
+        
     }
 
     public void SynergyArcherCast()

@@ -144,6 +144,26 @@ public class UnitAutoAttack : MonoBehaviour
     private float CalculateAttackInterval()
     {
         float attackSpeedPerSecond = Mathf.Max(0.01f, unitStat.AttackSpeed);
+        if (unitStat.SynergIDs[1] == 50004)
+        {
+            int synergyCount = CombatManager.Instance.GetSynergyLevel(50004);
+            if (synergyCount > 10)// 거너 시너지 임시
+            {
+                attackSpeedPerSecond *= 3f;
+            }
+            else if (synergyCount > 8)
+            {
+                attackSpeedPerSecond *= 2.0f;
+            }
+            else if (synergyCount > 6)
+            {
+                attackSpeedPerSecond *= 1.5f;
+            }
+            else if (synergyCount > 3)
+            {
+                attackSpeedPerSecond *= 1.25f;
+            }
+        }
         return 1f / attackSpeedPerSecond;
     }
 
