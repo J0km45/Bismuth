@@ -1,3 +1,4 @@
+using Unity.VisualScripting;
 using UnityEngine;
 
 [DisallowMultipleComponent]
@@ -15,6 +16,9 @@ public class UnitAutoAttack : MonoBehaviour
 
     [Header("Debug")]
     [SerializeField] private bool attackLog = false;
+
+    [Header("Skill")]
+    [SerializeField] SkillCast skillCast;
     
 
     private TowerUnit towerUnit;
@@ -39,6 +43,8 @@ public class UnitAutoAttack : MonoBehaviour
             anim = GetComponent<AnimationController>();
 
         towerUnit = GetComponent<TowerUnit>();
+
+        skillCast = this.AddComponent<SkillCast>();
         EnsureSensor();
         //attackAnimationIndex = unitStat.Range > 1f ? 2 : 0;
         
@@ -320,6 +326,7 @@ public class UnitAutoAttack : MonoBehaviour
         }
     }
 
+
     private bool CanHitLockedTarget()
     {
         if (lockedTarget == null)
@@ -372,5 +379,9 @@ public class UnitAutoAttack : MonoBehaviour
 
         if (anim != null)
             anim.ResetAnimatorSpeed();
+    }
+    public void ResetAttackInterval()
+    {
+        nextAttackReadyTime = 0f;
     }
 }

@@ -395,6 +395,7 @@ public class CombatManager : MonoBehaviour
                 DebugType.Unit,
                 this
             );
+            unit.GetComponent<SkillCast>().SynergyWarriorCast();
         }
         unitStat.DealtDamage += dealtDamage;
         DebugTool.Log(
