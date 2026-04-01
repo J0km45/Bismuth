@@ -50,8 +50,9 @@ public class UnitCatalogManager : MonoBehaviour
             {
                 unitCatalog[stat.Id] = true;
 
-                for (int i = 0; i < unitCatalog.Count; ++i)
+                for (int i = 0; i < unitCatalog.Count -1; ++i)
                 {
+                    DebugTool.Log($"도감 개수 : {unitCatalogSO.UnitCatalog.Count}, 등록 ID : {stat.Id}", DebugType.Catalog, this);
                     if (unitCatalogSO.UnitCatalog[i].UnitId == stat.Id)
                     {
                         unitCatalogSO.UnitCatalog[i].Name = stat.Name;
