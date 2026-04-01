@@ -10,6 +10,7 @@ public class UnitPointerInputRouter : MonoBehaviour
     [Header("Layers")]
     [SerializeField] private LayerMask unitLayer;
     [SerializeField] private GameObject unitInfoPanel;
+    [SerializeField] private GameObject _combinationScrollView;
 
     private void Awake()
     {
@@ -65,7 +66,10 @@ public class UnitPointerInputRouter : MonoBehaviour
                 this
             );
         }
+        unitInfoPanel.transform.SetAsLastSibling();
         unitInfoPanel.SetActive(true);
+        if(_combinationScrollView.activeSelf) 
+            _combinationScrollView.SetActive(false);
 
 
     }
