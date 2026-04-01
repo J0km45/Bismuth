@@ -59,7 +59,7 @@ public class PlayerUIController : MonoBehaviour
         _summonManger?.DespawnUnit(towerUnit);
         
         unit = null;
-        _unitInfoPanelUI.RefreshUnitInfo();
+        _unitInfoPanelUI.gameObject.SetActive(false);
     }
 
     private int SellUnit(int payback, int tier)
@@ -85,6 +85,7 @@ public class PlayerUIController : MonoBehaviour
                 
         
         _player.Gold -= COMBINE_GOLD;
+        _unitInfoPanelUI.gameObject.SetActive(false);
     }
     
     // 유닛 업그레이드 시 호출
@@ -183,8 +184,9 @@ public class PlayerUIController : MonoBehaviour
             NotEnoughGold();
             return;
         }
-        _player.Gold -= SUMMON_GOLD;
-        _summonManger.SummonRandomUnit();
+
+        if(_summonManger.SummonRandomUnit())
+            _player.Gold -= SUMMON_GOLD;
     }
 
     private void NotEnoughGold()
