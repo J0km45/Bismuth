@@ -1,0 +1,272 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &4351018382781704222
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8821340008124069095}
+  - component: {fileID: 8423151259897990698}
+  - component: {fileID: 3962914728387289638}
+  - component: {fileID: 8140035803927745397}
+  - component: {fileID: 651773196946485032}
+  - component: {fileID: 3586491415078184626}
+  - component: {fileID: 8554172300313096461}
+  - component: {fileID: 7012402871630413712}
+  - component: {fileID: 5106607783468869301}
+  m_Layer: 0
+  m_Name: PlayerManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8821340008124069095
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4351018382781704222}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -5.97619, y: -0.0029, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8423151259897990698
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4351018382781704222}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b408ec664d2b28a45aa5f80480598e3b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerDataManager
+  _controlPanelUI: {fileID: 0}
+  _playerStat: {fileID: 11400000, guid: 28eeee6c0f831f44393f56fedd1c9222, type: 2}
+  _level: 0
+  _gold: 0
+  _maxBaseHealth: 0
+  _currentBaseHealth: 0
+--- !u!114 &3962914728387289638
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4351018382781704222}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 574c64fe9cf686944b2b71f1098a0b81, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerUIController
+  _player: {fileID: 0}
+  _summonManger: {fileID: 0}
+  _combineManger: {fileID: 0}
+  _unitEnhanceSO: {fileID: 11400000, guid: a63d15e893752584497909e9d1b163f3, type: 2}
+  _unitInfoPanelUI: {fileID: 0}
+--- !u!114 &8140035803927745397
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4351018382781704222}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8671bf31c6f0649468d77bb3be8925bb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SynergyManager
+  OnUnitCreated:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 8140035803927745397}
+        m_TargetAssemblyTypeName: SynergyManager, Assembly-CSharp
+        m_MethodName: ChangedSynergy
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  OnUnitRemoved:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 8140035803927745397}
+        m_TargetAssemblyTypeName: SynergyManager, Assembly-CSharp
+        m_MethodName: RemoveSynergy
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  _unitCount: 0
+  _log: 0
+--- !u!114 &651773196946485032
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4351018382781704222}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 828684002203c9f44b0b24e6e4bcd2be, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SummonManager
+  summonUnit: {fileID: 0}
+  BoardLog: 1
+--- !u!114 &3586491415078184626
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4351018382781704222}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1baa8ab0c926664448af434a2d22aaa7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombineMangager
+  _summonManager: {fileID: 0}
+  _summonUnit: {fileID: 0}
+  _units: {fileID: 11400000, guid: cd09fb10c1adca94facd263909f98d92, type: 2}
+  _combineSO: {fileID: 11400000, guid: 0dfded2c1c40dd54498084b03b040f27, type: 2}
+  _log: 0
+  OnAddUnit:
+    m_PersistentCalls:
+      m_Calls: []
+  OnRemoveUnit:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!114 &8554172300313096461
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4351018382781704222}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 941f1af0371aca84eb9a91411a86a501, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SummonUnit
+  boardSystem: {fileID: 0}
+  synergyManager: {fileID: 8140035803927745397}
+  playerDataManager: {fileID: 8423151259897990698}
+  cellHighlight: {fileID: 0}
+  worldCamera: {fileID: 0}
+  unitCatalogManager: {fileID: 0}
+  combineManager: {fileID: 0}
+  units:
+  - {fileID: 11400000, guid: 42c65043e3ed84a4f9d15502cdb0fc1e, type: 2}
+  - {fileID: 11400000, guid: 6f6a3629b26de474c9fbdf776215566f, type: 2}
+  - {fileID: 11400000, guid: cd707799f7dc4e34cb90d06e1f138d58, type: 2}
+  - {fileID: 11400000, guid: 8085adba1f3e175448a3a2a771effdcf, type: 2}
+  summonSO: {fileID: 11400000, guid: 78cd8cc80ec1d984e9375d6e88f08fce, type: 2}
+  unitPrefabTable:
+  - {fileID: 244802476185505501, guid: 51ce18adc0389364eb42f5bc2ca4a508, type: 3}
+  - {fileID: 3402729233119560945, guid: 01e1bcf6100ed4445b73ac696681ad88, type: 3}
+  - {fileID: 4022017438092791276, guid: 5e3951a20c5bffa468e6fcb9dcce5f3c, type: 3}
+  - {fileID: 4758709966895826608, guid: 6bc021d499aa7624bb981befb561416d, type: 3}
+  - {fileID: 3845496828883880324, guid: 350ba5ed661120946a73567e7176ee49, type: 3}
+  - {fileID: 2426415389849136841, guid: 2c236ff59323f2a4ba2e2b72fb827275, type: 3}
+  - {fileID: 2503578839737141156, guid: 1f0cb1fc28968b74daf9bad482ce1a95, type: 3}
+  - {fileID: 6438905527573206805, guid: 2d20e47f2a0ef534eb73b496ed8aba58, type: 3}
+  - {fileID: 4520962327849263385, guid: 9c1f9aa3c934ff74591ba3ac88c64fc8, type: 3}
+  - {fileID: 4693551505388254126, guid: 4d36d1e3a03f5d444b50f00f3f6e97c4, type: 3}
+  - {fileID: 2376804467769598053, guid: c53a6caa424b69b41ac636a1e665eafd, type: 3}
+  - {fileID: 3406721906797385192, guid: 95c00b211e1abfc469114cd98354e8ef, type: 3}
+  - {fileID: 540444489045863749, guid: 9f563e385bd20b34996cbef4e2f87f76, type: 3}
+  - {fileID: 4077702490002813465, guid: e49b834601ac3eb42a1233b0528e6362, type: 3}
+  - {fileID: 2528165396881810678, guid: 433aa6834bf02934ea75e5d3e34a0fa8, type: 3}
+  - {fileID: 2758780900165688658, guid: 5c32bb256278c1a4ba93b947fe7ce25c, type: 3}
+  - {fileID: 522020964549468293, guid: 37e52cac7b4ae3140ace10ab5a1c1213, type: 3}
+  - {fileID: 4564851725197033660, guid: 5a33e70fe52a51b46b60aca908945781, type: 3}
+  - {fileID: 3880673180179213472, guid: 210b397e5929b2846a3d267df813edae, type: 3}
+  - {fileID: 140055310782605417, guid: 5d082c2f95701ac42a95861298892b7d, type: 3}
+  - {fileID: 6110430192138968359, guid: 9d8f3723e260d4e49902cefc66b8f9c3, type: 3}
+  - {fileID: 6188591979903708380, guid: df71ed8bed0e86e409bd0fc1665762ae, type: 3}
+  - {fileID: 4640666574542266821, guid: c4fb1035916238f47969aae2aa87c62e, type: 3}
+  - {fileID: 8882535156457615749, guid: dc1f2a698a0c23e4d819854b089f0ef3, type: 3}
+  - {fileID: 4886766703146375633, guid: b71a40d9f1a91e444b938aa1482ac24d, type: 3}
+  - {fileID: 4653548259735551513, guid: ec84f7e8c7538ef4c9a547da20399bf4, type: 3}
+  - {fileID: 6931192240088861300, guid: 52829371f267f074ba2b310f3e4f51b8, type: 3}
+  - {fileID: 6488530611085659359, guid: 669b51ecb6ef04044ab133e3d848ebb8, type: 3}
+  - {fileID: 551619504439793322, guid: cf41edecdc8d5e94daaaca7c8326de95, type: 3}
+  - {fileID: 2250697744906733633, guid: edbc6d405062f9949aab90d7b965cde6, type: 3}
+  - {fileID: 5791971631792004131, guid: d085c046c1f90814ebb86966136639f1, type: 3}
+  - {fileID: 7516956121163327303, guid: d1327b605f509394794c4e4d574662f1, type: 3}
+  - {fileID: 7183515090530276502, guid: 9ca32248a9db0434a8fcb19335ad9d3a, type: 3}
+  - {fileID: 3054073721928638240, guid: a4f90b294d1339540a30e4547eeb09e4, type: 3}
+  - {fileID: 6790059889003179949, guid: 39f537de6fe490b42bcb36acc24c47b6, type: 3}
+  - {fileID: 4733899549280218656, guid: fc67da2a325aae04a8a275911c1983ef, type: 3}
+  - {fileID: 8449467521182080502, guid: 505caa105bae2de4fa2781ab7d18e759, type: 3}
+  - {fileID: 1941787422353503347, guid: 85796ce04f8797845b79bf2372e8002a, type: 3}
+  - {fileID: 8086089287372568130, guid: 8723e3fcef93b774297b32286e3ee48a, type: 3}
+  - {fileID: 5068894384470248211, guid: f09145f4eb693fc4eb1773cb35b4fcec, type: 3}
+  - {fileID: 3220764170405832176, guid: b1ec71f6a2e705748ae12c7b0cec9434, type: 3}
+  - {fileID: 8327416059522653977, guid: d72f9e3f95e6d80488c076a5e004ce16, type: 3}
+  - {fileID: 3172687888725299707, guid: 232c948be6c5f0143a1c11786c854d21, type: 3}
+  - {fileID: 1753334853682558207, guid: cda7024688b08c147b1f54d910474995, type: 3}
+  - {fileID: 8285013956346277484, guid: d597b797c2252dd43a5fccc1b9871a54, type: 3}
+  - {fileID: 455812567429523030, guid: 7687eca184e8b8248908aed778b7844c, type: 3}
+  - {fileID: 4239163408809615001, guid: df5cfe50c16ea5449901295d92f5de5d, type: 3}
+  - {fileID: 3290744423198632876, guid: b40627a0b4b22ab4baa973dff8768029, type: 3}
+  - {fileID: 213276145610730168, guid: 1583845109da3a94bbd810e78da6eae8, type: 3}
+  - {fileID: 3715344090090077805, guid: d9966b6c6a120d5499c288bcdeed6a04, type: 3}
+  - {fileID: 4662263023091883543, guid: 38214d7c666add348a4ca2d38c0840f0, type: 3}
+  ownedTowers: []
+  summonLog: 0
+  boardLog: 0
+--- !u!114 &7012402871630413712
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4351018382781704222}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3ad1b08b79f9ca14382a331f416dfafa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitPointerInputRouter
+  worldCamera: {fileID: 0}
+  unitLayer:
+    serializedVersion: 2
+    m_Bits: 1024
+  unitInfoPanel: {fileID: 0}
+--- !u!114 &5106607783468869301
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4351018382781704222}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ae3b075fdb0e0724499e5e9fb3e187d0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitCatalogController
+  unitSO: {fileID: 11400000, guid: cd09fb10c1adca94facd263909f98d92, type: 2}
+  unitCatalogSO: {fileID: 11400000, guid: c1255872189f01c4d8d4cae2d5512b13, type: 2}
+  OnSummonUnit:
+    m_PersistentCalls:
+      m_Calls: []
+  _log: 1
