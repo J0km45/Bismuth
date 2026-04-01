@@ -150,7 +150,12 @@ public class UnitAttackSensor : MonoBehaviour
         PruneInvalidTargets();
 
         if (IsTargetAttackable(priorityTarget))
+        {
             targets.Add(priorityTarget);
+
+            if (targets.Count >= count)
+                return targets;
+        }
 
         for (int i = 0; i < monstersInRange.Count; i++)
         {

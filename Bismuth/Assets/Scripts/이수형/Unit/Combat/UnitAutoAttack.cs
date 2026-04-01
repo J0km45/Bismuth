@@ -18,7 +18,7 @@ public class UnitAutoAttack : MonoBehaviour
     [SerializeField] private bool attackLog = false;
 
     [Header("Skill")]
-    [SerializeField] SkillCast skillCast;
+    [SerializeField] private SkillCast skillCast;
     
 
     private TowerUnit towerUnit;
@@ -34,6 +34,9 @@ public class UnitAutoAttack : MonoBehaviour
 
     private bool isRanged = false;
 
+    private bool currentAttackIsWarriorBonus = false;
+    private int pendingWarriorExtraAttackCount = 0;
+
     private void Awake()
     {
         if (unitStat == null)
@@ -44,10 +47,12 @@ public class UnitAutoAttack : MonoBehaviour
 
         towerUnit = GetComponent<TowerUnit>();
 
-        skillCast = this.AddComponent<SkillCast>();
+        skillCast = GetComponent<SkillCast>();
+        if (skillCast == null)
+            skillCast = gameObject.AddComponent<SkillCast>();
+
         EnsureSensor();
         //attackAnimationIndex = unitStat.Range > 1f ? 2 : 0;
-        
     }
 
     private void Start()
@@ -74,13 +79,16 @@ public class UnitAutoAttack : MonoBehaviour
             return;
         }
 
+        if (TryStartPendingWarriorExtraAttack())
+            return;
+
         if (currentTarget == null)
             return;
 
         if (Time.time < nextAttackReadyTime)
             return;
 
-        StartAttack(currentTarget);
+        StartAttack(currentTarget, false);
     }
 
     public void RefreshFromCurrentStat()
@@ -115,6 +123,8 @@ public class UnitAutoAttack : MonoBehaviour
         isAttacking = false;
         hasEnteredAttackState = false;
         hasAppliedHit = false;
+        currentAttackIsWarriorBonus = false;
+        pendingWarriorExtraAttackCount = 0;
 
         nextAttackReadyTime = Time.time + attackInterval;
 
@@ -188,7 +198,7 @@ public class UnitAutoAttack : MonoBehaviour
         }
     }
 
-    private void StartAttack(MonsterController target)
+    private void StartAttack(MonsterController target, bool isWarriorBonusAttack)
     {
         if (target == null)
             return;
@@ -211,10 +221,12 @@ public class UnitAutoAttack : MonoBehaviour
             return;
         }
 
+        currentTarget = target;
         lockedTarget = target;
         isAttacking = true;
         hasEnteredAttackState = false;
         hasAppliedHit = false;
+        currentAttackIsWarriorBonus = isWarriorBonusAttack;
 
         nextAttackReadyTime = Time.time + attackInterval;
 
@@ -229,7 +241,7 @@ public class UnitAutoAttack : MonoBehaviour
         if (attackLog)
         {
             DebugTool.Log(
-                $"공격 시작 | target={lockedTarget.name}, interval={attackInterval:F3}, animSpeed={playback.AnimatorSpeed:F2}, animDuration={playback.ActualDuration:F3}, hitNormalized={hitNormalizedTime:F2}",
+                $"공격 시작 | target={lockedTarget.name}, interval={attackInterval:F3}, animSpeed={playback.AnimatorSpeed:F2}, animDuration={playback.ActualDuration:F3}, hitNormalized={hitNormalizedTime:F2}, warriorBonus={currentAttackIsWarriorBonus}",
                 DebugType.Unit,
                 this
             );
@@ -266,6 +278,9 @@ public class UnitAutoAttack : MonoBehaviour
         if (!hasAppliedHit && normalizedTime >= hitNormalizedTime)
             ApplyLockedHit(normalizedTime);
 
+        if (TryStartPendingWarriorExtraAttack())
+            return;
+
         bool attackStatePlaying = anim.IsAttackStatePlaying();
 
         if (attackStatePlaying && normalizedTime < 1f)
@@ -283,6 +298,9 @@ public class UnitAutoAttack : MonoBehaviour
             }
 
             ApplyLockedHit(normalizedTime);
+
+            if (TryStartPendingWarriorExtraAttack())
+                return;
         }
 
         FinishAttack();
@@ -314,12 +332,17 @@ public class UnitAutoAttack : MonoBehaviour
             return;
         }
 
-        bool success = CombatManager.Instance.DamageOccured(this.gameObject, lockedTarget, attackSensor);
+        bool success = CombatManager.Instance.DamageOccured(
+            this.gameObject,
+            lockedTarget,
+            attackSensor,
+            currentAttackIsWarriorBonus
+        );
 
         if (attackLog)
         {
             DebugTool.Log(
-                $"히트 판정 | target={lockedTarget.name}, normalized={normalizedTime:F2}, success={success}",
+                $"히트 판정 | target={lockedTarget.name}, normalized={normalizedTime:F2}, success={success}, warriorBonus={currentAttackIsWarriorBonus}",
                 DebugType.Unit,
                 this
             );
@@ -346,7 +369,7 @@ public class UnitAutoAttack : MonoBehaviour
         if (attackLog)
         {
             DebugTool.Log(
-                $"공격 종료 | lockedTarget={(lockedTarget != null ? lockedTarget.name : "None")}",
+                $"공격 종료 | lockedTarget={(lockedTarget != null ? lockedTarget.name : "None")}, warriorBonus={currentAttackIsWarriorBonus}",
                 DebugType.Unit,
                 this
             );
@@ -355,6 +378,7 @@ public class UnitAutoAttack : MonoBehaviour
         isAttacking = false;
         hasEnteredAttackState = false;
         hasAppliedHit = false;
+        currentAttackIsWarriorBonus = false;
         lockedTarget = null;
 
         if (anim != null)
@@ -375,13 +399,74 @@ public class UnitAutoAttack : MonoBehaviour
         isAttacking = false;
         hasEnteredAttackState = false;
         hasAppliedHit = false;
+        currentAttackIsWarriorBonus = false;
         lockedTarget = null;
 
         if (anim != null)
             anim.ResetAnimatorSpeed();
     }
-    public void ResetAttackInterval()
+    public void RequestWarriorExtraAttack()
     {
+        pendingWarriorExtraAttackCount++;
         nextAttackReadyTime = 0f;
+
+        if (attackLog)
+        {
+            DebugTool.Log(
+                $"전사 추가 공격 요청 | pending={pendingWarriorExtraAttackCount}",
+                DebugType.Synergy,
+                this
+            );
+        }
     }
+
+    private bool TryStartPendingWarriorExtraAttack()
+    {
+        if (pendingWarriorExtraAttackCount <= 0)
+            return false;
+
+        UpdateTarget();
+
+        if (currentTarget == null)
+        {
+            if (attackLog)
+            {
+                DebugTool.Log(
+                    $"전사 추가 공격 취소 | 사거리 내 다음 타겟이 없어 pending을 비웁니다.",
+                    DebugType.Synergy,
+                    this
+                );
+            }
+
+            pendingWarriorExtraAttackCount = 0;
+            return false;
+        }
+
+        pendingWarriorExtraAttackCount--;
+
+        if (attackLog)
+        {
+            DebugTool.Log(
+                $"전사 추가 공격 시작 | target={currentTarget.name}, 남은 pending={pendingWarriorExtraAttackCount}",
+                DebugType.Synergy,
+                this
+            );
+        }
+
+        if (isAttacking)
+        {
+            if (anim != null)
+                anim.ResetAnimatorSpeed();
+
+            isAttacking = false;
+            hasEnteredAttackState = false;
+            hasAppliedHit = false;
+            lockedTarget = null;
+        }
+
+        StartAttack(currentTarget, true);
+        return true;
+    }
+
+
 }

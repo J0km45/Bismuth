@@ -28,6 +28,8 @@ public class CombatManager : MonoBehaviour
     [SerializeField, Min(1)] private int aoeOverlapBufferSize = 32;
     [SerializeField, Min(0.01f)] private float aoeEffectScalePerRadius = 2f;
 
+    [SerializeField] private SynergyManager synergyManager;
+
 
     private Collider2D[] aoeOverlapResults;
 
@@ -53,8 +55,8 @@ public class CombatManager : MonoBehaviour
         TrySetDefaultMonsterLayer();
         EnsureAoeBuffer();
 
-        if (gameManager != null)
-            gameManager.GetComponent<SynergyManager>();
+        if (synergyManager == null && gameManager != null)
+            synergyManager = gameManager.GetComponent<SynergyManager>();
     }
 
     private void OnValidate()
@@ -65,10 +67,15 @@ public class CombatManager : MonoBehaviour
 
     public bool DamageOccured(GameObject unit, MonsterController currentTarget)
     {
-        return DamageOccured(unit, currentTarget, null);
+        return DamageOccured(unit, currentTarget, null, false);
     }
 
     public bool DamageOccured(GameObject unit, MonsterController currentTarget, UnitAttackSensor attackSensor)
+    {
+        return DamageOccured(unit, currentTarget, attackSensor, false);
+    }
+
+    public bool DamageOccured(GameObject unit, MonsterController currentTarget, UnitAttackSensor attackSensor, bool isWarriorBonusAttack)
     {
         TowerUnit towerUnit = unit.GetComponent<TowerUnit>();
 
@@ -83,9 +90,9 @@ public class CombatManager : MonoBehaviour
         }
 
         if (unitStat.Range > 1.3f)
-            return FireProjectiles(unit,towerUnit, unitStat, targets);
+            return FireProjectiles(unit, towerUnit, unitStat, targets, isWarriorBonusAttack);
 
-        return ApplyHitscan(unit,unitStat, towerUnit != null ? towerUnit.name : unitStat.Name, targets);
+        return ApplyHitscan(unit, unitStat, towerUnit != null ? towerUnit.name : unitStat.Name, targets, isWarriorBonusAttack);
     }
 
     public bool ResolveProjectileHit(
@@ -96,6 +103,7 @@ public class CombatManager : MonoBehaviour
     GameObject unit,
     string sourceName,
     bool isAoe,
+    bool isWarriorBonusAttack,
     float explosionRadius,
     Vector3 impactPosition,
     UnitStat unitStat)
@@ -111,7 +119,8 @@ public class CombatManager : MonoBehaviour
                 explosionRadius,
                 sourceName,
                 unitStat,
-                unit
+                unit,
+                isWarriorBonusAttack
             );
         }
 
@@ -123,7 +132,8 @@ public class CombatManager : MonoBehaviour
             sourceName,
             "투사체",
             unitStat,
-            unit
+            unit,
+            isWarriorBonusAttack
         );
     }
 
@@ -191,7 +201,7 @@ public class CombatManager : MonoBehaviour
         return attackSensor.GetTargets(targetCount, currentTarget);
     }
 
-    private bool ApplyHitscan(GameObject unit, UnitStat unitStat, string sourceName, List<MonsterController> targets)
+    private bool ApplyHitscan(GameObject unit, UnitStat unitStat, string sourceName, List<MonsterController> targets, bool isWarriorBonusAttack)
     {
         GameObject hitEffect = GetHitEffect(unitStat);
         int appliedCount = 0;
@@ -210,7 +220,8 @@ public class CombatManager : MonoBehaviour
                 sourceName,
                 "히트스캔",
                 unitStat,
-                unit
+                unit,
+                isWarriorBonusAttack
             );
 
             if (success)
@@ -225,12 +236,11 @@ public class CombatManager : MonoBehaviour
                 this
             );
         }
-        
 
         return appliedCount > 0;
     }
 
-    private bool FireProjectiles(GameObject unit, TowerUnit towerUnit, UnitStat unitStat, List<MonsterController> targets)
+    private bool FireProjectiles(GameObject unit, TowerUnit towerUnit, UnitStat unitStat, List<MonsterController> targets, bool isWarriorBonusAttack)
     {
         GameObject projectilePrefab = GetProjectilePrefab(unitStat);
         GameObject hitEffect = GetHitEffect(unitStat);
@@ -276,6 +286,7 @@ public class CombatManager : MonoBehaviour
                 hitEffect,
                 unit,
                 isAoe,
+                isWarriorBonusAttack,
                 explosionRadius,
                 projectileSpeed,
                 projectileHitDistance,
@@ -305,7 +316,8 @@ public class CombatManager : MonoBehaviour
     float radius,
     string sourceName,
     UnitStat unitStat,
-    GameObject unit)
+    GameObject unit,
+    bool isWarriorBonusAttack)
     {
         EnsureAoeBuffer();
 
@@ -340,7 +352,8 @@ public class CombatManager : MonoBehaviour
                 sourceName,
                 "투사체 폭발",
                 unitStat,
-                unit
+                unit,
+                isWarriorBonusAttack
             );
 
             if (success)
@@ -368,17 +381,19 @@ public class CombatManager : MonoBehaviour
     }
 
     private bool ApplyDamageToTarget(
-        float attackPower,
-        float critChance,
-        MonsterController target,
-        GameObject hitEffect,
-        string sourceName,
-        string attackChannel,
-        UnitStat unitStat,
-        GameObject unit)
+    float attackPower,
+    float critChance,
+    MonsterController target,
+    GameObject hitEffect,
+    string sourceName,
+    string attackChannel,
+    UnitStat unitStat,
+    GameObject unit,
+    bool isWarriorBonusAttack)
     {
         if (!IsTargetValid(target))
             return false;
+
         int dealtDamage = 0;
         float clampedCritChance = Mathf.Clamp01(critChance);
         float crit = (Random.value < clampedCritChance) ? 0.5f : 0f;
@@ -387,7 +402,8 @@ public class CombatManager : MonoBehaviour
         int skillDamage = damageCalculator.CalculateSkillDamage(attackPower, target.BaseDefense, crit);
         int finalDamage = normalDamage + skillDamage;
         dealtDamage = finalDamage;
-        if(target.TakeDamage(finalDamage, hitEffect))
+
+        if (target.TakeDamage(finalDamage, hitEffect))
         {
             unitStat.KillCount++;
             DebugTool.Log(
@@ -395,23 +411,78 @@ public class CombatManager : MonoBehaviour
                 DebugType.Unit,
                 this
             );
-            unit.GetComponent<SkillCast>().SynergyWarriorCast();
+
+            TryTriggerWarriorExtraAttack(unit, unitStat, sourceName, isWarriorBonusAttack);
         }
+
         unitStat.DealtDamage += dealtDamage;
+
         DebugTool.Log(
-            $"{attackChannel} 피해 적용 | source={sourceName}, target={target.name}, final={finalDamage}, normal={normalDamage}, skill={skillDamage}, crit={(crit > 0f ? "Yes" : "No")}",
+            $"{attackChannel} 피해 적용 | source={sourceName}, target={target.name}, final={finalDamage}, normal={normalDamage}, skill={skillDamage}, crit={(crit > 0f ? "Yes" : "No")}, warriorBonus={isWarriorBonusAttack}",
             DebugType.Unit,
             this
         );
-        DebugTool.Log(
-            $"{attackChannel} 피해 적용 | source={sourceName}, target={target.name}, final={finalDamage}, normal={normalDamage}, skill={skillDamage}, crit={(crit > 0f ? "Yes" : "No")}",
-            DebugType.Unit,
-            this
-        );
-
-
 
         return true;
+    }
+
+    private void TryTriggerWarriorExtraAttack(GameObject unit, UnitStat unitStat, string sourceName, bool isWarriorBonusAttack)
+    {
+        if (!CanTriggerWarriorExtraAttack(unitStat, isWarriorBonusAttack))
+            return;
+
+        SkillCast skillCast = unit != null ? unit.GetComponent<SkillCast>() : null;
+        if (skillCast == null)
+        {
+            DebugTool.Warnning("SkillCast 참조가 없어 전사 추가 공격을 요청하지 못했습니다.", DebugType.Synergy, this);
+            return;
+        }
+
+        skillCast.SynergyWarriorCast();
+
+        DebugTool.Log(
+            $"전사 추가 공격 발동 | source={sourceName}, warriorBonus={isWarriorBonusAttack}",
+            DebugType.Synergy,
+            this
+        );
+    }
+
+    private bool CanTriggerWarriorExtraAttack(UnitStat unitStat, bool isWarriorBonusAttack)
+    {
+        if (unitStat == null)
+            return false;
+
+        if (isWarriorBonusAttack)
+            return false;
+
+        if (!HasSynergyTag(unitStat, (int)SynergyManager.SynergyType.Warrior))
+            return false;
+
+        if (synergyManager == null && gameManager != null)
+            synergyManager = gameManager.GetComponent<SynergyManager>();
+
+        if (synergyManager == null)
+        {
+            DebugTool.Warnning("SynergyManager 참조가 없어 전사 활성 여부를 확인하지 못했습니다.", DebugType.Synergy, this);
+            return false;
+        }
+
+        int warriorLevel = synergyManager.GetSynergyLevel((int)SynergyManager.SynergyType.Warrior);
+        return warriorLevel >= 3;
+    }
+
+    private bool HasSynergyTag(UnitStat unitStat, int synergyId)
+    {
+        if (unitStat == null || unitStat.SynergIDs == null)
+            return false;
+
+        for (int i = 0; i < unitStat.SynergIDs.Length; i++)
+        {
+            if (unitStat.SynergIDs[i] == synergyId)
+                return true;
+        }
+
+        return false;
     }
 
     private GameObject GetHitEffect(UnitStat unitStat)
