@@ -41,11 +41,29 @@ public class UnitInfoPanelUI : MonoBehaviour
     {
         Clear();
 
-        if (_collectUnitInfo == null) return;
+        if (_collectUnitInfo == null)
+        {
+            DebugTool.Log("선택 유닛 컴포넌트 = null", DebugType.Game, this);
+            gameObject.SetActive(false);
+            return;
+        }
 
-        if (_collectUnitInfo.selectedUnit == null) return;
+        if (_collectUnitInfo.selectedUnit == null)
+        {
+            DebugTool.Log("선택 유닛 = null", DebugType.Game, this);
+            gameObject.SetActive(false);
+            return;
+        }
 
-        UnitStat unitStat = _collectUnitInfo.selectedUnit.GetComponent<UnitStat>();
+        GameObject unit = _collectUnitInfo.selectedUnit;
+
+        UnitStat unitStat = unit.GetComponent<UnitStat>();
+
+        if (unitStat == null || unitStat.Id == 0)
+        {
+            DebugTool.Log("선택 유닛 컴포넌트 = null", DebugType.Game, this);
+            return;
+        }
 
         // TODO : 로컬라이징 적용
         _nameText.text = unitStat.Name;
@@ -65,6 +83,8 @@ public class UnitInfoPanelUI : MonoBehaviour
             SynergyTagUI synergyTagUI = prefab.GetComponent<SynergyTagUI>();
             synergyTagUI.SetData(unitStat.SynergIDs[i]);
         }
+
+        unit = null;
     }
 
     public void Clear()

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Events;
 using Debug = UnityEngine.Debug;
 
 public class PlayerUIController : MonoBehaviour
@@ -9,6 +10,8 @@ public class PlayerUIController : MonoBehaviour
     [SerializeField] private SummonManager _summonManger;
     [SerializeField] private CombineManager _combineManger;
     [SerializeField] private UnitEnhanceSO _unitEnhanceSO;
+    [SerializeField] private UnitInfoPanelUI _unitInfoPanelUI;
+    
     
     private readonly int MAX_PLAYER_LEVEL = 5;
     private readonly int MAX_UNIT_LEVEL = 20;
@@ -23,6 +26,8 @@ public class PlayerUIController : MonoBehaviour
     // 유닛 판매 시 호출
     public void OnUnitSell(GameObject unit)
     {
+        DebugTool.Log("유닛 판매 버튼", DebugType.Unit, this);
+        
         if (unit == null)
         {
             DebugTool.Log("유닛이 없습니다.", DebugType.Game, this);
@@ -37,9 +42,9 @@ public class PlayerUIController : MonoBehaviour
             return;
         }
         
-        _summonManger?.DespawnUnit(towerUnit);
         
         UnitStat stat = unit.GetComponent<UnitStat>();
+        
         if(stat == null)
         {
             DebugTool.Log("UnitStat 컴포넌트를 찾을 수 없습니다.", DebugType.Game, this);
@@ -51,6 +56,10 @@ public class PlayerUIController : MonoBehaviour
         int sellGold = SellUnit(payback, stat.Tier);
 
         _player.Gold += sellGold;
+        _summonManger?.DespawnUnit(towerUnit);
+        
+        unit = null;
+        _unitInfoPanelUI.gameObject.SetActive(false);
     }
 
     private int SellUnit(int payback, int tier)
@@ -76,15 +85,18 @@ public class PlayerUIController : MonoBehaviour
                 
         
         _player.Gold -= COMBINE_GOLD;
-        DebugTool.Log("유닛 합성 완료", DebugType.Combine, this);
+        _unitInfoPanelUI.gameObject.SetActive(false);
     }
     
     // 유닛 업그레이드 시 호출
     public void OnUnitUpgrade(GameObject unit)
     {
+        DebugTool.Log("유닛 업그레이드 버튼", DebugType.Unit, this);
+        
         if (unit == null)
         {
             DebugTool.Log("게임 오브젝트를 찾을 수 없습니다.", DebugType.Unit, this);
+            return;
         }
         
         UnitStat stat = unit.GetComponent<UnitStat>();
@@ -93,9 +105,10 @@ public class PlayerUIController : MonoBehaviour
         int unitTier = stat.Tier;
         int unitLevel = stat.Level;
 
-        if (unitLevel < MAX_UNIT_LEVEL)
+        if (unitLevel == MAX_UNIT_LEVEL)
         {
             DebugTool.Log($"유닛 레벨 {unitLevel} : 이미 최고 레벨 입니다.", DebugType.Unit, this);
+            return;
         }
 
         int gold; 
@@ -111,7 +124,7 @@ public class PlayerUIController : MonoBehaviour
                 gold = unitLevel * 10 + 50;
                 break;
             case 4:
-                gold =  unitLevel * 20 + 100;
+                gold = unitLevel * 20 + 100;
                 break;
             default:
                 gold = 10000;
@@ -127,8 +140,11 @@ public class PlayerUIController : MonoBehaviour
         float UpgradeRatio = _unitEnhanceSO.UnitEnhanceDatas[unitID - 10001].EnhanceValue;
 
         _player.Gold -= gold;
+        stat.Level++;
         stat.CurrentAttackPower = stat.BaseAttackPower + (stat.BaseAttackPower * UpgradeRatio) * (unitLevel - 1);
         DebugTool.Log($"유닛 강화 성공! [유닛 레벨 : {unitLevel} | 소모 골드 : {gold}", DebugType.Unit, this);
+
+        _unitInfoPanelUI.RefreshUnitInfo();
     }
     
     // 플레이어 레벨 업그레이드 시 호출
@@ -168,8 +184,9 @@ public class PlayerUIController : MonoBehaviour
             NotEnoughGold();
             return;
         }
-        _player.Gold -= SUMMON_GOLD;
-        _summonManger.SummonRandomUnit();
+
+        if(_summonManger.SummonRandomUnit())
+            _player.Gold -= SUMMON_GOLD;
     }
 
     private void NotEnoughGold()
