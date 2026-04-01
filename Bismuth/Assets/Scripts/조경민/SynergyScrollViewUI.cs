@@ -82,5 +82,6 @@ public class SynergyScrollViewUI : MonoBehaviour
         }
 
         _synergys.Clear();
+        DebugTool.Log("Synergys cleared", DebugType.Synergy, this);
     }
 }

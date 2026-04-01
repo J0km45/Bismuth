@@ -140,6 +140,36 @@ public class UnitAttackSensor : MonoBehaviour
         return monstersInRange[0];
     }
 
+    public List<MonsterController> GetTargets(int count, MonsterController priorityTarget = null)
+    {
+        List<MonsterController> targets = new List<MonsterController>();
+
+        if (count <= 0)
+            return targets;
+
+        PruneInvalidTargets();
+
+        if (IsTargetAttackable(priorityTarget))
+            targets.Add(priorityTarget);
+
+        for (int i = 0; i < monstersInRange.Count; i++)
+        {
+            MonsterController monster = monstersInRange[i];
+            if (!IsTargetAttackable(monster))
+                continue;
+
+            if (targets.Contains(monster))
+                continue;
+
+            targets.Add(monster);
+
+            if (targets.Count >= count)
+                break;
+        }
+
+        return targets;
+    }
+
     public bool Contains(MonsterController monster)
     {
         if (!IsTargetUsable(monster))
@@ -242,6 +272,11 @@ public class UnitAttackSensor : MonoBehaviour
     private bool IsTargetUsable(MonsterController monster)
     {
         return monster != null && monster.gameObject.activeInHierarchy;
+    }
+
+    private bool IsTargetAttackable(MonsterController monster)
+    {
+        return IsTargetUsable(monster) && monster.CurrentHp > 0f;
     }
 
     private bool IsActuallyInRange(MonsterController monster)

@@ -52,15 +52,16 @@ public class UnitCatalogManager : MonoBehaviour
 
                 for (int i = 0; i < unitCatalog.Count -1; ++i)
                 {
-                    DebugTool.Log($"도감 개수 : {unitCatalogSO.UnitCatalog.Count}, 등록 ID : {stat.Id}", DebugType.Catalog, this);
                     if (unitCatalogSO.UnitCatalog[i].UnitId == stat.Id)
                     {
                         unitCatalogSO.UnitCatalog[i].Name = stat.Name;
                         unitCatalogSO.UnitCatalog[i].UnitId = stat.Id;
                         unitCatalogSO.UnitCatalog[i].Summoned = unitCatalog[stat.Id];
+                        break;
                     }
                 }
 
+                DebugTool.Log($"도감 개수 : {unitCatalogSO.UnitCatalog.Count}, 등록 ID : {stat.Id}", DebugType.Catalog, this);
                 PrintUnitCatalog(stat);
             }
             else

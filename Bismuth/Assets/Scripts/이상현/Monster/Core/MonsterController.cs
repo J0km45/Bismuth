@@ -135,8 +135,25 @@ public class MonsterController : MonoBehaviour
             Died?.Invoke(this);
             gameObject.SetActive(false);
         }
-        GameObject hit = Instantiate(hitEffect, transform.position, Quaternion.identity);
-        hit.AddComponent<HitEffectSpawner>();
+
+        if (hitEffect != null)
+        {
+            GameObject spawnedEffect = HitEffectPool.SpawnPooled(hitEffect, transform.position, Quaternion.identity);
+
+            if (spawnedEffect != null)
+            {
+                HitEffectSpawner effectSpawner = spawnedEffect.GetComponent<HitEffectSpawner>();
+                if (effectSpawner != null)
+                {
+                    effectSpawner.ConfigureFollowTarget(transform, true);
+                }
+                else
+                {
+                    DebugTool.Warnning("피격 이펙트에 HitEffectSpawner가 없어 추적을 적용하지 못했습니다.", DebugType.Enemy, this);
+                }
+            }
+        }
+
 
     }
 
