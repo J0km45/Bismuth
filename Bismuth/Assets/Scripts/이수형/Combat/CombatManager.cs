@@ -67,15 +67,20 @@ public class CombatManager : MonoBehaviour
 
     public bool DamageOccured(GameObject unit, MonsterController currentTarget)
     {
-        return DamageOccured(unit, currentTarget, null, false, false);
+        return DamageOccured(unit, currentTarget, null, false, false, false);
     }
 
     public bool DamageOccured(GameObject unit, MonsterController currentTarget, UnitAttackSensor attackSensor)
     {
-        return DamageOccured(unit, currentTarget, attackSensor, false, false);
+        return DamageOccured(unit, currentTarget, attackSensor, false, false, false);
     }
 
     public bool DamageOccured(GameObject unit, MonsterController currentTarget, UnitAttackSensor attackSensor, bool isWarriorBonusAttack, bool isWizardBonusAttack)
+    {
+        return DamageOccured(unit, currentTarget, attackSensor, isWarriorBonusAttack, isWizardBonusAttack, false);
+    }
+
+    public bool DamageOccured(GameObject unit, MonsterController currentTarget, UnitAttackSensor attackSensor, bool isWarriorBonusAttack, bool isWizardBonusAttack, bool isArcherBonusAttack)
     {
         TowerUnit towerUnit = unit.GetComponent<TowerUnit>();
 
@@ -90,9 +95,9 @@ public class CombatManager : MonoBehaviour
         }
 
         if (unitStat.Range > 1.3f)
-            return FireProjectiles(unit, towerUnit, unitStat, targets, isWarriorBonusAttack, isWizardBonusAttack);
+            return FireProjectiles(unit, towerUnit, unitStat, targets, isWarriorBonusAttack, isWizardBonusAttack, isArcherBonusAttack);
 
-        return ApplyHitscan(unit, unitStat, towerUnit != null ? towerUnit.name : unitStat.Name, targets, isWarriorBonusAttack, isWizardBonusAttack);
+        return ApplyHitscan(unit, unitStat, towerUnit != null ? towerUnit.name : unitStat.Name, targets, isWarriorBonusAttack, isWizardBonusAttack, isArcherBonusAttack);
     }
 
     public bool ResolveProjectileHit(
@@ -105,6 +110,7 @@ public class CombatManager : MonoBehaviour
     bool isAoe,
     bool isWarriorBonusAttack,
     bool isWizardBonusAttack,
+    bool isArcherBonusAttack,
     float explosionRadius,
     Vector3 impactPosition,
     UnitStat unitStat)
@@ -122,7 +128,8 @@ public class CombatManager : MonoBehaviour
                 unitStat,
                 unit,
                 isWarriorBonusAttack,
-                isWizardBonusAttack
+                isWizardBonusAttack,
+                isArcherBonusAttack
             );
         }
 
@@ -136,7 +143,8 @@ public class CombatManager : MonoBehaviour
             unitStat,
             unit,
             isWarriorBonusAttack,
-            isWizardBonusAttack
+            isWizardBonusAttack,
+            isArcherBonusAttack
         );
     }
 
@@ -204,7 +212,7 @@ public class CombatManager : MonoBehaviour
         return attackSensor.GetTargets(targetCount, currentTarget);
     }
 
-    private bool ApplyHitscan(GameObject unit, UnitStat unitStat, string sourceName, List<MonsterController> targets, bool isWarriorBonusAttack, bool isWizardBonusAttack)
+    private bool ApplyHitscan(GameObject unit, UnitStat unitStat, string sourceName, List<MonsterController> targets, bool isWarriorBonusAttack, bool isWizardBonusAttack, bool isArcherBonusAttack)
     {
         GameObject hitEffect = GetHitEffect(unitStat);
         int appliedCount = 0;
@@ -225,7 +233,8 @@ public class CombatManager : MonoBehaviour
                 unitStat,
                 unit,
                 isWarriorBonusAttack,
-                isWizardBonusAttack
+                isWizardBonusAttack,
+                isArcherBonusAttack
             );
 
             if (success)
@@ -244,75 +253,76 @@ public class CombatManager : MonoBehaviour
         return appliedCount > 0;
     }
 
-    private bool FireProjectiles(GameObject unit, TowerUnit towerUnit, UnitStat unitStat, List<MonsterController> targets, bool isWarriorBonusAttack, bool isWizardBonusAttack)
+    private bool FireProjectiles(GameObject unit, TowerUnit towerUnit, UnitStat unitStat, List<MonsterController> targets, bool isWarriorBonusAttack, bool isWizardBonusAttack, bool isArcherBonusAttack)
+{
+    GameObject projectilePrefab = GetProjectilePrefab(unitStat);
+    GameObject hitEffect = GetHitEffect(unitStat);
+    string sourceName = towerUnit != null ? towerUnit.name : unitStat.Name;
+
+    bool isAoe = unitStat.attackTypes == UnitData.AttackTypes.AOE;
+    float explosionRadius = Mathf.Max(0.01f, unitStat.AttackArea);
+
+    int spawnedCount = 0;
+    Vector3 spawnPosition = towerUnit != null ? towerUnit.transform.position : Vector3.zero;
+
+    for (int i = 0; i < targets.Count; i++)
     {
-        GameObject projectilePrefab = GetProjectilePrefab(unitStat);
-        GameObject hitEffect = GetHitEffect(unitStat);
-        string sourceName = towerUnit != null ? towerUnit.name : unitStat.Name;
+        MonsterController target = targets[i];
+        if (!IsTargetValid(target))
+            continue;
 
-        bool isAoe = unitStat.attackTypes == UnitData.AttackTypes.AOE;
-        float explosionRadius = Mathf.Max(0.01f, unitStat.AttackArea);
+        GameObject projectileObject = null;
 
-        int spawnedCount = 0;
-        Vector3 spawnPosition = towerUnit != null ? towerUnit.transform.position : Vector3.zero;
-
-        for (int i = 0; i < targets.Count; i++)
+        if (projectilePrefab != null && projectilePool != null)
         {
-            MonsterController target = targets[i];
-            if (!IsTargetValid(target))
-                continue;
-
-            GameObject projectileObject = null;
-
-            if (projectilePrefab != null && projectilePool != null)
-            {
-                projectileObject = projectilePool.Get(projectilePrefab, spawnPosition, Quaternion.identity);
-            }
-            else if (projectilePrefab != null)
-            {
-                projectileObject = Instantiate(projectilePrefab, spawnPosition, Quaternion.identity);
-            }
-            else
-            {
-                projectileObject = new GameObject($"{sourceName}_Projectile");
-                projectileObject.transform.position = spawnPosition;
-            }
-
-            UnitProjectile projectile = projectileObject.GetComponent<UnitProjectile>();
-            if (projectile == null)
-                projectile = projectileObject.AddComponent<UnitProjectile>();
-
-            projectile.Initialize(
-                unitStat.CurrentAttackPower,
-                unitStat.CritChance,
-                sourceName,
-                target,
-                hitEffect,
-                unit,
-                isAoe,
-                isWarriorBonusAttack,
-                isWizardBonusAttack,
-                explosionRadius,
-                projectileSpeed,
-                projectileHitDistance,
-                projectileMaxLifetime,
-                projectileLog
-            );
-
-            spawnedCount++;
+            projectileObject = projectilePool.Get(projectilePrefab, spawnPosition, Quaternion.identity);
+        }
+        else if (projectilePrefab != null)
+        {
+            projectileObject = Instantiate(projectilePrefab, spawnPosition, Quaternion.identity);
+        }
+        else
+        {
+            projectileObject = new GameObject($"{sourceName}_Projectile");
+            projectileObject.transform.position = spawnPosition;
         }
 
-        if (spawnedCount > 0)
-        {
-            DebugTool.Log(
-                $"투사체 발사 완료 | unit={sourceName}, type={unitStat.attackTypes}, 요청 수={Mathf.Max(1, unitStat.AttackTargetCount)}, 실제 발사 수={spawnedCount}",
-                DebugType.Unit,
-                this
-            );
-        }
+        UnitProjectile projectile = projectileObject.GetComponent<UnitProjectile>();
+        if (projectile == null)
+            projectile = projectileObject.AddComponent<UnitProjectile>();
 
-        return spawnedCount > 0;
+        projectile.Initialize(
+            unitStat.CurrentAttackPower,
+            unitStat.CritChance,
+            sourceName,
+            target,
+            hitEffect,
+            unit,
+            isAoe,
+            isWarriorBonusAttack,
+            isWizardBonusAttack,
+            isArcherBonusAttack,
+            explosionRadius,
+            projectileSpeed,
+            projectileHitDistance,
+            projectileMaxLifetime,
+            projectileLog
+        );
+
+        spawnedCount++;
     }
+
+    if (spawnedCount > 0)
+    {
+        DebugTool.Log(
+            $"투사체 발사 완료 | unit={sourceName}, type={unitStat.attackTypes}, 요청 수={Mathf.Max(1, unitStat.AttackTargetCount)}, 실제 생성 수={spawnedCount}",
+            DebugType.Unit,
+            this
+        );
+    }
+
+    return spawnedCount > 0;
+}
 
     private bool ApplyExplosionDamage(
     float attackPower,
@@ -323,7 +333,8 @@ public class CombatManager : MonoBehaviour
     UnitStat unitStat,
     GameObject unit,
     bool isWarriorBonusAttack,
-    bool isWizardBonusAttack)
+    bool isWizardBonusAttack,
+    bool isArcherBonusAttack)
     {
         EnsureAoeBuffer();
 
@@ -360,7 +371,8 @@ public class CombatManager : MonoBehaviour
                 unitStat,
                 unit,
                 isWarriorBonusAttack,
-                isWizardBonusAttack
+                isWizardBonusAttack,
+                isArcherBonusAttack
             );
 
             if (success)
@@ -397,7 +409,8 @@ public class CombatManager : MonoBehaviour
     UnitStat unitStat,
     GameObject unit,
     bool isWarriorBonusAttack,
-    bool isWizardBonusAttack)
+    bool isWizardBonusAttack,
+    bool isArcherBonusAttack)
     {
         if (!IsTargetValid(target))
             return false;
@@ -407,7 +420,10 @@ public class CombatManager : MonoBehaviour
         float crit = (Random.value < clampedCritChance) ? 0.5f : 0f;
 
         int normalDamage = damageCalculator.CalculateNormalDamage(unitStat, attackPower, target.BaseDefense, crit);
-        int skillDamage = damageCalculator.CalculateSkillDamage(unitStat, attackPower, target.BaseDefense, crit, isWizardBonusAttack);
+        int wizardSkillDamage = damageCalculator.CalculateSkillDamage(unitStat, attackPower, target.BaseDefense, crit, isWizardBonusAttack);
+        int archerSkillDamage = damageCalculator.CalculateArcherSkillDamage(unitStat, target, isArcherBonusAttack);
+
+        int skillDamage = wizardSkillDamage + archerSkillDamage;
         int finalDamage = normalDamage + skillDamage;
         dealtDamage = finalDamage;
 
@@ -426,7 +442,7 @@ public class CombatManager : MonoBehaviour
         unitStat.DealtDamage += dealtDamage;
 
         DebugTool.Log(
-            $"{attackChannel} 피해 적용 | source={sourceName}, target={target.name}, final={finalDamage}, normal={normalDamage}, skill={skillDamage}, crit={(crit > 0f ? "Yes" : "No")}, warriorBonus={isWarriorBonusAttack}, wizardBonus={isWizardBonusAttack}",
+            $"{attackChannel} 피해 적용 | source={sourceName}, target={target.name}, final={finalDamage}, normal={normalDamage}, wizardSkill={wizardSkillDamage}, archerSkill={archerSkillDamage}, crit={(crit > 0f ? "Yes" : "No")}, warriorBonus={isWarriorBonusAttack}, wizardBonus={isWizardBonusAttack}, archerBonus={isArcherBonusAttack}",
             DebugType.Unit,
             this
         );

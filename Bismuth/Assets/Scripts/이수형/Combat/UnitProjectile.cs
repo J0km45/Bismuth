@@ -32,6 +32,7 @@ public class UnitProjectile : MonoBehaviour
     private bool isAoe;
     private bool isWarriorBonusAttack;
     private bool isWizardBonusAttack;
+    private bool isArcherBonusAttack;
     private float explosionRadius;
 
     private float lifeTimer;
@@ -73,6 +74,7 @@ public class UnitProjectile : MonoBehaviour
     bool isAoe,
     bool isWarriorBonusAttack,
     bool isWizardBonusAttack,
+    bool isArcherBonusAttack,
     float explosionRadius,
     float moveSpeed,
     float hitDistance,
@@ -88,6 +90,7 @@ public class UnitProjectile : MonoBehaviour
         this.isAoe = isAoe;
         this.isWarriorBonusAttack = isWarriorBonusAttack;
         this.isWizardBonusAttack = isWizardBonusAttack;
+        this.isArcherBonusAttack = isArcherBonusAttack;
         this.explosionRadius = Mathf.Max(0.01f, explosionRadius);
         this.moveSpeed = Mathf.Max(0.1f, moveSpeed);
         this.hitDistance = Mathf.Max(0.01f, hitDistance);
@@ -173,6 +176,7 @@ public class UnitProjectile : MonoBehaviour
                 isAoe,
                 isWarriorBonusAttack,
                 isWizardBonusAttack,
+                isArcherBonusAttack,
                 explosionRadius,
                 impactPosition,
                 unitStat
@@ -249,6 +253,7 @@ public class UnitProjectile : MonoBehaviour
         isAoe = false;
         isWarriorBonusAttack = false;
         isWizardBonusAttack = false;
+        isArcherBonusAttack = false;
         explosionRadius = 0f;
         lifeTimer = 0f;
     }

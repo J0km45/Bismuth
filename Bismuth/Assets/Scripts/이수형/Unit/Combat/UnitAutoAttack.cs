@@ -22,6 +22,8 @@ public class UnitAutoAttack : MonoBehaviour
 
     private const int GunnerSynergyId = (int)SynergyManager.SynergyType.Gunner;
     private const int WizardSynergyId = (int)SynergyManager.SynergyType.Magician;
+    private const int ArcherSynergyId = (int)SynergyManager.SynergyType.Archer;
+    private const int ArcherRequiredAttackCount = 5;
     private const float WizardBonusCooldownSeconds = 5f;
 
     [Header("Synergy")]
@@ -29,6 +31,7 @@ public class UnitAutoAttack : MonoBehaviour
 
     private bool warnedMissingGunnerSynergyDataController = false;
     private bool warnedMissingWizardSynergyDataController = false;
+    private bool warnedMissingArcherSynergyDataController = false;
 
 
     private TowerUnit towerUnit;
@@ -46,7 +49,10 @@ public class UnitAutoAttack : MonoBehaviour
 
     private bool currentAttackIsWarriorBonus = false;
     private bool currentAttackIsWizardBonus = false;
+    private bool currentAttackIsArcherBonus = false;
+
     private int pendingWarriorExtraAttackCount = 0;
+    private int archerAttackCount = 0;
     private float nextWizardBonusReadyTime = 0f;
 
     private void Awake()
@@ -137,7 +143,9 @@ public class UnitAutoAttack : MonoBehaviour
         hasAppliedHit = false;
         currentAttackIsWarriorBonus = false;
         currentAttackIsWizardBonus = false;
+        currentAttackIsArcherBonus = false;
         pendingWarriorExtraAttackCount = 0;
+        archerAttackCount = 0;
 
         nextAttackReadyTime = Time.time + attackInterval;
         nextWizardBonusReadyTime = Time.time + WizardBonusCooldownSeconds;
@@ -244,8 +252,10 @@ public class UnitAutoAttack : MonoBehaviour
         isAttacking = true;
         hasEnteredAttackState = false;
         hasAppliedHit = false;
+
         currentAttackIsWarriorBonus = isWarriorBonusAttack;
         currentAttackIsWizardBonus = CanUseWizardBonusThisAttack();
+        currentAttackIsArcherBonus = CanUseArcherBonusThisAttack();
 
         nextAttackReadyTime = Time.time + attackInterval;
 
@@ -260,7 +270,7 @@ public class UnitAutoAttack : MonoBehaviour
         if (attackLog)
         {
             DebugTool.Log(
-                $"공격 시작 | target={lockedTarget.name}, interval={attackInterval:F3}, animSpeed={playback.AnimatorSpeed:F2}, animDuration={playback.ActualDuration:F3}, hitNormalized={hitNormalizedTime:F2}, warriorBonus={currentAttackIsWarriorBonus}, wizardBonus={currentAttackIsWizardBonus}",
+                $"공격 시작 | target={lockedTarget.name}, interval={attackInterval:F3}, animSpeed={playback.AnimatorSpeed:F2}, animDuration={playback.ActualDuration:F3}, hitNormalized={hitNormalizedTime:F2}, warriorBonus={currentAttackIsWarriorBonus}, wizardBonus={currentAttackIsWizardBonus}, archerBonus={currentAttackIsArcherBonus}",
                 DebugType.Unit,
                 this
             );
@@ -356,16 +366,22 @@ public class UnitAutoAttack : MonoBehaviour
             lockedTarget,
             attackSensor,
             currentAttackIsWarriorBonus,
-            currentAttackIsWizardBonus
+            currentAttackIsWizardBonus,
+            currentAttackIsArcherBonus
         );
 
-        if (success && currentAttackIsWizardBonus)
-            ConsumeWizardBonus();
+        if (success)
+        {
+            if (currentAttackIsWizardBonus)
+                ConsumeWizardBonus();
+
+            UpdateArcherAttackProgressAfterSuccessfulHit();
+        }
 
         if (attackLog)
         {
             DebugTool.Log(
-                $"히트 판정 | target={lockedTarget.name}, normalized={normalizedTime:F2}, success={success}, warriorBonus={currentAttackIsWarriorBonus}, wizardBonus={currentAttackIsWizardBonus}",
+                $"히트 판정 | target={lockedTarget.name}, normalized={normalizedTime:F2}, success={success}, warriorBonus={currentAttackIsWarriorBonus}, wizardBonus={currentAttackIsWizardBonus}, archerBonus={currentAttackIsArcherBonus}",
                 DebugType.Unit,
                 this
             );
@@ -392,7 +408,7 @@ public class UnitAutoAttack : MonoBehaviour
         if (attackLog)
         {
             DebugTool.Log(
-                $"공격 종료 | lockedTarget={(lockedTarget != null ? lockedTarget.name : "None")}, warriorBonus={currentAttackIsWarriorBonus}, wizardBonus={currentAttackIsWizardBonus}",
+                $"공격 종료 | lockedTarget={(lockedTarget != null ? lockedTarget.name : "None")}, warriorBonus={currentAttackIsWarriorBonus}, wizardBonus={currentAttackIsWizardBonus}, archerBonus={currentAttackIsArcherBonus}",
                 DebugType.Unit,
                 this
             );
@@ -403,6 +419,7 @@ public class UnitAutoAttack : MonoBehaviour
         hasAppliedHit = false;
         currentAttackIsWarriorBonus = false;
         currentAttackIsWizardBonus = false;
+        currentAttackIsArcherBonus = false;
         lockedTarget = null;
 
         if (anim != null)
@@ -521,6 +538,118 @@ public class UnitAutoAttack : MonoBehaviour
                 this
             );
         }
+    }
+
+    private bool CanUseArcherBonusThisAttack()
+    {
+        if (unitStat == null)
+            return false;
+
+        if (!HasSynergyTag(ArcherSynergyId))
+            return false;
+
+        if (archerAttackCount < ArcherRequiredAttackCount)
+            return false;
+
+        float bonusPercent = GetArcherDamageBonusPercent();
+        return bonusPercent > 0f;
+    }
+
+    private void UpdateArcherAttackProgressAfterSuccessfulHit()
+    {
+        if (unitStat == null)
+            return;
+
+        if (!HasSynergyTag(ArcherSynergyId))
+            return;
+
+        float bonusPercent = GetArcherDamageBonusPercent();
+        if (bonusPercent <= 0f)
+            return;
+
+        if (currentAttackIsArcherBonus)
+        {
+            ConsumeArcherBonus(bonusPercent);
+            return;
+        }
+
+        archerAttackCount = Mathf.Min(ArcherRequiredAttackCount, archerAttackCount + 1);
+
+        if (attackLog)
+        {
+            DebugTool.Log(
+                $"궁수 카운트 적립 | unit={unitStat.Name}, count={archerAttackCount}/{ArcherRequiredAttackCount}, bonusPercent={bonusPercent:F2}",
+                DebugType.Synergy,
+                this
+            );
+        }
+    }
+
+    private void ConsumeArcherBonus(float bonusPercent)
+    {
+        if (attackLog)
+        {
+            DebugTool.Log(
+                $"궁수 강화 공격 발동 | unit={unitStat.Name}, bonusPercent={bonusPercent:F2}",
+                DebugType.Synergy,
+                this
+            );
+        }
+
+        archerAttackCount = 0;
+    }
+
+    private float GetArcherDamageBonusPercent()
+    {
+        if (unitStat == null)
+            return 0f;
+
+        if (!HasSynergyTag(ArcherSynergyId))
+            return 0f;
+
+        if (CombatManager.Instance == null)
+            return 0f;
+
+        TryResolveSynergyDataController();
+
+        if (synergyDataController == null)
+        {
+            WarnMissingArcherSynergyDataController();
+            return 0f;
+        }
+
+        SynergyData archerData = synergyDataController.GetById(ArcherSynergyId);
+        if (archerData == null || archerData.Levels == null || archerData.Levels.Count == 0)
+            return 0f;
+
+        int activeCount = CombatManager.Instance.GetSynergyLevel(ArcherSynergyId);
+        float bonusPercent = 0f;
+
+        for (int i = 0; i < archerData.Levels.Count; i++)
+        {
+            SynergyLevelData level = archerData.Levels[i];
+            if (level == null)
+                continue;
+
+            if (activeCount < level.ActiveCount)
+                continue;
+
+            if (level.EffectValues == null || level.EffectValues.Count == 0)
+                continue;
+
+            bonusPercent = level.EffectValues[0];
+        }
+
+        return bonusPercent;
+    }
+
+    private void WarnMissingArcherSynergyDataController()
+    {
+        if (warnedMissingArcherSynergyDataController)
+            return;
+
+        warnedMissingArcherSynergyDataController = true;
+        DebugTool.Warnning("SynergyDataController 참조가 없어 궁수 최대 체력 비례 시너지를 적용하지 않습니다.", DebugType.Synergy, this);
     }
 
     private float GetWizardDamageBonusPercent()

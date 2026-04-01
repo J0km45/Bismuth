@@ -4,6 +4,7 @@ public class DamageCalculator : MonoBehaviour
 {
     private const int WarriorSynergyId = (int)SynergyManager.SynergyType.Warrior;
     private const int WizardSynergyId = (int)SynergyManager.SynergyType.Magician;
+    private const int ArcherSynergyId = (int)SynergyManager.SynergyType.Archer;
 
     [Header("Synergy")]
     [SerializeField] private SynergySO synergySO;
@@ -68,6 +69,73 @@ public class DamageCalculator : MonoBehaviour
             return (int)calculatedDamage + 1;
 
         return (int)calculatedDamage;
+    }
+
+    public int CalculateArcherSkillDamage(UnitStat attackerStat, MonsterController target, bool isArcherBonusAttack)
+    {
+        if (!isArcherBonusAttack)
+            return 0;
+
+        if (target == null)
+            return 0;
+
+        float archerBonusPercent = GetArcherDamageBonusPercent(attackerStat);
+        if (archerBonusPercent <= 0f)
+            return 0;
+
+        float calculatedDamage = target.MaxHp * (archerBonusPercent * 0.01f);
+
+        if (synergyLog)
+        {
+            DebugTool.Log(
+                $"궁수 최대 체력 비례 대미지 적용 | unit={attackerStat?.Name ?? "None"}, target={target.name}, targetMaxHp={target.MaxHp:F2}, bonusPercent={archerBonusPercent:F2}, result={calculatedDamage:F2}",
+                DebugType.Synergy,
+                this
+            );
+        }
+
+        if (Random.value < calculatedDamage - (int)calculatedDamage)
+            return (int)calculatedDamage + 1;
+
+        return (int)calculatedDamage;
+    }
+
+    private float GetArcherDamageBonusPercent(UnitStat attackerStat)
+    {
+        if (!HasSynergyTag(attackerStat, ArcherSynergyId))
+            return 0f;
+
+        TryResolveSynergyManager();
+
+        if (synergyManager == null)
+        {
+            WarnMissingSynergyManager();
+            return 0f;
+        }
+
+        if (synergySO == null)
+        {
+            WarnMissingSynergySo();
+            return 0f;
+        }
+
+        SynergyData archerData = GetSynergyData(ArcherSynergyId);
+        if (archerData == null || archerData.Levels == null || archerData.Levels.Count == 0)
+            return 0f;
+
+        int activeCount = synergyManager.GetSynergyLevel(ArcherSynergyId);
+        float bonus = GetMatchedBonus(archerData, activeCount);
+
+        if (synergyLog && bonus > 0f)
+        {
+            DebugTool.Log(
+                $"궁수 최대 체력 비례 대미지 비율 적용 | unit={attackerStat.Name}, active={activeCount}, bonus={bonus:F2}",
+                DebugType.Synergy,
+                this
+            );
+        }
+
+        return bonus;
     }
 
 
@@ -213,7 +281,7 @@ public class DamageCalculator : MonoBehaviour
             return;
 
         warnedMissingSynergyManager = true;
-        DebugTool.Warnning("SynergyManager를 찾지 못해 전사 공격력 배율을 적용하지 않습니다.", DebugType.Synergy, this);
+        DebugTool.Warnning("SynergyManager를 찾지 못해 시너지 보너스를 적용하지 않습니다.", DebugType.Synergy, this);
     }
 
     private void WarnMissingSynergySo()
@@ -222,6 +290,6 @@ public class DamageCalculator : MonoBehaviour
             return;
 
         warnedMissingSynergySo = true;
-        DebugTool.Warnning("SynergySO 참조가 없어 전사 공격력 배율을 적용하지 않습니다.", DebugType.Synergy, this);
+        DebugTool.Warnning("SynergySO 참조가 없어 시너지 보너스를 적용하지 않습니다.", DebugType.Synergy, this);
     }
 }
