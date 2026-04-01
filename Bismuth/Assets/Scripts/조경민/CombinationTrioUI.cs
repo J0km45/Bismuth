@@ -44,7 +44,7 @@ public class CombinationTrioUI : MonoBehaviour, ICombinationUI
     {
         UnitData unit = _allUnitSO.GetUnitById(id);
 
-        return unit.Sprite;
+        return unit.Icon;
     }
 
     private void OnClickCombine()
