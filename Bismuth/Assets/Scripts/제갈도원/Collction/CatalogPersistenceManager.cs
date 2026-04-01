@@ -58,7 +58,7 @@ public class CatalogPersistenceManager : MonoBehaviour
 
             if (_discoveredIds.Add(unit.Id))
             {
-                Debug.Log($"[도감저장] ★ 새 유닛 발견! ID:{unit.Id} Name:{unit.Name}");
+                Debug.Log($"[도감저장] 새 유닛 발견! ID:{unit.Id} Name:{unit.Name}");
                 MarkSummonedInSO(unit.Id);
                 _dirty = true;
             }

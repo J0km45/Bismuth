@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -6,86 +7,114 @@ using UnityEngine.UI;
 public class CatalogUIController : MonoBehaviour
 {
     [Header("━━━━ 데이터 ━━━━")]
-    [SerializeField] private UnitCatalogSO _unitCatalogSO;
-    [SerializeField] private UnitSO _unitSO;
+    [SerializeField] private UnitCatalogSO _unitCatalogSO; // 소환 여부가 저장된 도감 데이터
+    [SerializeField] private UnitSO _unitSO;               // 전체 유닛 정보 리스트
 
     [Header("━━━━ UI 연결 ━━━━")]
-    [SerializeField] private GameObject _encyclopediaPopup;
-    [SerializeField] private Transform _leftSlotGrid;
-    [SerializeField] private Transform _rightSlotGrid;
-    [SerializeField] private GameObject _slotPrefab;
-    [Tooltip("비우면 PageRoot/LeftPage/PageTitle 등에서 자동 탐색")]
-    [SerializeField] private TextMeshProUGUI _leftPageTitle;
-    [SerializeField] private TextMeshProUGUI _rightPageTitle;
+    [SerializeField] private GameObject _encyclopediaPopup;    // 도감 팝업 오브젝트
+    [SerializeField] private Transform _leftSlotGrid;          // 왼쪽 페이지 슬롯 부모
+    [SerializeField] private Transform _rightSlotGrid;         // 오른쪽 페이지 슬롯 부모
+    [SerializeField] private GameObject _slotPrefab;           // 슬롯 프리팹
+    [SerializeField] private TextMeshProUGUI _leftPageTitle;   // 왼쪽 페이지 번호 텍스트
+    [SerializeField] private TextMeshProUGUI _rightPageTitle;  // 오른쪽 페이지 번호 텍스트
 
-    private int _currentSpread;
-    private const int _SlotsPerPage = 12;
-    private const int _SlotsPerSpread = _SlotsPerPage * 2;
+    private int _currentSpread; // 현재 펼쳐진 양면 페이지 인덱스
+    private Coroutine _spreadRoutine;    // 페이지 갱신 코루틴
 
+    private const int _SlotsPerPage = 12;  // 한 페이지에 들어갈 슬롯 수
+    private const int _SlotsPerSpread = _SlotsPerPage * 2; // 양면(왼쪽+오른쪽) 전체 슬롯 수
+
+    // 전체 유닛 수
     private int TotalUnits => _unitSO.Units.Count;
+
+    // 전체 양면 페이지 수
     private int MaxSpread => Mathf.Max(1, Mathf.CeilToInt((float)TotalUnits / _SlotsPerSpread));
+
+    // 전체 페이지 수
     private int TotalPages => Mathf.Max(1, Mathf.CeilToInt((float)TotalUnits / _SlotsPerPage));
 
-    private HashSet<int> _summonedIds;
-
-    private void Awake()
-    {
-        if (_leftPageTitle == null)
-            _leftPageTitle = transform.Find("PageRoot/LeftPage/PageTitle")?.GetComponent<TextMeshProUGUI>();
-        if (_rightPageTitle == null)
-            _rightPageTitle = transform.Find("PageRoot/RightPage/PageTitle")?.GetComponent<TextMeshProUGUI>();
-    }
 
     private void Start()
     {
-        BuildSummonedSet();
+        // 시작 시 첫 번째 양면 페이지 표시
         _currentSpread = 0;
         ShowSpread(_currentSpread);
     }
 
+    // 도감 버튼 클릭
     public void OpenCatalog()
     {
+        // 도감을 열기 전에 최신 소환 상태 반영
         RefreshSummonedState();
         _encyclopediaPopup.SetActive(true);
     }
 
     public void CloseCatalog()
     {
+        // 도감 팝업 닫기
         _encyclopediaPopup.SetActive(false);
     }
 
     public void RefreshSummonedState()
     {
-        BuildSummonedSet();
+        // 현재 페이지를 다시 그려 소환 상태 갱신
         ShowSpread(_currentSpread);
     }
 
     public void NextPage()
     {
+        // 마지막 양면 페이지가 아니면 다음 페이지로 이동
         if (_currentSpread < MaxSpread - 1)
             ShowSpread(_currentSpread + 1);
     }
 
     public void PrevPage()
     {
+        // 첫 번째 양면 페이지가 아니면 이전 페이지로 이동
         if (_currentSpread > 0)
             ShowSpread(_currentSpread - 1);
     }
 
     public void ShowSpread(int spreadIndex)
     {
+        // 현재 양면 페이지 인덱스를 범위 안에서 보정
         _currentSpread = Mathf.Clamp(spreadIndex, 0, MaxSpread - 1);
 
+        // 이미 페이지 갱신 중이면 중지 후 다시 시작
+        if (_spreadRoutine != null)
+            StopCoroutine(_spreadRoutine);
+
+        _spreadRoutine = StartCoroutine(ShowSpreadRoutine());
+    }
+
+    private IEnumerator ShowSpreadRoutine()
+    {
+        // 현재 양면 페이지 기준으로 왼쪽/오른쪽 시작 인덱스 계산
         int leftStart = _currentSpread * _SlotsPerSpread;
         int rightStart = leftStart + _SlotsPerPage;
 
+        // 기존 슬롯 삭제
+        ClearGridChildren(_leftSlotGrid);
+        ClearGridChildren(_rightSlotGrid);
+
+        // 한 프레임 쉬고 다시 생성
+        yield return null;
+
+        // 왼쪽/오른쪽 페이지 슬롯 채우기
         FillGrid(_leftSlotGrid, leftStart);
         FillGrid(_rightSlotGrid, rightStart);
+
+        // 페이지 번호 갱신
         UpdatePageTitles();
+
+        _spreadRoutine = null;
     }
 
+    
+    // 페이지
     private void UpdatePageTitles()
     {
+        // 양면 페이지 기준 실제 페이지 번호 계산
         int leftNum = _currentSpread * 2 + 1;
         int rightNum = _currentSpread * 2 + 2;
 
@@ -93,26 +122,32 @@ public class CatalogUIController : MonoBehaviour
         SetPageTitle(_rightPageTitle, rightNum <= TotalPages ? rightNum : 0);
     }
 
+    // 페이지 1,2,3,4
     private static void SetPageTitle(TextMeshProUGUI label, int pageNumber)
     {
         if (label == null) return;
+
+        // 페이지가 존재하면 번호 표시, 없으면 빈 문자열
         label.text = pageNumber > 0 ? $"Page {pageNumber}" : "";
     }
 
+    // 미소환 유닛을 어둡게 표시할 색상
     private static readonly Color _dimColor = new Color(0.2f, 0.2f, 0.2f, 1f);
 
     private void FillGrid(Transform grid, int startIndex)
     {
-        ClearGridChildren(grid);
-
         List<UnitData> units = _unitSO.Units;
 
+        // 페이지 슬롯 수만큼 반복 생성
         for (int i = 0; i < _SlotsPerPage; i++)
         {
             int unitIndex = startIndex + i;
+
+            // 슬롯 프리팹 생성
             GameObject slot = Instantiate(_slotPrefab, grid);
             Image icon = slot.transform.Find("Icon").GetComponent<Image>();
 
+            // 해당 인덱스에 유닛 데이터가 없으면 빈 슬롯 처리
             if (unitIndex >= units.Count)
             {
                 icon.sprite = null;
@@ -122,32 +157,34 @@ public class CatalogUIController : MonoBehaviour
 
             UnitData unitData = units[unitIndex];
 
+            // 유닛 아이콘 표시
             icon.sprite = unitData.Sprite;
 
-            bool summoned = _summonedIds != null && _summonedIds.Contains(unitData.Id);
-            icon.color = summoned ? Color.white : _dimColor;
+            // 소환한 유닛이면 밝게, 아니면 어둡게 표시
+            icon.color = IsUnitSummoned(unitData.Id) ? Color.white : _dimColor;
         }
     }
 
-    /// <summary>
-    /// Destroy()는 프레임 끝에 처리되어 같은 프레임에 Instantiate하면 이전 슬롯이 겹쳐 보일 수 있음.
-    /// </summary>
     private static void ClearGridChildren(Transform grid)
     {
+        // 기존 슬롯 전부 삭제
         for (int i = grid.childCount - 1; i >= 0; i--)
-            DestroyImmediate(grid.GetChild(i).gameObject);
+            Object.Destroy(grid.GetChild(i).gameObject);
     }
 
-    private void BuildSummonedSet()
+    private bool IsUnitSummoned(int unitId)
     {
-        _summonedIds = new HashSet<int>();
+        // 도감 데이터가 없으면 기본적으로 미소환 처리
+        if (_unitCatalogSO == null) return false;
 
-        if (_unitCatalogSO == null) return;
-
+        // 해당 유닛 ID를 찾아 소환 여부 반환
         foreach (UnitIdSummonedPair pair in _unitCatalogSO.UnitCatalog)
         {
-            if (pair.Summoned)
-                _summonedIds.Add(pair.UnitId);
+            if (pair.UnitId == unitId)
+                return pair.Summoned;
         }
+
+        // 목록에 없으면 미소환 처리
+        return false;
     }
 }
