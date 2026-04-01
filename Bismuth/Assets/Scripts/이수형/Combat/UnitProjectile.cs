@@ -23,6 +23,7 @@ public class UnitProjectile : MonoBehaviour
 
     private MonsterController target;
     private GameObject hitEffect;
+    private GameObject owner;
     private string sourceName;
 
     private float attackPower;
@@ -35,6 +36,7 @@ public class UnitProjectile : MonoBehaviour
     private ProjectilePoolMember poolMember;
 
     private SpriteRenderer[] spriteRenderers;
+    private UnitStat unitStat;
 
     private void Awake()
     {
@@ -64,6 +66,7 @@ public class UnitProjectile : MonoBehaviour
         string sourceName,
         MonsterController target,
         GameObject hitEffect,
+        GameObject owner,
         bool isAoe,
         float explosionRadius,
         float moveSpeed,
@@ -76,13 +79,14 @@ public class UnitProjectile : MonoBehaviour
         this.sourceName = sourceName;
         this.target = target;
         this.hitEffect = hitEffect;
+        this.owner = owner;
         this.isAoe = isAoe;
         this.explosionRadius = Mathf.Max(0.01f, explosionRadius);
         this.moveSpeed = Mathf.Max(0.1f, moveSpeed);
         this.hitDistance = Mathf.Max(0.01f, hitDistance);
         this.maxLifetime = Mathf.Max(0.1f, maxLifetime);
         this.projectileLog = projectileLog;
-
+        unitStat = owner.GetComponent<UnitStat>();
         lifeTimer = 0f;
 
         if (poolMember == null)
@@ -157,10 +161,12 @@ public class UnitProjectile : MonoBehaviour
                 critChance,
                 target,
                 hitEffect,
+                owner,
                 sourceName,
                 isAoe,
                 explosionRadius,
-                impactPosition
+                impactPosition,
+                unitStat
             );
         }
 

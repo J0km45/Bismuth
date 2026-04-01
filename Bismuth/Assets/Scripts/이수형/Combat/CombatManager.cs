@@ -63,13 +63,15 @@ public class CombatManager : MonoBehaviour
         EnsureAoeBuffer();
     }
 
-    public bool DamageOccured(TowerUnit towerUnit, MonsterController currentTarget)
+    public bool DamageOccured(GameObject unit, MonsterController currentTarget)
     {
-        return DamageOccured(towerUnit, currentTarget, null);
+        return DamageOccured(unit, currentTarget, null);
     }
 
-    public bool DamageOccured(TowerUnit towerUnit, MonsterController currentTarget, UnitAttackSensor attackSensor)
+    public bool DamageOccured(GameObject unit, MonsterController currentTarget, UnitAttackSensor attackSensor)
     {
+        TowerUnit towerUnit = unit.GetComponent<TowerUnit>();
+
         if (!TryGetUnitStat(towerUnit, out UnitStat unitStat))
             return false;
 
@@ -80,10 +82,10 @@ public class CombatManager : MonoBehaviour
             return false;
         }
 
-        if (unitStat.Range > 1f)
-            return FireProjectiles(towerUnit, unitStat, targets);
+        if (unitStat.Range > 1.3f)
+            return FireProjectiles(unit,towerUnit, unitStat, targets);
 
-        return ApplyHitscan(unitStat, towerUnit != null ? towerUnit.name : unitStat.Name, targets);
+        return ApplyHitscan(unit,unitStat, towerUnit != null ? towerUnit.name : unitStat.Name, targets);
     }
 
     public bool ResolveProjectileHit(
@@ -91,10 +93,12 @@ public class CombatManager : MonoBehaviour
     float critChance,
     MonsterController target,
     GameObject hitEffect,
+    GameObject unit,
     string sourceName,
     bool isAoe,
     float explosionRadius,
-    Vector3 impactPosition)
+    Vector3 impactPosition,
+    UnitStat unitStat)
     {
         if (isAoe)
         {
@@ -105,7 +109,9 @@ public class CombatManager : MonoBehaviour
                 critChance,
                 impactPosition,
                 explosionRadius,
-                sourceName
+                sourceName,
+                unitStat,
+                unit
             );
         }
 
@@ -115,7 +121,9 @@ public class CombatManager : MonoBehaviour
             target,
             hitEffect,
             sourceName,
-            "투사체"
+            "투사체",
+            unitStat,
+            unit
         );
     }
 
@@ -183,7 +191,7 @@ public class CombatManager : MonoBehaviour
         return attackSensor.GetTargets(targetCount, currentTarget);
     }
 
-    private bool ApplyHitscan(UnitStat unitStat, string sourceName, List<MonsterController> targets)
+    private bool ApplyHitscan(GameObject unit, UnitStat unitStat, string sourceName, List<MonsterController> targets)
     {
         GameObject hitEffect = GetHitEffect(unitStat);
         int appliedCount = 0;
@@ -200,7 +208,9 @@ public class CombatManager : MonoBehaviour
                 target,
                 hitEffect,
                 sourceName,
-                "히트스캔"
+                "히트스캔",
+                unitStat,
+                unit
             );
 
             if (success)
@@ -215,11 +225,12 @@ public class CombatManager : MonoBehaviour
                 this
             );
         }
+        
 
         return appliedCount > 0;
     }
 
-    private bool FireProjectiles(TowerUnit towerUnit, UnitStat unitStat, List<MonsterController> targets)
+    private bool FireProjectiles(GameObject unit, TowerUnit towerUnit, UnitStat unitStat, List<MonsterController> targets)
     {
         GameObject projectilePrefab = GetProjectilePrefab(unitStat);
         GameObject hitEffect = GetHitEffect(unitStat);
@@ -263,6 +274,7 @@ public class CombatManager : MonoBehaviour
                 sourceName,
                 target,
                 hitEffect,
+                unit,
                 isAoe,
                 explosionRadius,
                 projectileSpeed,
@@ -291,7 +303,9 @@ public class CombatManager : MonoBehaviour
     float critChance,
     Vector3 impactPosition,
     float radius,
-    string sourceName)
+    string sourceName,
+    UnitStat unitStat,
+    GameObject unit)
     {
         EnsureAoeBuffer();
 
@@ -324,7 +338,9 @@ public class CombatManager : MonoBehaviour
                 monster,
                 null,
                 sourceName,
-                "투사체 폭발"
+                "투사체 폭발",
+                unitStat,
+                unit
             );
 
             if (success)
@@ -357,25 +373,42 @@ public class CombatManager : MonoBehaviour
         MonsterController target,
         GameObject hitEffect,
         string sourceName,
-        string attackChannel)
+        string attackChannel,
+        UnitStat unitStat,
+        GameObject unit)
     {
         if (!IsTargetValid(target))
             return false;
-
+        int dealtDamage = 0;
         float clampedCritChance = Mathf.Clamp01(critChance);
         float crit = (Random.value < clampedCritChance) ? 0.5f : 0f;
 
         int normalDamage = damageCalculator.CalculateNormalDamage(attackPower, target.BaseDefense, crit);
         int skillDamage = damageCalculator.CalculateSkillDamage(attackPower, target.BaseDefense, crit);
         int finalDamage = normalDamage + skillDamage;
-
-        target.TakeDamage(finalDamage, hitEffect);
-
+        dealtDamage = finalDamage;
+        if(target.TakeDamage(finalDamage, hitEffect))
+        {
+            unitStat.KillCount++;
+            DebugTool.Log(
+                $"몬스터 처치 수 | source={sourceName}, killCount={unitStat.KillCount}",
+                DebugType.Unit,
+                this
+            );
+        }
+        unitStat.DealtDamage += dealtDamage;
         DebugTool.Log(
             $"{attackChannel} 피해 적용 | source={sourceName}, target={target.name}, final={finalDamage}, normal={normalDamage}, skill={skillDamage}, crit={(crit > 0f ? "Yes" : "No")}",
             DebugType.Unit,
             this
         );
+        DebugTool.Log(
+            $"{attackChannel} 피해 적용 | source={sourceName}, target={target.name}, final={finalDamage}, normal={normalDamage}, skill={skillDamage}, crit={(crit > 0f ? "Yes" : "No")}",
+            DebugType.Unit,
+            this
+        );
+
+
 
         return true;
     }
