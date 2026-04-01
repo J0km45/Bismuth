@@ -3590,7 +3590,6 @@ GameObject:
   - component: {fileID: 5656981451883831424}
   - component: {fileID: 6221640562931147904}
   - component: {fileID: -5747548683383600618}
-  - component: {fileID: 9132364805873257093}
   - component: {fileID: 2165626707050467732}
   m_Layer: 10
   m_Name: 10008
@@ -9949,20 +9948,6 @@ MonoBehaviour:
   attackTypes: 0
   AttackTargetCount: 0
   SynergIDs: 
---- !u!114 &9132364805873257093
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6438905527573206805}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d7fa0d71fc452f84d96c18fef7c59e88, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::UnitController
-  _synergyManager: {fileID: 0}
-  _unitStat: {fileID: 0}
 --- !u!114 &2165626707050467732
 MonoBehaviour:
   m_ObjectHideFlags: 0

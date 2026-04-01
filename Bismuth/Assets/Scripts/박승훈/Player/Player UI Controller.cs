@@ -11,6 +11,7 @@ public class PlayerUIController : MonoBehaviour
     [SerializeField] private CombineManager _combineManger;
     [SerializeField] private UnitEnhanceSO _unitEnhanceSO;
     [SerializeField] private UnitInfoPanelUI _unitInfoPanelUI;
+    [SerializeField] private SynergyManager _synergyManager;
     
     
     private readonly int MAX_PLAYER_LEVEL = 5;
@@ -60,6 +61,7 @@ public class PlayerUIController : MonoBehaviour
         
         unit = null;
         _unitInfoPanelUI.gameObject.SetActive(false);
+        _synergyManager.OnUnitRemoved?.Invoke(stat);
     }
 
     private int SellUnit(int payback, int tier)
@@ -197,5 +199,6 @@ public class PlayerUIController : MonoBehaviour
         _player = GetComponent<PlayerDataManager>();
         _summonManger = GetComponent<SummonManager>();
         _combineManger = GetComponent<CombineManager>();
+        _synergyManager = GetComponent<SynergyManager>();
     }
 }

@@ -43,11 +43,13 @@ public class LobbySceneUI : MonoBehaviour
         _startText.text = "START";
     }
 
+    // 환경 설정 버튼
     public void OnClickSettings()
     {
         _settingsPopup.SetActive(true);
     }
 
+    // 메인 버튼
     public void OnClickMain()
     {
         GameSceneManager.Instance.LoadTitle();
@@ -82,7 +84,7 @@ public class LobbySceneUI : MonoBehaviour
         _difficultyPanel.SetActive(true);
     }
 
-    // 뒤로가기 - 난이도 선택ㅇ에서 맵 선택으로
+    // 뒤로가기 - 난이도 선택에서 맵 선택으로
     public void OnClickBack()
     {
         _currentMapIndex = -1;
@@ -93,7 +95,6 @@ public class LobbySceneUI : MonoBehaviour
 
     public void OnClickStart()
     {
-        // TODO : 씬인덱스 설정후 주석해제
         GameSceneManager.Instance.ChangeScene(GetSceneIndex());
     }
 
