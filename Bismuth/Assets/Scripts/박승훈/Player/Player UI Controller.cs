@@ -179,8 +179,30 @@ public class PlayerUIController : MonoBehaviour
     }
     
     // 유닛 소환 시 호출
-    public void OnSummonUnit()
+    public void OnSummonUnit(int id)
     {
+        if(id > 0)
+        {
+            int index = id - 10001;
+            if (index < 0)
+            {
+                DebugTool.Log("옳지 않은 인덱스 입니다.", DebugType.Unit, this);
+                return;
+            }
+
+            UnitData data = _combineManger.Units.Units[index];
+
+            if (data == null)
+            {
+                DebugTool.Log("존재하지 않는 유닛입니다.", DebugType.Unit, this);
+                return;
+            }
+            
+            _summonManger.SummonCombineUnit(data);
+            return;
+        }
+
+        
         if (_player.Gold < SUMMON_GOLD)
         {
             NotEnoughGold();

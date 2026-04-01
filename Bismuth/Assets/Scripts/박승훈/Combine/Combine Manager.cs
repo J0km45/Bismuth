@@ -11,6 +11,8 @@ public class CombineManager : MonoBehaviour
     [SerializeField] private SummonUnit _summonUnit;
     
     [SerializeField] private UnitSO _units;
+    public UnitSO Units => _units;
+    
     [SerializeField] private CombineSO _combineSO;
     
     //보유중인 유닛의 중복 개수
