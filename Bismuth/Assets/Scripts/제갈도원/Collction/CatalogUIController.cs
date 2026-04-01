@@ -197,7 +197,7 @@ public class CatalogUIController : MonoBehaviour
     public void ShowUnitDetail(UnitData unitData)
     {
         _detailPanel.SetActive(true);
-        _illustration.sprite = unitData.Sprite;
+        _illustration.sprite = unitData.Icon;
         _unitNameText.text = unitData.UnitName;
         _descriptionText.text = unitData.Id.ToString();
     }
