@@ -75,7 +75,6 @@ public class SummonUnit : MonoBehaviour
 
         if (cellHighlight == null)
             cellHighlight = FindAnyObjectByType<CellHighlight>();
-        
         if (worldCamera == null)
             worldCamera = Camera.main;
         
