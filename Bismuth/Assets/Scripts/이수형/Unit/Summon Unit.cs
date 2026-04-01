@@ -75,7 +75,6 @@ public class SummonUnit : MonoBehaviour
 
         if (cellHighlight == null)
             cellHighlight = FindAnyObjectByType<CellHighlight>();
-        
         if (worldCamera == null)
             worldCamera = Camera.main;
         
@@ -108,6 +107,11 @@ public class SummonUnit : MonoBehaviour
 
     public bool TrySummonAndPlace(UnitData data)
     {
+        DebugTool.Log(
+            $"소환 시도",
+            DebugType.Summon,
+            this
+        );
         if (data == null)
         {
             DebugTool.Warnning("소환할 UnitData가 없습니다.", DebugType.Summon, this);
@@ -145,18 +149,26 @@ public class SummonUnit : MonoBehaviour
         }
 
         PrepareSpawnedTower(createdTower, data);
+        DebugTool.Log("PrepareSpawnedTower까지 실행완료",DebugType.Summon,this);
 
         UnitStat stat = ApplyUnitStat(createdTower.gameObject, data);
 
-        EnsureAutoAttack(createdTower.gameObject);
+        SetAnimationController(createdTower.gameObject);
 
+        EnsureAutoAttack(createdTower.gameObject);
+        DebugTool.Log("EnsureAttack까지 실행완료", DebugType.Summon, this);
         synergyManager?.OnUnitCreated?.Invoke(stat);
         unitCatalogManager.OnSummonUnit?.Invoke(stat);
         combineManager.OnAddUnit?.Invoke(stat.Id);
         
         PrintStat(stat);
+        DebugTool.Log("PrintStat까지 실행완료", DebugType.Summon, this);
+
+        
 
         RegisterOwnedTower(data, createdTower, stat);
+        
+
 
         DebugTool.Log(
             $"소환 성공 - {data.UnitName} / 티어 {data.Tier} / 슬롯 {emptySlot.slot.name}",
@@ -310,6 +322,7 @@ public class SummonUnit : MonoBehaviour
 
         unit.gameObject.name = data.Id.ToString();
 
+
         TowerLongPressDragHandler dragHandler = unit.GetComponent<TowerLongPressDragHandler>();
 
 
@@ -333,8 +346,10 @@ public class SummonUnit : MonoBehaviour
 
         stat.Id = unitData.Id;
         stat.Tier = unitData.Tier;
+        stat.Level = 1;
         stat.Name = unitData.UnitName;
-        stat.AttackPower = unitData.AttackPower;
+        stat.BaseAttackPower = unitData.AttackPower;
+        stat.CurrentAttackPower = stat.BaseAttackPower;
         stat.AttackSpeed = unitData.AttackSpeed;
         stat.CritChance = unitData.CriticalChance;
         stat.Range = unitData.Range;
@@ -344,6 +359,19 @@ public class SummonUnit : MonoBehaviour
         stat.SynergIDs = unitData.SynergyIDs;
         DebugTool.Log("스탯 맵핑 완료", DebugType.Data, this);
         return stat;
+    }
+
+    private void SetAnimationController(GameObject unitObject)
+    {
+        if (unitObject == null)
+            return;
+        DebugTool.Log("애니메이션 컨트롤러 설정 시도", DebugType.Unit, this);
+        AnimationController anim = unitObject.GetComponent<AnimationController>();
+        if (anim == null)
+        {
+            anim = unitObject.AddComponent<AnimationController>();
+        }
+        anim.Initialize();
     }
 
     private void RegisterOwnedTower(UnitData data, TowerUnit towerUnit, UnitStat stat)
@@ -377,7 +405,7 @@ public class SummonUnit : MonoBehaviour
         DebugTool.Log($"ID : {stat.Id}\n" +
                       $"Tier : {stat.Tier}\n" +
                       $"Name : {stat.Name}\n" +
-                      $"AttackPower : {stat.AttackPower}\n" +
+                      $"AttackPower : {stat.BaseAttackPower}\n" +
                       $"AttackSpeed : {stat.AttackSpeed}\n" +
                       $"CritChance : {stat.CritChance}\n" +
                       $"Range : {stat.Range}\n" +

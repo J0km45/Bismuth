@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using Unity.VisualScripting.Antlr3.Runtime.Tree;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
@@ -122,7 +123,11 @@ public class SynergyManager : MonoBehaviour
         
         DebugTool.Log(log, DebugType.Synergy, this);
     }
-    
+
+    public int GetSynergyLevel(int synergyType)
+    {
+        return synergiesDict.ContainsKey(synergyType) ? synergiesDict[synergyType].Count : 0;
+    }
     public enum SynergyType
     {
         None = 0,

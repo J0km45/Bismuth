@@ -15,8 +15,9 @@ public class TitleSceneUI : MonoBehaviour
     [Header("━━━━ 패널 ━━━━")]
     [Tooltip("환경 설정 팝업")]
     [SerializeField] private GameObject _settingsPopup;
+    [SerializeField] private LocalizationManager _localizationManager;
 
-    private void OnEnable()
+    private void Start()
     {
         LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
         RefreshText();

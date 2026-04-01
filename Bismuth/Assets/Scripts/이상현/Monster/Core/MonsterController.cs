@@ -114,7 +114,7 @@ public class MonsterController : MonoBehaviour
         HealthChanged?.Invoke(this);
     }
 
-    public void TakeDamage(float damage)
+    public void TakeDamage(float damage, GameObject hitEffect)
     {
         if (damage <= 0f) return;
         if (_hasDied) return;
@@ -135,6 +135,26 @@ public class MonsterController : MonoBehaviour
             Died?.Invoke(this);
             gameObject.SetActive(false);
         }
+
+        if (hitEffect != null)
+        {
+            GameObject spawnedEffect = HitEffectPool.SpawnPooled(hitEffect, transform.position, Quaternion.identity);
+
+            if (spawnedEffect != null)
+            {
+                HitEffectSpawner effectSpawner = spawnedEffect.GetComponent<HitEffectSpawner>();
+                if (effectSpawner != null)
+                {
+                    effectSpawner.ConfigureFollowTarget(transform, true);
+                }
+                else
+                {
+                    DebugTool.Warnning("피격 이펙트에 HitEffectSpawner가 없어 추적을 적용하지 못했습니다.", DebugType.Enemy, this);
+                }
+            }
+        }
+
+
     }
 
     private IEnumerator DeactivateAfterDelay()

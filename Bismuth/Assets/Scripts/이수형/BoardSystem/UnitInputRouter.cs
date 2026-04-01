@@ -9,11 +9,17 @@ public class UnitPointerInputRouter : MonoBehaviour
 
     [Header("Layers")]
     [SerializeField] private LayerMask unitLayer;
+    [SerializeField] private GameObject unitInfoPanel;
+    [SerializeField] private GameObject _combinationScrollView;
 
     private void Awake()
     {
         if (worldCamera == null)
             worldCamera = Camera.main;
+        //DebugTool.Log($"UnitInfoPanel 찾아볼까", DebugType.Unit, this);
+        //unitInfoPanel = GameObject.Find("CombatCanvas").transform.Find("ControlPanel").transform.Find("UnitInfoPanel").gameObject;
+        //DebugTool.Log($"UnitInfoPanel 찾음: {unitInfoPanel.name}", DebugType.UI, this);
+
     }
 
     private void Update()
@@ -21,11 +27,14 @@ public class UnitPointerInputRouter : MonoBehaviour
         if (!Input.GetMouseButtonDown(0))
             return;
 
+        
+
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
         {
             DebugTool.Log("유닛 입력 무시 - UI 위 클릭", DebugType.Unit, this);
             return;
         }
+        GameObject.Find("CombatCanvas").transform.Find("ControlPanel").transform.Find("UnitInfoPanel").gameObject.SetActive(false);
 
         Vector3 mouseWorld = GetMouseWorld();
         DebugTool.Log($"마우스 월드 좌표: {mouseWorld}", DebugType.Board, this);
@@ -48,7 +57,7 @@ public class UnitPointerInputRouter : MonoBehaviour
             return;
         }
 
-        bool started = dragHandler.BeginPress((Vector2)Input.mousePosition);
+        bool started = dragHandler.BeginPress((Vector2)Input.mousePosition, unitInfoPanel);
         if (started)
         {
             DebugTool.Log(
@@ -57,7 +66,20 @@ public class UnitPointerInputRouter : MonoBehaviour
                 this
             );
         }
+        unitInfoPanel.transform.SetAsLastSibling();
+        unitInfoPanel.SetActive(true);
+        if(_combinationScrollView.activeSelf) 
+            _combinationScrollView.SetActive(false);
+
+
     }
+
+    //private void SendUnitInfo()
+    //{
+
+    //    CollectUnitInfo collectUnitInfo = unitInfoPanel.GetComponent<CollectUnitInfo>();
+    //    unitInfoPanel.SetActive(true);
+    //}
 
     private Vector3 GetMouseWorld()
     {

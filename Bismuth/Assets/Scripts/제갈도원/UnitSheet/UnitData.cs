@@ -22,7 +22,10 @@ public class UnitData
     private int id;
 
     [Tooltip("유닛 고유 스프라이트 아이콘")] [SerializeField]
-    private Sprite sprite;
+    private Sprite icon;
+    
+    [Tooltip("유닛 고유 일러스트")] [SerializeField]
+    private Sprite illustration;
 
     [Tooltip("유닛 등급 단계 (1~4)\n1: 1성, 2: 2성, 3: 3성, 4: 4성(레어)")] [Range(1, 4)] [SerializeField]
     private int tier;
@@ -35,7 +38,7 @@ public class UnitData
 
     [Tooltip("치명타 확률 (0~1)\n0.1 = 10%, 0.14 = 14%")] [Range(0f, 1f)] [SerializeField]
     private float criticalChance;
-
+    
     [Tooltip("공격 사거리 (타일 수)")] [Min(1)] [SerializeField]
     private float attackRange;
 
@@ -67,7 +70,8 @@ public class UnitData
     public int Id => id;
     public int Tier => tier;
     public string UnitName => unitName;
-    public Sprite Sprite => sprite;
+    public Sprite Icon => icon;
+    public Sprite Illustration => illustration;
     public float AttackPower => attackPower;
     public float AttackSpeed => attackSpeed;
     public float CriticalChance => criticalChance;
@@ -128,7 +132,8 @@ public class UnitData
         int.TryParse(SafeGet(line, 0), out id);
         int.TryParse(SafeGet(line, 1), out tier);
         unitName = SafeGet(line, 2);
-        sprite = (Sprite)AssetDatabase.LoadAssetAtPath($"Assets/Resources/Units/Sprites/{Id}.png", typeof(Sprite));
+        icon = (Sprite)AssetDatabase.LoadAssetAtPath($"Assets/Resources/Units/Sprites/{Id}.png", typeof(Sprite));
+        illustration = (Sprite)AssetDatabase.LoadAssetAtPath($"Assets/Resources/Units/Illustration/{Id}.png", typeof(Sprite));
         float.TryParse(SafeGet(line, 3), out attackPower);
         attackSpeed = ParseAttackSpeed(SafeGet(line, 4));
         float.TryParse(SafeGet(line, 5).Replace(",", "."), out criticalChance);

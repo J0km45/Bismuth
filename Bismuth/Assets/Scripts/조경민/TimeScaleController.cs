@@ -23,13 +23,26 @@ public class TimeScaleController : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
+    public void ResetState()
+    {
+        _currentSpeed = 1f;
+        _isPausePopupOpened = false;
+        _isSettingsPopupOpened = false;
+        _isPausePanelOpened = false;
+        Time.timeScale = 1f;
+    }
+
     // Time.timeScale 조정
     public void SetTimeScale()
     {
         if (IsPaused)
+        {
             Time.timeScale = 0f;
+        }
         else
+        {
             Time.timeScale = _currentSpeed;
+        }
     }
 
     // Esc 팝업

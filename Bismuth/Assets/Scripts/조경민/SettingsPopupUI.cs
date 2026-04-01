@@ -42,6 +42,7 @@ public class SettingsPopupUI : MonoBehaviour
     public void OnClickClosePopup()
     {
         gameObject.SetActive(false);
+        TimeScaleController.Instance.SetSettingsPopup(false);
     }
 
     private void ShowPanel(GameObject targetPanel)
