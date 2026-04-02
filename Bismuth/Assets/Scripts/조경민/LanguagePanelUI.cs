@@ -7,17 +7,23 @@ public class LanguagePanelUI : MonoBehaviour
 
     [SerializeField] private TMP_Dropdown _languageDropdown;
 
-    private void Awake()
+    private void Start()
     {
         Language currentLanguage = LocalizationManager.Instance.CurrentLanguage;
         _languageDropdown.value = (int)currentLanguage;
         _languageDropdown.onValueChanged.AddListener(OnLanguageChanged);
+        LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
+        RefreshText();
     }
 
-    private void Start()
+    private void OnDestroy()
     {
-        // TODO : 로컬라이징
-        _languageText.text = "LANGUAGE";
+        LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
+    }
+
+    private void RefreshText()
+    {
+        _languageText.text = LocalizationManager.Instance.Get("LANGUAGE");
     }
 
     private void OnLanguageChanged(int index)
