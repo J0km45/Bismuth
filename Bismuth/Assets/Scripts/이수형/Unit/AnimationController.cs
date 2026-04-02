@@ -24,6 +24,7 @@ public class AnimationController : MonoBehaviour
     private SPUM_Prefabs spum;
     private Animator cachedAnimator;
     private int attackStateShortHash;
+    private int idleStateShortHash;
 
     public Animator Animator => cachedAnimator;
     public bool IsInitialized => spum != null && cachedAnimator != null;
@@ -58,6 +59,7 @@ public class AnimationController : MonoBehaviour
 
         spum.OverrideControllerInit();
         attackStateShortHash = Animator.StringToHash(attackStateName);
+        idleStateShortHash = Animator.StringToHash("IDLE");
 
         ResetAnimatorSpeed();
     }
@@ -161,6 +163,33 @@ public class AnimationController : MonoBehaviour
     {
         if (cachedAnimator != null)
             cachedAnimator.speed = defaultAnimatorSpeed;
+    }
+
+    /// <summary>
+    /// IDLE 애니메이션을 명시적으로 재생한다.
+    /// Play()로 ATTACK에 강제 진입한 후, 공격 종료 시 IDLE 복귀를 보장하기 위해 사용한다.
+    /// </summary>
+    public void PlayIdleAnimation()
+    {
+        if (!EnsureInitialized())
+            return;
+
+        cachedAnimator.speed = defaultAnimatorSpeed;
+        spum.PlayAnimation(PlayerState.IDLE, 0);
+
+        // ATTACK과 동일하게 Play()로 IDLE 상태를 강제 진입시킨다.
+        // spum의 Trigger/Bool 기반 전환에만 의존하면,
+        // Play()로 진입한 ATTACK 상태에서 IDLE로 돌아가지 못하는 문제가 있다.
+        cachedAnimator.Play(idleStateShortHash, 0, 0f);
+
+        if (animationLog)
+        {
+            DebugTool.Log(
+                "IDLE 애니메이션 강제 복귀",
+                DebugType.Unit,
+                this
+            );
+        }
     }
 
     /// <summary>

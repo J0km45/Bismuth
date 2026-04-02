@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -29,6 +30,10 @@ public class CombatManager : MonoBehaviour
     [SerializeField, Min(0.01f)] private float aoeEffectScalePerRadius = 2f;
 
     [SerializeField] private SynergyManager synergyManager;
+
+    [Header("Wizard Follow-Up")]
+    [SerializeField, Min(0.05f)] private float wizardFollowUpDelay = 0.35f;
+    [SerializeField] private bool wizardFollowUpLog = false;
 
 
     private Collider2D[] aoeOverlapResults;
@@ -389,8 +394,6 @@ public class CombatManager : MonoBehaviour
         if (!IsTargetValid(target))
             return false;
 
-        int dealtDamage = 0;
-
         float finalCritChance = critChance;
         if (damageCalculator != null)
             finalCritChance = damageCalculator.GetFinalCritChance(unitStat, critChance);
@@ -399,12 +402,20 @@ public class CombatManager : MonoBehaviour
         float crit = (Random.value < clampedCritChance) ? 0.5f : 0f;
 
         int normalDamage = damageCalculator.CalculateNormalDamage(unitStat, attackPower, target.BaseDefense, crit);
-        int wizardSkillDamage = damageCalculator.CalculateSkillDamage(unitStat, attackPower, target.BaseDefense, crit, context.IsWizardBonus);
         int archerSkillDamage = damageCalculator.CalculateArcherSkillDamage(unitStat, target, context.IsArcherBonus);
 
-        int skillDamage = wizardSkillDamage + archerSkillDamage;
-        int finalDamage = normalDamage + skillDamage;
-        dealtDamage = finalDamage;
+        int finalDamage = normalDamage + archerSkillDamage;
+
+        // 마법사 후속타격 예약: 즉시 합산하지 않고 딜레이 후 별도 적용
+        if (context.IsWizardBonus)
+        {
+            int wizardDamage = damageCalculator.CalculateSkillDamage(unitStat, attackPower, target.BaseDefense, crit, true);
+            if (wizardDamage > 0)
+            {
+                Vector3 targetPosition = target.transform.position;
+                ScheduleWizardFollowUp(target, targetPosition, wizardDamage, hitEffect, sourceName, unitStat);
+            }
+        }
 
         if (target.TakeDamage(finalDamage, hitEffect))
         {
@@ -418,10 +429,10 @@ public class CombatManager : MonoBehaviour
             TryTriggerWarriorExtraAttack(unit, unitStat, sourceName, context);
         }
 
-        unitStat.DealtDamage += dealtDamage;
+        unitStat.DealtDamage += finalDamage;
 
         DebugTool.Log(
-            $"{attackChannel} 피해 적용 | source={sourceName}, target={target.name}, final={finalDamage}, normal={normalDamage}, wizardSkill={wizardSkillDamage}, archerSkill={archerSkillDamage}, crit={(crit > 0f ? "Yes" : "No")}, context=[{context}]",
+            $"{attackChannel} 피해 적용 | source={sourceName}, target={target.name}, final={finalDamage}, normal={normalDamage}, archerSkill={archerSkillDamage}, wizardFollowUp={context.IsWizardBonus}, crit={(crit > 0f ? "Yes" : "No")}, context=[{context}]",
             DebugType.Unit,
             this
         );
@@ -572,5 +583,99 @@ public class CombatManager : MonoBehaviour
     public int GetSynergyLevel(int synergyId)
     {
         return synergyManager.GetSynergyLevel(synergyId);
+    }
+
+    // ─────────────────────────────── 마법사 후속타격 ───────────────────────────────
+
+    /// <summary>
+    /// 마법사 후속타격을 딜레이 후 실행하도록 코루틴을 예약한다.
+    /// 타격 시점의 몬스터 위치를 저장해, 몬스터가 죽어도 이펙트가 나오도록 한다.
+    /// </summary>
+    private void ScheduleWizardFollowUp(
+        MonsterController target,
+        Vector3 hitPosition,
+        int damage,
+        GameObject hitEffect,
+        string sourceName,
+        UnitStat unitStat)
+    {
+        StartCoroutine(ExecuteWizardFollowUp(target, hitPosition, damage, hitEffect, sourceName, unitStat));
+
+        if (wizardFollowUpLog)
+        {
+            DebugTool.Log(
+                $"마법사 후속타격 예약 | target={target.name}, damage={damage}, delay={wizardFollowUpDelay:F2}s",
+                DebugType.Synergy,
+                this
+            );
+        }
+    }
+
+    /// <summary>
+    /// 딜레이 후 마법사 후속타격을 실행한다.
+    /// 몬스터가 살아있으면 대미지 + 이펙트, 죽었으면 이펙트만 생성한다.
+    /// </summary>
+    private IEnumerator ExecuteWizardFollowUp(
+        MonsterController target,
+        Vector3 hitPosition,
+        int damage,
+        GameObject hitEffect,
+        string sourceName,
+        UnitStat unitStat)
+    {
+        yield return new WaitForSeconds(wizardFollowUpDelay);
+
+        // 이펙트 위치 결정: 몬스터가 살아있으면 현재 위치, 아니면 타격 시점 위치
+        Vector3 effectPosition = hitPosition;
+        bool targetAlive = target != null
+                           && target.gameObject.activeInHierarchy
+                           && target.CurrentHp > 0f;
+
+        if (targetAlive)
+            effectPosition = target.transform.position;
+
+        // 이펙트는 몬스터 생사와 무관하게 항상 생성
+        if (hitEffect != null)
+        {
+            GameObject spawnedEffect = HitEffectPool.SpawnPooled(hitEffect, effectPosition, Quaternion.identity);
+
+            // 살아있는 몬스터라면 이펙트가 타겟을 추적하도록 설정
+            if (spawnedEffect != null && targetAlive)
+            {
+                HitEffectSpawner effectSpawner = spawnedEffect.GetComponent<HitEffectSpawner>();
+                if (effectSpawner != null)
+                    effectSpawner.ConfigureFollowTarget(target.transform, true);
+            }
+        }
+
+        // 살아있는 몬스터에게만 대미지 적용
+        if (targetAlive)
+        {
+            // 후속타격에는 히트이펙트를 전달하지 않음 (이미 위에서 수동 생성함)
+            if (target.TakeDamage(damage, null))
+            {
+                if (unitStat != null)
+                {
+                    unitStat.KillCount++;
+                    DebugTool.Log(
+                        $"마법사 후속타격으로 처치 | source={sourceName}, killCount={unitStat.KillCount}",
+                        DebugType.Synergy,
+                        this
+                    );
+                }
+            }
+
+            if (unitStat != null)
+                unitStat.DealtDamage += damage;
+        }
+
+        if (wizardFollowUpLog)
+        {
+            DebugTool.Log(
+                $"마법사 후속타격 실행 | target={(target != null ? target.name : "Destroyed")}, alive={targetAlive}, damage={damage}, position={effectPosition}",
+                DebugType.Synergy,
+                this
+            );
+        }
     }
 }

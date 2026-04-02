@@ -121,7 +121,7 @@ public class UnitAutoAttack : MonoBehaviour
             anim = GetComponent<AnimationController>();
 
         EnsureSensor();
-        attackAnimationIndex = unitStat != null && unitStat.Range > 1f ? 2 : 0;
+        attackAnimationIndex = 0;
 
         if (unitStat == null)
         {
@@ -273,7 +273,12 @@ public class UnitAutoAttack : MonoBehaviour
 
         // 애니메이션 배속 적용: 기본 공속에 컨텍스트 배율을 곱한다
         float effectiveAttackSpeed = unitStat.AttackSpeed * context.AnimSpeedMultiplier;
-        AttackPlaybackData playback = anim.PlayAttackAnimation(attackAnimationIndex, effectiveAttackSpeed);
+
+        // 스킬 공격(전사·수인 추가타·마법사 차징)은 index 1(스킬 모션), 일반 공격은 index 0(기본 모션)
+        bool isSkillAttack = context.IsWarriorBonus || context.IsFurryBonus || context.IsWizardBonus;
+        int animIndex = isSkillAttack ? 1 : attackAnimationIndex;
+
+        AttackPlaybackData playback = anim.PlayAttackAnimation(animIndex, effectiveAttackSpeed);
 
         if (!playback.Success)
         {
@@ -284,7 +289,7 @@ public class UnitAutoAttack : MonoBehaviour
         if (attackLog)
         {
             DebugTool.Log(
-                $"공격 시작 | target={lockedTarget.name}, interval={attackInterval:F3}, animSpeed={playback.AnimatorSpeed:F2}, animDuration={playback.ActualDuration:F3}, hitNormalized={hitNormalizedTime:F2}, context=[{currentAttackContext}]",
+                $"공격 시작 | target={lockedTarget.name}, animIndex={animIndex}({(isSkillAttack ? "스킬" : "일반")}), interval={attackInterval:F3}, animSpeed={playback.AnimatorSpeed:F2}, animDuration={playback.ActualDuration:F3}, hitNormalized={hitNormalizedTime:F2}, context=[{currentAttackContext}]",
                 DebugType.Unit,
                 this
             );
@@ -435,8 +440,9 @@ public class UnitAutoAttack : MonoBehaviour
         currentAttackContext = default;
         lockedTarget = null;
 
+        // Play()로 ATTACK에 강제 진입했으므로, 명시적으로 IDLE 복귀시킨다.
         if (anim != null)
-            anim.ResetAnimatorSpeed();
+            anim.PlayIdleAnimation();
     }
 
     private void CancelAttack(string reason)
@@ -457,7 +463,7 @@ public class UnitAutoAttack : MonoBehaviour
         lockedTarget = null;
 
         if (anim != null)
-            anim.ResetAnimatorSpeed();
+            anim.PlayIdleAnimation();
     }
     public void RequestWarriorExtraAttack()
     {
