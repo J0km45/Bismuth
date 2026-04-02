@@ -70,6 +70,7 @@ public class BattleWaveRunner : MonoBehaviour
     public bool IsWaitingForNextWaveStart => _isWaitingForNextWaveStart;
     public bool IsIntermissionActive => _isIntermissionActive;
     public float IntermissionRemainingTime => _intermissionRemainingTime;
+    public MapBattleConfigSO MapBattleConfig => _mapBattleConfig;
 
 
     public event Action<WaveDataSO> NextWaveReady;

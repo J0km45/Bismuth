@@ -11,8 +11,9 @@ GameObject:
   - component: {fileID: 2700537854463618414}
   - component: {fileID: 3618273323108250850}
   - component: {fileID: 5245553872437809374}
+  - component: {fileID: 2853181980217609499}
   m_Layer: 5
-  m_Name: Unit
+  m_Name: UnitResult
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -79,6 +80,22 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &2853181980217609499
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 616117038562488775}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 439085ca974e7dc4094ec3c2dd24c05a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitResultUI
+  _iconImage: {fileID: 8923921603976098938}
+  _nameText: {fileID: 480316377115043159}
+  _totalDamageText: {fileID: 1650278207008708718}
+  _killCountText: {fileID: 2564842000831629473}
 --- !u!1 &1025286347467380655
 GameObject:
   m_ObjectHideFlags: 0

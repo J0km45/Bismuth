@@ -782,6 +782,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8671bf31c6f0649468d77bb3be8925bb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SynergyManager
+--- !u!114 &5748332765439244461 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8554172300313096461, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
+  m_PrefabInstance: {fileID: 4138993132746000800}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 365148334261707198}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 941f1af0371aca84eb9a91411a86a501, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SummonUnit
 --- !u!1001 &4950030666480766642
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1008,12 +1019,25 @@ PrefabInstance:
       propertyPath: m_SizeDelta.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8825106218618597317, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
+      propertyPath: _summonUnit
+      value: 
+      objectReference: {fileID: 5748332765439244461}
+    - target: {fileID: 8825106218618597317, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
+      propertyPath: _unitResultPrefab
+      value: 
+      objectReference: {fileID: 2853181980217609499, guid: 23ef5872e35c78b489ff988fdd872497, type: 3}
+    - target: {fileID: 8825106218618597317, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
+      propertyPath: _unitResultContent
+      value: 
+      objectReference: {fileID: 7894016555657958493}
     - target: {fileID: 9176925757495718663, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
       propertyPath: playerUIController
       value: 
       objectReference: {fileID: 1121310140938283910}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 7478036338029134460, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
@@ -1043,6 +1067,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5aa02fffde1a19449ae09a69e2f23caa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ControlPanelUI
+--- !u!224 &7894016555657958493 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 2904191598765411772, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
+  m_PrefabInstance: {fileID: 5026277650677471713}
+  m_PrefabAsset: {fileID: 0}
 --- !u!114 &8868376983889403723 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 4526716884139624106, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}

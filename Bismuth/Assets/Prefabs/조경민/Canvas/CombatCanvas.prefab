@@ -6979,13 +6979,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f0524d59eb9274f49aafdaf4b6d6af4d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameclearPopupUI
+  _summonUnit: {fileID: 0}
   _totalDamageText: {fileID: 2419296455182462649}
   _damageText: {fileID: 2992529986167881289}
   _clearText: {fileID: 8637274712759647801}
   _stageText: {fileID: 434535675352145738}
-  _retryText: {fileID: 2195015745241316111}
   _mainText: {fileID: 3705900645967995181}
   _mvpImage: {fileID: 1920997196222201619}
+  _unitResultContent: {fileID: 2904191598765411772}
+  _unitResultPrefab: {fileID: 2853181980217609499, guid: 23ef5872e35c78b489ff988fdd872497, type: 3}
 --- !u!1 &4052867441807034202
 GameObject:
   m_ObjectHideFlags: 0
@@ -14591,6 +14593,8 @@ MonoBehaviour:
   _darkness: 0.6
   _pauseSprite: {fileID: 0}
   _playSprite: {fileID: 0}
+  _gameclearPopupUI: {fileID: 0}
+  _gameoverPopupUI: {fileID: 0}
 --- !u!1 &8090338936445244262
 GameObject:
   m_ObjectHideFlags: 0
