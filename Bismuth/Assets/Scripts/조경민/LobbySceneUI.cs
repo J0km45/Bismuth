@@ -10,10 +10,12 @@ public class LobbySceneUI : MonoBehaviour
     [SerializeField] private TMP_Text _startText;
     [Tooltip("맵 정보")]
     [SerializeField] private TMP_Text _infoText;
+    [Tooltip("맵 정보")]
+    [SerializeField] private TMP_Text _howToPlayText;
 
     [Header("━━━━ 테두리 ━━━━")]
-    [Tooltip("전투 버튼")]
-    [SerializeField] private GameObject _combatOutline;
+    // [Tooltip("전투 버튼")]
+    // [SerializeField] private GameObject _combatOutline;
     [Tooltip("쉬움")]
     [SerializeField] private GameObject _easyOutline;
     [Tooltip("보통")]
@@ -28,6 +30,10 @@ public class LobbySceneUI : MonoBehaviour
     [SerializeField] private GameObject _mapScrollView;
     [Tooltip("난이도")]
     [SerializeField] private GameObject _difficultyPanel;
+    [Tooltip("게임 방법")]
+    [SerializeField] private GameObject _howToPlayPanel;
+    [Tooltip("게임 방법")]
+    [SerializeField] private GameObject _encyclopdiaPanel;
 
     [Header("━━━━ 버튼 ━━━━")]
     [SerializeField] private GameObject _startButton;
@@ -58,12 +64,15 @@ public class LobbySceneUI : MonoBehaviour
     // 전투 버튼 - 클릭하면 맵 선택 스크롤뷰 나옴
     public void OnClickCombat()
     {
+        _howToPlayPanel.SetActive(false);
+        _encyclopdiaPanel.SetActive(false);
+        
         // 난이도 선택이 열려있을땐 다 닫음
         if (_difficultyPanel.activeSelf)
         {
             _difficultyPanel.SetActive(false);
             _mapScrollView.SetActive(false);
-            _combatOutline.SetActive(false);
+            // _combatOutline.SetActive(false);
 
             _currentMapIndex = -1;
             ResetDifficulty();
@@ -71,9 +80,20 @@ public class LobbySceneUI : MonoBehaviour
         }
 
         bool isActive = _mapScrollView.activeSelf;
-        _combatOutline.SetActive(!isActive);
+        // _combatOutline.SetActive(!isActive);
         _mapScrollView.SetActive(!isActive);
         if (!isActive) SetDifficulty(Difficulty.None);
+    }
+    // 게임 방법 버튼
+    public void OnClickHowToPlay()
+    {
+        _difficultyPanel.SetActive(false);
+        _settingsPopup.SetActive(false);
+        _mapScrollView.SetActive(false);
+        _encyclopdiaPanel.SetActive(false);
+        
+        bool isActive = _howToPlayPanel.activeSelf;
+        _howToPlayPanel.SetActive(!isActive);
     }
 
     // 맵 선택
@@ -82,6 +102,8 @@ public class LobbySceneUI : MonoBehaviour
         _currentMapIndex = index;
         _mapScrollView.SetActive(false);
         _difficultyPanel.SetActive(true);
+        _howToPlayPanel.SetActive(false);
+        _encyclopdiaPanel.SetActive(false);
     }
 
     // 뒤로가기 - 난이도 선택에서 맵 선택으로

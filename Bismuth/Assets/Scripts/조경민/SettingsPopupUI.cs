@@ -4,6 +4,8 @@ using UnityEngine;
 public class SettingsPopupUI : MonoBehaviour
 {
     [Header("━━━━ 텍스트 ━━━━")]
+    [Tooltip("Screen")]
+    [SerializeField] private TMP_Text _ScreenText;
     [Tooltip("Control")]
     [SerializeField] private TMP_Text _controlText;
     [Tooltip("Volume")]
@@ -11,7 +13,8 @@ public class SettingsPopupUI : MonoBehaviour
     [Tooltip("Language")]
     [SerializeField] private TMP_Text _languageText;
 
-    [Header("━━━━ 패널 ━━━━")]
+    [Header("━━━━ 패널 ━━━━")] 
+    [SerializeField] private GameObject _ScreenPanel;
     [SerializeField] private GameObject _controlPanel;
     [SerializeField] private GameObject _volumePanel;
     [SerializeField] private GameObject _languagePanel;
@@ -22,6 +25,11 @@ public class SettingsPopupUI : MonoBehaviour
         _controlText.text = "Control";
         _volumeText.text = "Volume";
         _languageText.text = "Language";
+    }
+
+    public void OnClickShowScreen()
+    {
+        ShowPanel(_ScreenPanel);
     }
 
     public void OnClickShowControl()
@@ -47,6 +55,7 @@ public class SettingsPopupUI : MonoBehaviour
 
     private void ShowPanel(GameObject targetPanel)
     {
+        _ScreenPanel.SetActive(false);
         _controlPanel.SetActive(false);
         _volumePanel.SetActive(false);
         _languagePanel.SetActive(false);
