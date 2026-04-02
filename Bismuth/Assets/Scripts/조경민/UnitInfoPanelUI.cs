@@ -27,6 +27,8 @@ public class UnitInfoPanelUI : MonoBehaviour
     private CollectUnitInfo _collectUnitInfo;
     private List<GameObject> _synergyTags = new List<GameObject>();
 
+    private UnitStat _unitStat;
+
     private void Awake()
     {
         _collectUnitInfo = GetComponent<CollectUnitInfo>();
@@ -57,37 +59,43 @@ public class UnitInfoPanelUI : MonoBehaviour
 
         GameObject unit = _collectUnitInfo.selectedUnit;
 
-        UnitStat unitStat = unit.GetComponent<UnitStat>();
+        _unitStat = unit.GetComponent<UnitStat>();
 
-        if (unitStat == null || unitStat.Id == 0)
+        if (_unitStat == null || _unitStat.Id == 0)
         {
-            DebugTool.Log("선택 유닛 컴포넌트 = null", DebugType.Game, this);
+            DebugTool.Log("UnitStat 없음", DebugType.Game, this);
             return;
         }
 
-        // TODO : 로컬라이징 적용
-        _nameText.text = unitStat.Name;
-        _levelText.text = $"Lv {unitStat.Level}";
-        _tierText.text = $"{unitStat.Tier} 단계";
-        _statText.text = $"공격력 : {unitStat.CurrentAttackPower}\n공속 : {unitStat.AttackSpeed}";
-        _descriptionText.text = "설명";
+        _nameText.text = LocalizationManager.Instance.Get(_unitStat.Name);
+        _tierText.text = $"{_unitStat.Tier} {LocalizationManager.Instance.Get("TIER")}";
+        _descriptionText.text = "---";
 
-        for (int i = 0; i < unitStat.SynergIDs.Length; i++)
+        for (int i = 0; i < _unitStat.SynergIDs.Length; i++)
         {
-            int synergyId = unitStat.SynergIDs[i];
+            int synergyId = _unitStat.SynergIDs[i];
             if (synergyId == 0) continue;
 
             GameObject prefab = Instantiate(_synergyTagPrefab, _tagGroup);
             _synergyTags.Add(prefab);
 
             SynergyTagUI synergyTagUI = prefab.GetComponent<SynergyTagUI>();
-            synergyTagUI.SetData(unitStat.SynergIDs[i]);
+            synergyTagUI.SetData(synergyId);
         }
 
-        unit = null;
+        RefreshStats();
     }
 
-    public void Clear()
+    public void RefreshStats()
+    {
+        _levelText.text = $"Lv {_unitStat.Level}";
+
+        _statText.text =
+            $"{LocalizationManager.Instance.Get("ATTACK_POWER")} : {_unitStat.CurrentAttackPower}" +
+            $"\n{LocalizationManager.Instance.Get("ATTACK_SPEED")} : {_unitStat.AttackSpeed}";
+    }
+
+    private void Clear()
     {
         _nameText.text = "";
         _levelText.text = "";

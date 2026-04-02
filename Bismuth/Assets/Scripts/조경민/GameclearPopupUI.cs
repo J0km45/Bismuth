@@ -3,7 +3,6 @@ using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static SummonUnit;
 
 public class GameclearPopupUI : MonoBehaviour
 {
@@ -20,7 +19,7 @@ public class GameclearPopupUI : MonoBehaviour
     [SerializeField] private TMP_Text _stageText;
     //[Tooltip("다시시작")]
     //[SerializeField] private TMP_Text _retryText;
-    [Tooltip("메인화면")]
+    [Tooltip("로비화면")]
     [SerializeField] private TMP_Text _mainText;
 
     [Header("━━━━ 이미지 ━━━━")]
@@ -33,28 +32,32 @@ public class GameclearPopupUI : MonoBehaviour
     [Tooltip("유닛결과(프리팹)")]
     [SerializeField] private UnitResultUI _unitResultPrefab;
 
-    private void Start()
+    private void OnEnable()
     {
-        // TODO : 로컬라이징 수정
-        _totalDamageText.text = "Total Damage";
-        _clearText.text = "CLEAR";
-        _mainText.text = "MAIN";
+        RefreshText();
+    }
+
+    private void RefreshText()
+    {
+        _totalDamageText.text = LocalizationManager.Instance.Get("TOTAL_DMG");
+        _clearText.text = LocalizationManager.Instance.Get("CLEAR");
+        _mainText.text = LocalizationManager.Instance.Get("LOBBY");
     }
 
     public void ShowResult(string mapName, string difficulty)
     {
-        List<SummonedTowerRecord> sortedList = _summonUnit.OwnedTowers
+        List<SummonUnit.SummonedTowerRecord> sortedList = _summonUnit.OwnedTowers
             .OrderByDescending(unit => unit.unitStat.DealtDamage)  // 딜량 높은 순
             .ThenByDescending(unit => unit.unitStat.KillCount)     // 딜량이 같다면 킬수 높은 순
             .ToList();
 
-        SummonedTowerRecord mvp = sortedList[0];
+        SummonUnit.SummonedTowerRecord mvp = sortedList[0];
         _mvpImage.sprite = mvp.unitData.Illustration;
         _damageText.text = FormatDamage(mvp.unitStat.DealtDamage);
 
-        _stageText.text = $"{mapName} - {difficulty}";
+        _stageText.text = $"{LocalizationManager.Instance.Get(mapName)} - {LocalizationManager.Instance.Get(difficulty)}";
 
-        foreach (SummonedTowerRecord record in sortedList)
+        foreach (SummonUnit.SummonedTowerRecord record in sortedList)
         {
             UnitResultUI item = Instantiate(_unitResultPrefab, _unitResultContent);
             item.SetData(record);
@@ -84,6 +87,6 @@ public class GameclearPopupUI : MonoBehaviour
 
     public void OnClickMain()
     {
-        GameSceneManager.Instance.LoadTitle();
+        GameSceneManager.Instance.ChangeScene(1);
     }
 }

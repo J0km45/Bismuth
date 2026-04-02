@@ -12,12 +12,21 @@ public class UnitResultUI : MonoBehaviour
     [SerializeField] private TMP_Text _totalDamageText;
     [SerializeField] private TMP_Text _killCountText;
 
+    SummonUnit.SummonedTowerRecord _record;
+
     public void SetData(SummonUnit.SummonedTowerRecord record)
     {
-        _nameText.text = record.unitData.UnitName;
+        _record = record;
         _iconImage.sprite = record.unitData.Icon;
-        _totalDamageText.text = FormatDamage(record.unitStat.DealtDamage);
-        _killCountText.text = record.unitStat.KillCount.ToString();
+
+        RefreshText();
+    }
+
+    private void RefreshText()
+    {
+        _nameText.text = LocalizationManager.Instance.Get(_record.unitData.UnitName);
+        _totalDamageText.text = $"{LocalizationManager.Instance.Get("TOTAL_DMG")} : {FormatDamage(_record.unitStat.DealtDamage)}";
+        _killCountText.text = $"{LocalizationManager.Instance.Get("KILL_COUNT")} : {_record.unitStat.KillCount}";
     }
 
     private string FormatDamage(int damage)

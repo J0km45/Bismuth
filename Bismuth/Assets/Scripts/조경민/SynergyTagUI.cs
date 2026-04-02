@@ -7,11 +7,27 @@ public class SynergyTagUI : MonoBehaviour
     [SerializeField] private TMP_Text _synergyTagText;
     [SerializeField] private SynergySO _synergySO;
 
-    // TODO : 로컬라이징
+    private SynergyData _data;
+
+    private void OnEnable()
+    {
+        LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
+    }
+
+    private void OnDisable()
+    {
+        LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
+    }
+
     public void SetData(int synergyID)
     {
-        SynergyData data = GetSynergyData(synergyID);
-        _synergyTagText.text = data.SynergyName;
+        _data = GetSynergyData(synergyID);
+        RefreshText();
+    }
+
+    private void RefreshText()
+    {
+        _synergyTagText.text = LocalizationManager.Instance.Get(_data.SynergyName);
     }
 
     private SynergyData GetSynergyData(int synergyId)

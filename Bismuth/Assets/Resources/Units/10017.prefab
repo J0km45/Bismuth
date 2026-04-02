@@ -897,7 +897,6 @@ MonoBehaviour:
   EditChk: 0
   _code: 10017
   _anim: {fileID: 9151222970071198123}
-  OverrideController: {fileID: 0}
   UnitType: Unit
   spumPackages:
   - Name: J_create
@@ -7558,6 +7557,7 @@ MonoBehaviour:
   - {fileID: 7400000, guid: 5187132de96c18244b62b7d6e2580323, type: 2}
   ATTACK_List:
   - {fileID: 7400000, guid: c66e5eb2778574f1abbd40dcb05e1df7, type: 2}
+  - {fileID: 7400000, guid: b2c5fb441f4ac42c2a2e051601eea60a, type: 2}
   DAMAGED_List:
   - {fileID: 7400000, guid: eeb8ba3a0a6cb63499a6fa72e6ad7358, type: 2}
   DEBUFF_List:
@@ -7594,6 +7594,8 @@ MonoBehaviour:
   attackTypes: 0
   AttackTargetCount: 0
   SynergIDs: 
+  KillCount: 0
+  DealtDamage: 0
 --- !u!114 &7288899512980139184
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -23,6 +23,11 @@ public class VolumePanelUI : MonoBehaviour
     [SerializeField] private TMP_Text _sfxPercentText;
     [SerializeField] private TMP_Text _uiPercentText;
 
+    private void OnEnable()
+    {
+        RefreshText();
+    }
+
     private void Start()
     {
         InitSlider(_masterSlider, AudioManager.Instance.MasterVolume, OnMasterChanged);
@@ -34,12 +39,14 @@ public class VolumePanelUI : MonoBehaviour
         UpdatePercentText(_bgmPercentText, _bgmSlider.value);
         UpdatePercentText(_sfxPercentText, _sfxSlider.value);
         UpdatePercentText(_uiPercentText, _uiSlider.value);
+    }
 
-        // TODO : 로컬라이징 수정
-        _masterText.text = "MASTER VOLUME";
-        _bgmText.text = "BGM";
-        _sfxText.text = "SFX";
-        _uiText.text = "UI";
+    private void RefreshText()
+    {
+        _masterText.text = LocalizationManager.Instance.Get("MASTER_VOLUME");
+        _bgmText.text = LocalizationManager.Instance.Get("BGM");
+        _sfxText.text = LocalizationManager.Instance.Get("BATTLE_SFX");
+        _uiText.text = LocalizationManager.Instance.Get("UI_SFX");
     }
 
     private void InitSlider(Slider slider, float value, UnityAction<float> call)
@@ -75,7 +82,7 @@ public class VolumePanelUI : MonoBehaviour
         AudioManager.Instance.SetUIVolume(value);
         UpdatePercentText(_uiPercentText, value);
     }
-    
+
     private void UpdatePercentText(TMP_Text text, float value)
     {
         if (text == null) return;

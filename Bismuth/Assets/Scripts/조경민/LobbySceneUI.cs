@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class LobbySceneUI : MonoBehaviour
 {
@@ -8,10 +9,12 @@ public class LobbySceneUI : MonoBehaviour
     [SerializeField] private TMP_Text _combatText;
     [Tooltip("전투시작")]
     [SerializeField] private TMP_Text _startText;
-    [Tooltip("맵 정보")]
+    [Tooltip("난이도 정보")]
     [SerializeField] private TMP_Text _infoText;
-    [Tooltip("맵 정보")]
+    [Tooltip("게임 방법")]
     [SerializeField] private TMP_Text _howToPlayText;
+    [Tooltip("도감")]
+    [SerializeField] private TMP_Text _unitsText;
 
     [Header("━━━━ 테두리 ━━━━")]
     // [Tooltip("전투 버튼")]
@@ -42,11 +45,38 @@ public class LobbySceneUI : MonoBehaviour
     private int _currentMapIndex = -1;
     private Difficulty _currentDifficulty = Difficulty.None;
 
-    private void Start()
+    private void OnEnable()
     {
-        // TODO : 로컬라이징 수정
-        _combatText.text = "COMBAT";
-        _startText.text = "START";
+        LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
+        RefreshText();
+    }
+
+    private void OnDisable()
+    {
+        LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
+    }
+
+    private void RefreshText()
+    {
+        _combatText.text = LocalizationManager.Instance.Get("COMBAT");
+        _startText.text = LocalizationManager.Instance.Get("START");
+        _howToPlayText.text = LocalizationManager.Instance.Get("HOW_TO_PLAY");
+        _unitsText.text = LocalizationManager.Instance.Get("ENCYCLOPEDIA");
+
+        RefreshInfoText();
+    }
+
+    private void RefreshInfoText()
+    {
+        if (_currentDifficulty == Difficulty.None)
+        {
+            _infoText.text = "";
+            return;
+        }
+
+        string key = $"{_currentDifficulty}_INFO";
+
+        _infoText.text = LocalizationManager.Instance.Get(key);
     }
 
     // 환경 설정 버튼
@@ -84,6 +114,7 @@ public class LobbySceneUI : MonoBehaviour
         _mapScrollView.SetActive(!isActive);
         if (!isActive) SetDifficulty(Difficulty.None);
     }
+
     // 게임 방법 버튼
     public void OnClickHowToPlay()
     {
@@ -146,7 +177,9 @@ public class LobbySceneUI : MonoBehaviour
             _currentDifficulty = difficulty;
         }
         UpdateDifficultyUI();
+        RefreshInfoText();
     }
+
     private void ResetDifficulty()
     {
         _currentDifficulty = Difficulty.None;
