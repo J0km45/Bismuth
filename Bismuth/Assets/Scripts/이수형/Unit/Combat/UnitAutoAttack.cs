@@ -476,10 +476,10 @@ public class UnitAutoAttack : MonoBehaviour
         });
     }
 
-    /// <summary>
+
     /// 추가 공격 배치를 큐에 등록한다.
     /// 전사, 수인 등 시너지별로 이 메서드를 통해 추가타를 요청한다.
-    /// </summary>
+
     public void EnqueueExtraAttack(PendingExtraAttack entry)
     {
         pendingExtraAttacks.Enqueue(entry);
@@ -571,10 +571,9 @@ public class UnitAutoAttack : MonoBehaviour
         return true;
     }
 
-    /// <summary>
     /// 추가 공격의 타겟을 결정한다.
     /// ForcedTarget이 유효하면 그것을 사용하고, 아니면 센서에서 탐색한다.
-    /// </summary>
+
     private MonsterController ResolveExtraAttackTarget(PendingExtraAttack entry)
     {
         if (entry.ForcedTarget != null)
@@ -594,9 +593,9 @@ public class UnitAutoAttack : MonoBehaviour
         return currentTarget;
     }
 
-    /// <summary>
+
     /// 추가 공격 타입에 맞는 AttackContext를 생성한다.
-    /// </summary>
+
     private AttackContext BuildExtraAttackContext(ExtraAttackType type, float animSpeedMultiplier = 1f)
     {
         switch (type)
@@ -828,9 +827,9 @@ public class UnitAutoAttack : MonoBehaviour
         }
     }
 
-    /// <summary>
+
     /// 현재 시너지 레벨에 따른 수인 추가타 횟수를 반환한다. (0이면 미활성)
-    /// </summary>
+
     private int GetFurryExtraAttackCount()
     {
         if (unitStat == null)
