@@ -34,12 +34,14 @@ public class GameViewPanelUI : MonoBehaviour
     [Header("━━━━ 설정 ━━━━")]
     [Tooltip("배속할 속도")]
     [SerializeField] private float _fastSpeed = 2f;
-    [Tooltip("어두운 정도")]
-    [SerializeField][Range(0f, 1f)] private float _darkness;
     [Tooltip("일시정지 이미지")]
     [SerializeField] private Sprite _pauseSprite;
     [Tooltip("재생 이미지")]
     [SerializeField] private Sprite _playSprite;
+    [Tooltip("일반 배속 이미지")]
+    [SerializeField] private Sprite _baseSpeedSprite;
+    [Tooltip("가속 이미지")]
+    [SerializeField] private Sprite _extraSpeedSprite;
 
     [Header("━━━━ 게임 종료 ━━━━")]
     [Tooltip("게임 클리어")]
@@ -205,18 +207,7 @@ public class GameViewPanelUI : MonoBehaviour
     // 배속 버튼 밝기 조정
     private void UpdateFastButton()
     {
-        if (_isFast)
-        {
-            Color c = _originalColor;
-            c.r *= _darkness;
-            c.g *= _darkness;
-            c.b *= _darkness;
-            _fastButtonImage.color = c;
-        }
-        else
-        {
-            _fastButtonImage.color = _originalColor;
-        }
+        _fastButtonImage.sprite = _isFast ? _extraSpeedSprite : _baseSpeedSprite;
     }
 
     // 일시정지 버튼 이미지 조정
