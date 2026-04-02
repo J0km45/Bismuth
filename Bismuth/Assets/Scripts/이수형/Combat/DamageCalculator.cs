@@ -6,6 +6,7 @@ public class DamageCalculator : MonoBehaviour
     private const int WizardSynergyId = (int)SynergyManager.SynergyType.Magician;
     private const int ArcherSynergyId = (int)SynergyManager.SynergyType.Archer;
     private const int FighterSynergyId = (int)SynergyManager.SynergyType.Fighter;
+    private const int ElfSynergyId = (int)SynergyManager.SynergyType.Elf;
 
     [Header("Synergy")]
     [SerializeField] private SynergySO synergySO;
@@ -28,7 +29,8 @@ public class DamageCalculator : MonoBehaviour
     public int CalculateNormalDamage(UnitStat attackerStat, float damageDealt, float defense, float crit)
     {
         float warriorMultiplier = 1 + GetWarriorAttackMultiplier(attackerStat) * 0.01f;
-        float calculatedDamage = damageDealt * warriorMultiplier * (1f + crit) * (100f / (defense + 100f));
+        float elfMultiplier = 1 + GetElfAttackMultiplier(attackerStat) * 0.01f;
+        float calculatedDamage = damageDealt * warriorMultiplier * elfMultiplier * (1f + crit) * (100f / (defense + 100f));
 
         if (Random.value < calculatedDamage - (int)calculatedDamage)
             return (int)calculatedDamage + 1;
@@ -214,6 +216,52 @@ public class DamageCalculator : MonoBehaviour
         }
 
         return 1f + bonus;
+    }
+
+    private float GetElfAttackMultiplier(UnitStat attackerStat)
+    {
+        if (!HasSynergyTag(attackerStat, ElfSynergyId))
+            return 0f;
+
+        if (attackerStat.ElfWaveKillCount <= 0)
+            return 0f;
+
+        TryResolveSynergyManager();
+
+        if (synergyManager == null)
+        {
+            WarnMissingSynergyManager();
+            return 0f;
+        }
+
+        if (synergySO == null)
+        {
+            WarnMissingSynergySo();
+            return 0f;
+        }
+
+        SynergyData elfData = GetSynergyData(ElfSynergyId);
+        if (elfData == null || elfData.Levels == null || elfData.Levels.Count == 0)
+            return 0f;
+
+        int activeCount = synergyManager.GetSynergyLevel(ElfSynergyId);
+        float bonusPerKill = GetMatchedBonus(elfData, activeCount);
+
+        if (bonusPerKill <= 0f)
+            return 0f;
+
+        float totalBonus = bonusPerKill * attackerStat.ElfWaveKillCount;
+
+        if (synergyLog && totalBonus > 0f)
+        {
+            DebugTool.Log(
+                $"엘프 공격력 배율 적용 | unit={attackerStat.Name}, active={activeCount}, bonusPerKill={bonusPerKill:F2}, kills={attackerStat.ElfWaveKillCount}, total={totalBonus:F2}",
+                DebugType.Synergy,
+                this
+            );
+        }
+
+        return totalBonus;
     }
 
     private void TryResolveSynergyManager()

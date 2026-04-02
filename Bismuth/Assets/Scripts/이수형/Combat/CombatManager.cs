@@ -35,6 +35,9 @@ public class CombatManager : MonoBehaviour
     [SerializeField, Min(0.05f)] private float wizardFollowUpDelay = 0.35f;
     [SerializeField] private bool wizardFollowUpLog = false;
 
+    [Header("Elf Synergy")]
+    [SerializeField] private BattleWaveRunner _battleWaveRunner;
+
 
     private Collider2D[] aoeOverlapResults;
 
@@ -62,6 +65,18 @@ public class CombatManager : MonoBehaviour
 
         if (synergyManager == null && gameManager != null)
             synergyManager = gameManager.GetComponent<SynergyManager>();
+    }
+
+    private void OnEnable()
+    {
+        if (_battleWaveRunner != null)
+            _battleWaveRunner.WaveStarted += OnWaveStarted;
+    }
+
+    private void OnDisable()
+    {
+        if (_battleWaveRunner != null)
+            _battleWaveRunner.WaveStarted -= OnWaveStarted;
     }
 
     private void OnValidate()
@@ -427,6 +442,15 @@ public class CombatManager : MonoBehaviour
             );
 
             TryTriggerWarriorExtraAttack(unit, unitStat, sourceName, context);
+
+            // 엘프 시너지: 처치 시 웨이브 킬 카운터 증가
+            if (HasSynergyTag(unitStat, (int)SynergyManager.SynergyType.Elf))
+            {
+                unitStat.ElfWaveKillCount++;
+                DebugTool.Log(
+                    $"엘프 웨이브 킬 적립 | source={sourceName}, elfKill={unitStat.ElfWaveKillCount}",
+                    DebugType.Synergy, this);
+            }
         }
 
         unitStat.DealtDamage += finalDamage;
@@ -662,6 +686,15 @@ public class CombatManager : MonoBehaviour
                         DebugType.Synergy,
                         this
                     );
+
+                    // 엘프 시너지: 마법사 후속타격 처치도 웨이브 킬 적립
+                    if (HasSynergyTag(unitStat, (int)SynergyManager.SynergyType.Elf))
+                    {
+                        unitStat.ElfWaveKillCount++;
+                        DebugTool.Log(
+                            $"엘프 웨이브 킬 적립 (마법사 후속) | source={sourceName}, elfKill={unitStat.ElfWaveKillCount}",
+                            DebugType.Synergy, this);
+                    }
                 }
             }
 
@@ -676,6 +709,30 @@ public class CombatManager : MonoBehaviour
                 DebugType.Synergy,
                 this
             );
+        }
+    }
+
+    // ─────────────────────────────── 엘프 시너지 웨이브 초기화 ───────────────────────────────
+
+    private void OnWaveStarted(WaveDataSO waveData)
+    {
+        ResetAllElfWaveKillCounts();
+    }
+
+    private void ResetAllElfWaveKillCounts()
+    {
+        UnitStat[] allUnits = FindObjectsByType<UnitStat>(FindObjectsSortMode.None);
+
+        for (int i = 0; i < allUnits.Length; i++)
+        {
+            if (allUnits[i].ElfWaveKillCount > 0)
+            {
+                DebugTool.Log(
+                    $"엘프 웨이브 킬 초기화 | unit={allUnits[i].Name}, was={allUnits[i].ElfWaveKillCount}",
+                    DebugType.Synergy, this);
+
+                allUnits[i].ElfWaveKillCount = 0;
+            }
         }
     }
 }
