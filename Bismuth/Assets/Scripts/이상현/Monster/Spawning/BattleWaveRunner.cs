@@ -15,7 +15,7 @@ public class BattleWaveRunner : MonoBehaviour
 
     [Tooltip("웨이브 1개 실행을 담당하는 스포너")]
     [SerializeField] private MonsterSpawner _monsterSpawner;
-    
+
     [Tooltip("전투 시작 시 기지 시작 체력 계산에 사용할 난이도 보정 테이블")]
     [SerializeField] private DifficultyModifierTableSO _difficultyModifierTable;
 
@@ -35,12 +35,18 @@ public class BattleWaveRunner : MonoBehaviour
     [Tooltip("현재 필드에 남아 있는 몬스터 수")]
     [SerializeField, Min(0)] private int _aliveMonsterCount;
 
+    [Tooltip("현재 웨이브에서 소환될 전체 몬스터 수")]
+    [SerializeField, Min(0)] private int _currentWaveTotalCount;
+
+    [Tooltip("현재 웨이브에서 소환된 몬스터 수")]
+    [SerializeField, Min(0)] private int _currentWaveSpawnedCount;
+
     [Tooltip("현재 웨이브의 추가 소환이 끝난 상태인지 여부")]
     [SerializeField] private bool _isWaitingForWaveEnd;
 
     [Tooltip("전투 웨이브 진행이 시작된 상태인지 여부")]
     [SerializeField] private bool _isRunning;
-    
+
     [Header("====정비 관련====")]
     [Tooltip("웨이브 종료 후 다음 웨이브 시작 전 정비시간(초)")]
     [SerializeField, Min(0f)] private float _intermissionDuration = 30f;
@@ -50,23 +56,27 @@ public class BattleWaveRunner : MonoBehaviour
 
     [Tooltip("현재 남아 있는 정비시간(초)")]
     [SerializeField, Min(0f)] private float _intermissionRemainingTime;
-    
+
     [Tooltip("다음 웨이브 시작 입력을 기다리는 상태인지 여부")]
     [SerializeField] private bool _isWaitingForNextWaveStart;
-    
-    
+
+
     public int CurrentWaveIndex => _currentWaveIndex;
     public int AliveMonsterCount => _aliveMonsterCount;
+    public int CurrentWaveTotalCount => _currentWaveTotalCount;
+    public int CurrentWaveSpawnedCount => _currentWaveSpawnedCount;
+    public int CurrentWaveRemainingCount => Mathf.Max(0, _currentWaveTotalCount - _currentWaveSpawnedCount);
     public bool IsRunning => _isRunning;
     public bool IsWaitingForNextWaveStart => _isWaitingForNextWaveStart;
     public bool IsIntermissionActive => _isIntermissionActive;
     public float IntermissionRemainingTime => _intermissionRemainingTime;
-    
-    
+
+
     public event Action<WaveDataSO> NextWaveReady;
     public event Action<WaveDataSO> WaveStarted;
     public event Action<WaveDataSO> WaveCleared;
     public event Action<int> AliveMonsterCountChanged;
+    public event Action<int, int> WaveSpawnProgressChanged;// <남은 몬스터 수, 전체 몬스터 수>
     public event Action BattleCompleted;
     public event Action BattleFailed;
     public event Action<MonsterController, int> KillRewardReady;
@@ -74,21 +84,21 @@ public class BattleWaveRunner : MonoBehaviour
     public event Action<WaveDataSO, float> IntermissionStarted;
     public event Action<float> IntermissionTimeChanged;
     public event Action IntermissionEnded;
-    
-    
+
+
     private readonly HashSet<MonsterController> _trackedMonsters = new();
     private Coroutine _intermissionRoutine;
-    
+
     private void Reset()
     {
         _monsterSpawner = GetComponent<MonsterSpawner>();
     }
-    
+
     private void OnEnable()
     {
         if (_monsterSpawner == null) return;
         if (_homeBaseHealth == null) return;
-        
+
         _monsterSpawner.MonsterSpawned += HandleMonsterSpawned;
         _monsterSpawner.WaveSpawnCompleted += HandleWaveSpawnCompleted;
         _homeBaseHealth.Died += HandleBaseDied;
@@ -109,7 +119,7 @@ public class BattleWaveRunner : MonoBehaviour
             _monsterSpawner.MonsterSpawned -= HandleMonsterSpawned;
             _monsterSpawner.WaveSpawnCompleted -= HandleWaveSpawnCompleted;
         }
-        
+
         if (_homeBaseHealth != null)
         {
             _homeBaseHealth.Died -= HandleBaseDied;
@@ -117,6 +127,9 @@ public class BattleWaveRunner : MonoBehaviour
 
         StopIntermission(false);
         ClearTrackedMonsters();
+
+        _currentWaveTotalCount = 0;
+        _currentWaveSpawnedCount = 0;
         _isWaitingForWaveEnd = false;
         _isWaitingForNextWaveStart = false;
         _isRunning = false;
@@ -133,14 +146,17 @@ public class BattleWaveRunner : MonoBehaviour
             DebugTool.Error("이미 전투 진행 중입니다.", DebugType.Enemy, this);
             return;
         }
-        
+
         ClearTrackedMonsters();
+        // 전투 시작할 때 값 초기화
         _currentWaveIndex = 0;
+        _currentWaveTotalCount = 0;
+        _currentWaveSpawnedCount = 0;
         _isWaitingForWaveEnd = false;
         _isWaitingForNextWaveStart = false;
         _isIntermissionActive = false;
         _intermissionRemainingTime = 0f;
-        
+
         _isRunning = true;
 
         if (InitializeBattleBaseHealth() == false)
@@ -171,7 +187,7 @@ public class BattleWaveRunner : MonoBehaviour
             DebugTool.Error("맵 전투 설정에 웨이브가 없습니다.", DebugType.Enemy, this);
             return false;
         }
-        
+
         if (_difficultyModifierTable == null)
         {
             DebugTool.Error("난이도 보정 테이블 참조가 비어 있습니다.", DebugType.Enemy, this);
@@ -205,7 +221,7 @@ public class BattleWaveRunner : MonoBehaviour
         StopIntermission(true);
         StartCurrentWave();
     }
-    
+
     private void StartCurrentWave()
     {
         if (_mapBattleConfig.TryGetWaveAt(_currentWaveIndex, out WaveDataSO waveData) == false)
@@ -213,6 +229,11 @@ public class BattleWaveRunner : MonoBehaviour
             CompleteBattle();
             return;
         }
+
+        // 현재 웨이브 전체 몬스터 수 계산
+        _currentWaveTotalCount = CalculateWaveTotalCount(waveData);
+        // 현재까지 소환 몬스터 수 0으로 리셋
+        _currentWaveSpawnedCount = 0;
 
         if (_monsterSpawner.SetWaveData(waveData) == false)
         {
@@ -227,8 +248,11 @@ public class BattleWaveRunner : MonoBehaviour
             $"전투 웨이브 시작 / 순서 : {_currentWaveIndex + 1} / 웨이브 번호 : {waveData.WaveNumber}",
             DebugType.Enemy,
             this);
-        
+
         WaveStarted?.Invoke(waveData);
+
+        WaveSpawnProgressChanged?.Invoke(CurrentWaveRemainingCount, CurrentWaveTotalCount);
+
         _monsterSpawner.StartSpawn(false);
     }
 
@@ -237,12 +261,16 @@ public class BattleWaveRunner : MonoBehaviour
         if (monster == null)
             return;
 
+        // 몬스터 생성될 때마다 소환된 몬스터 수 증가
+        _currentWaveSpawnedCount++;
+        WaveSpawnProgressChanged?.Invoke(CurrentWaveRemainingCount, CurrentWaveTotalCount);
+
         if (_trackedMonsters.Add(monster) == false)
             return;
 
         monster.Died += HandleMonsterDied;
         monster.ReachedBase += HandleMonsterReachedBase;
-        
+
         _aliveMonsterCount = _trackedMonsters.Count;
         AliveMonsterCountChanged?.Invoke(_aliveMonsterCount);
     }
@@ -282,7 +310,7 @@ public class BattleWaveRunner : MonoBehaviour
         _aliveMonsterCount = _trackedMonsters.Count;
         AliveMonsterCountChanged?.Invoke(_aliveMonsterCount);
     }
-    
+
     private void ClearTrackedMonsters()
     {
         foreach (MonsterController monster in _trackedMonsters)
@@ -298,7 +326,7 @@ public class BattleWaveRunner : MonoBehaviour
         _aliveMonsterCount = 0;
         AliveMonsterCountChanged?.Invoke(_aliveMonsterCount);
     }
-    
+
     private void HandleBaseDied(HomeBaseHealth homeBaseHealth)
     {
         if (_isRunning == false) return;
@@ -309,7 +337,11 @@ public class BattleWaveRunner : MonoBehaviour
         StopIntermission(false);
         _monsterSpawner.StopSpawn();
         ClearTrackedMonsters();
-        
+
+        _currentWaveTotalCount = 0;
+        _currentWaveSpawnedCount = 0;
+        WaveSpawnProgressChanged?.Invoke(CurrentWaveRemainingCount, CurrentWaveTotalCount);
+
         DebugTool.Log("기지 파괴로 전투 진행을 중단합니다.", DebugType.Enemy, this);
         BattleFailed?.Invoke();
     }
@@ -325,7 +357,7 @@ public class BattleWaveRunner : MonoBehaviour
             WaveCleared?.Invoke(clearedWave);
             NotifyWaveClearReward(clearedWave);
         }
-        
+
         _currentWaveIndex++;
 
         if (_currentWaveIndex >= _mapBattleConfig.WaveCount)
@@ -342,10 +374,10 @@ public class BattleWaveRunner : MonoBehaviour
 
         _isWaitingForWaveEnd = false;
         _isWaitingForNextWaveStart = true;
-        
+
         BeginIntermission(nextWave);
     }
-    
+
     private void BeginIntermission(WaveDataSO nextWave)
     {
         if (nextWave == null)
@@ -406,7 +438,7 @@ public class BattleWaveRunner : MonoBehaviour
 
         IntermissionEnded?.Invoke();
     }
-    
+
     private void NotifyWaveClearReward(WaveDataSO clearedWave)
     {
         if (clearedWave == null)
@@ -436,11 +468,15 @@ public class BattleWaveRunner : MonoBehaviour
         _isWaitingForWaveEnd = false;
         _isWaitingForNextWaveStart = false;
         StopIntermission(false);
-        
+
+        _currentWaveTotalCount = 0;
+        _currentWaveSpawnedCount = 0;
+        WaveSpawnProgressChanged?.Invoke(CurrentWaveRemainingCount, CurrentWaveTotalCount);
+
         DebugTool.Log("모든 웨이브 진행이 끝났습니다.", DebugType.Enemy, this);
         BattleCompleted?.Invoke();
     }
-    
+
     /// <summary>
     /// 전투 전체에서 한 번만 사용할 시작 기지 체력을 초기화
     /// 전투 시작 시점에만 호출
@@ -467,5 +503,20 @@ public class BattleWaveRunner : MonoBehaviour
 
         _homeBaseHealth.InitializeBaseHealth(startingBaseHp);
         return true;
+    }
+
+    // 현재 웨이브 전체 몬스터 수 계산
+    private int CalculateWaveTotalCount(WaveDataSO waveData)
+    {
+        int total = 0;
+
+        foreach (WaveSpawnEntry entry in waveData.SpawnEntries)
+        {
+            if (entry == null) continue;
+
+            total += entry.Count;
+        }
+
+        return total;
     }
 }
