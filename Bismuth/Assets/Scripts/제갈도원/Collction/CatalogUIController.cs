@@ -17,6 +17,8 @@ public class CatalogUIController : MonoBehaviour
     [SerializeField] private GameObject _slotPrefab;           // 슬롯 프리팹
     [SerializeField] private TextMeshProUGUI _leftPageTitle;   // 왼쪽 페이지 번호 텍스트
     [SerializeField] private TextMeshProUGUI _rightPageTitle;  // 오른쪽 페이지 번호 텍스트
+    [SerializeField] private GameObject _howToPlayPanel;
+    [SerializeField] private GameObject _mapScrollView;
 
     [Header("━━━━ 상세 패널 ━━━━")]
     [SerializeField] private GameObject _detailPanel;            // 상세 정보 패널
@@ -51,6 +53,8 @@ public class CatalogUIController : MonoBehaviour
     public void OpenCatalog()
     {
         bool isOpening = !_encyclopediaPopup.activeSelf;
+        _howToPlayPanel.SetActive(false);
+        _mapScrollView.SetActive(false);
 
         if (isOpening)
         {
@@ -158,6 +162,12 @@ public class CatalogUIController : MonoBehaviour
             GameObject slot = Instantiate(_slotPrefab, grid);
             CatalogSlotUI slotUI = slot.GetComponent<CatalogSlotUI>();
 
+            if (slotUI == null)
+            {
+                DebugTool.Log("Slot UI Null", DebugType.Catalog,this);
+                return;
+            }
+
             // 해당 인덱스에 유닛 데이터가 없으면 빈 슬롯 처리
             if (unitIndex >= units.Count)
             {
@@ -175,7 +185,9 @@ public class CatalogUIController : MonoBehaviour
     {
         // 기존 슬롯 전부 삭제
         for (int i = grid.childCount - 1; i >= 0; i--)
-            Object.Destroy(grid.GetChild(i).gameObject);
+        {
+            Destroy(grid.GetChild(i).gameObject);
+        }
     }
 
     private bool IsUnitSummoned(int unitId)
