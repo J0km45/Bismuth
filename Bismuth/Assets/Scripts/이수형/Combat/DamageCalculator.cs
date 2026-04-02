@@ -5,6 +5,7 @@ public class DamageCalculator : MonoBehaviour
     private const int WarriorSynergyId = (int)SynergyManager.SynergyType.Warrior;
     private const int WizardSynergyId = (int)SynergyManager.SynergyType.Magician;
     private const int ArcherSynergyId = (int)SynergyManager.SynergyType.Archer;
+    private const int FighterSynergyId = (int)SynergyManager.SynergyType.Fighter;
 
     [Header("Synergy")]
     [SerializeField] private SynergySO synergySO;
@@ -275,6 +276,66 @@ public class DamageCalculator : MonoBehaviour
         return false;
     }
 
+    public float GetFinalCritChance(UnitStat attackerStat, float baseCritChance)
+    {
+        float fighterBonus = GetFighterCritChanceBonus(attackerStat);
+        float finalCritChance = Mathf.Clamp01(baseCritChance + fighterBonus);
+
+        if (synergyLog && fighterBonus > 0f)
+        {
+            DebugTool.Log(
+                $"격투가 치명타 확률 적용 | unit={attackerStat?.Name ?? "None"}, baseCrit={baseCritChance:F3}, fighterBonus={fighterBonus:F3}, finalCrit={finalCritChance:F3}",
+                DebugType.Synergy,
+                this
+            );
+        }
+
+        return finalCritChance;
+    }
+
+    private float GetFighterCritChanceBonus(UnitStat attackerStat)
+    {
+        if (!HasSynergyTag(attackerStat, FighterSynergyId))
+            return 0f;
+
+        TryResolveSynergyManager();
+
+        if (synergyManager == null)
+        {
+            WarnMissingSynergyManager();
+            return 0f;
+        }
+
+        if (synergySO == null)
+        {
+            WarnMissingSynergySo();
+            return 0f;
+        }
+
+        SynergyData fighterData = GetSynergyData(FighterSynergyId);
+        if (fighterData == null || fighterData.Levels == null || fighterData.Levels.Count == 0)
+            return 0f;
+
+        int activeCount = synergyManager.GetSynergyLevel(FighterSynergyId);
+        float bonus = GetMatchedBonus(fighterData, activeCount);
+
+        // SynergySO 값이 10,20,30처럼 들어오든
+        // 0.1,0.2,0.3처럼 들어오든 둘 다 안전하게 처리
+        if (bonus > 1f)
+            bonus *= 0.01f;
+
+        if (synergyLog && bonus > 0f)
+        {
+            DebugTool.Log(
+                $"격투가 치명타 보너스 조회 | unit={attackerStat.Name}, active={activeCount}, bonus={bonus:F3}",
+                DebugType.Synergy,
+                this
+            );
+        }
+
+        return bonus;
+    }
+
     private void WarnMissingSynergyManager()
     {
         if (warnedMissingSynergyManager)
@@ -292,4 +353,5 @@ public class DamageCalculator : MonoBehaviour
         warnedMissingSynergySo = true;
         DebugTool.Warnning("SynergySO 참조가 없어 시너지 보너스를 적용하지 않습니다.", DebugType.Synergy, this);
     }
+
 }

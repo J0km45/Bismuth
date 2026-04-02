@@ -416,7 +416,12 @@ public class CombatManager : MonoBehaviour
             return false;
 
         int dealtDamage = 0;
-        float clampedCritChance = Mathf.Clamp01(critChance);
+
+        float finalCritChance = critChance;
+        if (damageCalculator != null)
+            finalCritChance = damageCalculator.GetFinalCritChance(unitStat, critChance);
+
+        float clampedCritChance = Mathf.Clamp01(finalCritChance);
         float crit = (Random.value < clampedCritChance) ? 0.5f : 0f;
 
         int normalDamage = damageCalculator.CalculateNormalDamage(unitStat, attackPower, target.BaseDefense, crit);
