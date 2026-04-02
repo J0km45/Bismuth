@@ -37,6 +37,12 @@ public class UnitInfoPanelUI : MonoBehaviour
     private void OnEnable()
     {
         RefreshUnitInfo();
+        LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
+    }
+
+    private void OnDisable()
+    {
+        LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
     }
 
     public void RefreshUnitInfo()
@@ -67,9 +73,7 @@ public class UnitInfoPanelUI : MonoBehaviour
             return;
         }
 
-        _nameText.text = LocalizationManager.Instance.Get(_unitStat.Name);
-        _tierText.text = $"{_unitStat.Tier} {LocalizationManager.Instance.Get("TIER")}";
-        _descriptionText.text = "---";
+        RefreshText();
 
         for (int i = 0; i < _unitStat.SynergIDs.Length; i++)
         {
@@ -84,6 +88,13 @@ public class UnitInfoPanelUI : MonoBehaviour
         }
 
         RefreshStats();
+    }
+
+    private void RefreshText()
+    {
+        _nameText.text = LocalizationManager.Instance.Get(_unitStat.Name);
+        _tierText.text = $"{_unitStat.Tier} {LocalizationManager.Instance.Get("TIER")}";
+        _descriptionText.text = "---";
     }
 
     public void RefreshStats()
