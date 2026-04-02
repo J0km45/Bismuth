@@ -30,9 +30,7 @@ public class UnitProjectile : MonoBehaviour
     private float critChance;
 
     private bool isAoe;
-    private bool isWarriorBonusAttack;
-    private bool isWizardBonusAttack;
-    private bool isArcherBonusAttack;
+    private AttackContext attackContext;
     private float explosionRadius;
 
     private float lifeTimer;
@@ -72,9 +70,7 @@ public class UnitProjectile : MonoBehaviour
     GameObject hitEffect,
     GameObject owner,
     bool isAoe,
-    bool isWarriorBonusAttack,
-    bool isWizardBonusAttack,
-    bool isArcherBonusAttack,
+    AttackContext context,
     float explosionRadius,
     float moveSpeed,
     float hitDistance,
@@ -88,9 +84,7 @@ public class UnitProjectile : MonoBehaviour
         this.hitEffect = hitEffect;
         this.owner = owner;
         this.isAoe = isAoe;
-        this.isWarriorBonusAttack = isWarriorBonusAttack;
-        this.isWizardBonusAttack = isWizardBonusAttack;
-        this.isArcherBonusAttack = isArcherBonusAttack;
+        this.attackContext = context;
         this.explosionRadius = Mathf.Max(0.01f, explosionRadius);
         this.moveSpeed = Mathf.Max(0.1f, moveSpeed);
         this.hitDistance = Mathf.Max(0.01f, hitDistance);
@@ -174,9 +168,7 @@ public class UnitProjectile : MonoBehaviour
                 owner,
                 sourceName,
                 isAoe,
-                isWarriorBonusAttack,
-                isWizardBonusAttack,
-                isArcherBonusAttack,
+                attackContext,
                 explosionRadius,
                 impactPosition,
                 unitStat
@@ -251,9 +243,7 @@ public class UnitProjectile : MonoBehaviour
         attackPower = 0f;
         critChance = 0f;
         isAoe = false;
-        isWarriorBonusAttack = false;
-        isWizardBonusAttack = false;
-        isArcherBonusAttack = false;
+        attackContext = default;
         explosionRadius = 0f;
         lifeTimer = 0f;
     }

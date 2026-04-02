@@ -67,20 +67,10 @@ public class CombatManager : MonoBehaviour
 
     public bool DamageOccured(GameObject unit, MonsterController currentTarget)
     {
-        return DamageOccured(unit, currentTarget, null, false, false, false);
+        return DamageOccured(unit, currentTarget, null, AttackContext.Normal());
     }
 
-    public bool DamageOccured(GameObject unit, MonsterController currentTarget, UnitAttackSensor attackSensor)
-    {
-        return DamageOccured(unit, currentTarget, attackSensor, false, false, false);
-    }
-
-    public bool DamageOccured(GameObject unit, MonsterController currentTarget, UnitAttackSensor attackSensor, bool isWarriorBonusAttack, bool isWizardBonusAttack)
-    {
-        return DamageOccured(unit, currentTarget, attackSensor, isWarriorBonusAttack, isWizardBonusAttack, false);
-    }
-
-    public bool DamageOccured(GameObject unit, MonsterController currentTarget, UnitAttackSensor attackSensor, bool isWarriorBonusAttack, bool isWizardBonusAttack, bool isArcherBonusAttack)
+    public bool DamageOccured(GameObject unit, MonsterController currentTarget, UnitAttackSensor attackSensor, AttackContext context)
     {
         TowerUnit towerUnit = unit.GetComponent<TowerUnit>();
 
@@ -95,9 +85,9 @@ public class CombatManager : MonoBehaviour
         }
 
         if (unitStat.Range > 1.3f)
-            return FireProjectiles(unit, towerUnit, unitStat, targets, isWarriorBonusAttack, isWizardBonusAttack, isArcherBonusAttack);
+            return FireProjectiles(unit, towerUnit, unitStat, targets, context);
 
-        return ApplyHitscan(unit, unitStat, towerUnit != null ? towerUnit.name : unitStat.Name, targets, isWarriorBonusAttack, isWizardBonusAttack, isArcherBonusAttack);
+        return ApplyHitscan(unit, unitStat, towerUnit != null ? towerUnit.name : unitStat.Name, targets, context);
     }
 
     public bool ResolveProjectileHit(
@@ -108,9 +98,7 @@ public class CombatManager : MonoBehaviour
     GameObject unit,
     string sourceName,
     bool isAoe,
-    bool isWarriorBonusAttack,
-    bool isWizardBonusAttack,
-    bool isArcherBonusAttack,
+    AttackContext context,
     float explosionRadius,
     Vector3 impactPosition,
     UnitStat unitStat)
@@ -127,9 +115,7 @@ public class CombatManager : MonoBehaviour
                 sourceName,
                 unitStat,
                 unit,
-                isWarriorBonusAttack,
-                isWizardBonusAttack,
-                isArcherBonusAttack
+                context
             );
         }
 
@@ -142,9 +128,7 @@ public class CombatManager : MonoBehaviour
             "투사체",
             unitStat,
             unit,
-            isWarriorBonusAttack,
-            isWizardBonusAttack,
-            isArcherBonusAttack
+            context
         );
     }
 
@@ -212,7 +196,7 @@ public class CombatManager : MonoBehaviour
         return attackSensor.GetTargets(targetCount, currentTarget);
     }
 
-    private bool ApplyHitscan(GameObject unit, UnitStat unitStat, string sourceName, List<MonsterController> targets, bool isWarriorBonusAttack, bool isWizardBonusAttack, bool isArcherBonusAttack)
+    private bool ApplyHitscan(GameObject unit, UnitStat unitStat, string sourceName, List<MonsterController> targets, AttackContext context)
     {
         GameObject hitEffect = GetHitEffect(unitStat);
         int appliedCount = 0;
@@ -232,9 +216,7 @@ public class CombatManager : MonoBehaviour
                 "히트스캔",
                 unitStat,
                 unit,
-                isWarriorBonusAttack,
-                isWizardBonusAttack,
-                isArcherBonusAttack
+                context
             );
 
             if (success)
@@ -253,76 +235,74 @@ public class CombatManager : MonoBehaviour
         return appliedCount > 0;
     }
 
-    private bool FireProjectiles(GameObject unit, TowerUnit towerUnit, UnitStat unitStat, List<MonsterController> targets, bool isWarriorBonusAttack, bool isWizardBonusAttack, bool isArcherBonusAttack)
-{
-    GameObject projectilePrefab = GetProjectilePrefab(unitStat);
-    GameObject hitEffect = GetHitEffect(unitStat);
-    string sourceName = towerUnit != null ? towerUnit.name : unitStat.Name;
-
-    bool isAoe = unitStat.attackTypes == UnitData.AttackTypes.AOE;
-    float explosionRadius = Mathf.Max(0.01f, unitStat.AttackArea);
-
-    int spawnedCount = 0;
-    Vector3 spawnPosition = towerUnit != null ? towerUnit.transform.position : Vector3.zero;
-
-    for (int i = 0; i < targets.Count; i++)
+    private bool FireProjectiles(GameObject unit, TowerUnit towerUnit, UnitStat unitStat, List<MonsterController> targets, AttackContext context)
     {
-        MonsterController target = targets[i];
-        if (!IsTargetValid(target))
-            continue;
+        GameObject projectilePrefab = GetProjectilePrefab(unitStat);
+        GameObject hitEffect = GetHitEffect(unitStat);
+        string sourceName = towerUnit != null ? towerUnit.name : unitStat.Name;
 
-        GameObject projectileObject = null;
+        bool isAoe = unitStat.attackTypes == UnitData.AttackTypes.AOE;
+        float explosionRadius = Mathf.Max(0.01f, unitStat.AttackArea);
 
-        if (projectilePrefab != null && projectilePool != null)
+        int spawnedCount = 0;
+        Vector3 spawnPosition = towerUnit != null ? towerUnit.transform.position : Vector3.zero;
+
+        for (int i = 0; i < targets.Count; i++)
         {
-            projectileObject = projectilePool.Get(projectilePrefab, spawnPosition, Quaternion.identity);
+            MonsterController target = targets[i];
+            if (!IsTargetValid(target))
+                continue;
+
+            GameObject projectileObject = null;
+
+            if (projectilePrefab != null && projectilePool != null)
+            {
+                projectileObject = projectilePool.Get(projectilePrefab, spawnPosition, Quaternion.identity);
+            }
+            else if (projectilePrefab != null)
+            {
+                projectileObject = Instantiate(projectilePrefab, spawnPosition, Quaternion.identity);
+            }
+            else
+            {
+                projectileObject = new GameObject($"{sourceName}_Projectile");
+                projectileObject.transform.position = spawnPosition;
+            }
+
+            UnitProjectile projectile = projectileObject.GetComponent<UnitProjectile>();
+            if (projectile == null)
+                projectile = projectileObject.AddComponent<UnitProjectile>();
+
+            projectile.Initialize(
+                unitStat.CurrentAttackPower,
+                unitStat.CritChance,
+                sourceName,
+                target,
+                hitEffect,
+                unit,
+                isAoe,
+                context,
+                explosionRadius,
+                projectileSpeed,
+                projectileHitDistance,
+                projectileMaxLifetime,
+                projectileLog
+            );
+
+            spawnedCount++;
         }
-        else if (projectilePrefab != null)
+
+        if (spawnedCount > 0)
         {
-            projectileObject = Instantiate(projectilePrefab, spawnPosition, Quaternion.identity);
+            DebugTool.Log(
+                $"투사체 발사 완료 | unit={sourceName}, type={unitStat.attackTypes}, 요청 수={Mathf.Max(1, unitStat.AttackTargetCount)}, 실제 생성 수={spawnedCount}",
+                DebugType.Unit,
+                this
+            );
         }
-        else
-        {
-            projectileObject = new GameObject($"{sourceName}_Projectile");
-            projectileObject.transform.position = spawnPosition;
-        }
 
-        UnitProjectile projectile = projectileObject.GetComponent<UnitProjectile>();
-        if (projectile == null)
-            projectile = projectileObject.AddComponent<UnitProjectile>();
-
-        projectile.Initialize(
-            unitStat.CurrentAttackPower,
-            unitStat.CritChance,
-            sourceName,
-            target,
-            hitEffect,
-            unit,
-            isAoe,
-            isWarriorBonusAttack,
-            isWizardBonusAttack,
-            isArcherBonusAttack,
-            explosionRadius,
-            projectileSpeed,
-            projectileHitDistance,
-            projectileMaxLifetime,
-            projectileLog
-        );
-
-        spawnedCount++;
+        return spawnedCount > 0;
     }
-
-    if (spawnedCount > 0)
-    {
-        DebugTool.Log(
-            $"투사체 발사 완료 | unit={sourceName}, type={unitStat.attackTypes}, 요청 수={Mathf.Max(1, unitStat.AttackTargetCount)}, 실제 생성 수={spawnedCount}",
-            DebugType.Unit,
-            this
-        );
-    }
-
-    return spawnedCount > 0;
-}
 
     private bool ApplyExplosionDamage(
     float attackPower,
@@ -332,9 +312,7 @@ public class CombatManager : MonoBehaviour
     string sourceName,
     UnitStat unitStat,
     GameObject unit,
-    bool isWarriorBonusAttack,
-    bool isWizardBonusAttack,
-    bool isArcherBonusAttack)
+    AttackContext context)
     {
         EnsureAoeBuffer();
 
@@ -370,9 +348,7 @@ public class CombatManager : MonoBehaviour
                 "투사체 폭발",
                 unitStat,
                 unit,
-                isWarriorBonusAttack,
-                isWizardBonusAttack,
-                isArcherBonusAttack
+                context
             );
 
             if (success)
@@ -408,9 +384,7 @@ public class CombatManager : MonoBehaviour
     string attackChannel,
     UnitStat unitStat,
     GameObject unit,
-    bool isWarriorBonusAttack,
-    bool isWizardBonusAttack,
-    bool isArcherBonusAttack)
+    AttackContext context)
     {
         if (!IsTargetValid(target))
             return false;
@@ -425,8 +399,8 @@ public class CombatManager : MonoBehaviour
         float crit = (Random.value < clampedCritChance) ? 0.5f : 0f;
 
         int normalDamage = damageCalculator.CalculateNormalDamage(unitStat, attackPower, target.BaseDefense, crit);
-        int wizardSkillDamage = damageCalculator.CalculateSkillDamage(unitStat, attackPower, target.BaseDefense, crit, isWizardBonusAttack);
-        int archerSkillDamage = damageCalculator.CalculateArcherSkillDamage(unitStat, target, isArcherBonusAttack);
+        int wizardSkillDamage = damageCalculator.CalculateSkillDamage(unitStat, attackPower, target.BaseDefense, crit, context.IsWizardBonus);
+        int archerSkillDamage = damageCalculator.CalculateArcherSkillDamage(unitStat, target, context.IsArcherBonus);
 
         int skillDamage = wizardSkillDamage + archerSkillDamage;
         int finalDamage = normalDamage + skillDamage;
@@ -441,13 +415,13 @@ public class CombatManager : MonoBehaviour
                 this
             );
 
-            TryTriggerWarriorExtraAttack(unit, unitStat, sourceName, isWarriorBonusAttack);
+            TryTriggerWarriorExtraAttack(unit, unitStat, sourceName, context);
         }
 
         unitStat.DealtDamage += dealtDamage;
 
         DebugTool.Log(
-            $"{attackChannel} 피해 적용 | source={sourceName}, target={target.name}, final={finalDamage}, normal={normalDamage}, wizardSkill={wizardSkillDamage}, archerSkill={archerSkillDamage}, crit={(crit > 0f ? "Yes" : "No")}, warriorBonus={isWarriorBonusAttack}, wizardBonus={isWizardBonusAttack}, archerBonus={isArcherBonusAttack}",
+            $"{attackChannel} 피해 적용 | source={sourceName}, target={target.name}, final={finalDamage}, normal={normalDamage}, wizardSkill={wizardSkillDamage}, archerSkill={archerSkillDamage}, crit={(crit > 0f ? "Yes" : "No")}, context=[{context}]",
             DebugType.Unit,
             this
         );
@@ -455,9 +429,9 @@ public class CombatManager : MonoBehaviour
         return true;
     }
 
-    private void TryTriggerWarriorExtraAttack(GameObject unit, UnitStat unitStat, string sourceName, bool isWarriorBonusAttack)
+    private void TryTriggerWarriorExtraAttack(GameObject unit, UnitStat unitStat, string sourceName, AttackContext context)
     {
-        if (!CanTriggerWarriorExtraAttack(unitStat, isWarriorBonusAttack))
+        if (!CanTriggerWarriorExtraAttack(unitStat, context))
             return;
 
         SkillCast skillCast = unit != null ? unit.GetComponent<SkillCast>() : null;
@@ -470,18 +444,18 @@ public class CombatManager : MonoBehaviour
         skillCast.SynergyWarriorCast();
 
         DebugTool.Log(
-            $"전사 추가 공격 발동 | source={sourceName}, warriorBonus={isWarriorBonusAttack}",
+            $"전사 추가 공격 발동 | source={sourceName}, context=[{context}]",
             DebugType.Synergy,
             this
         );
     }
 
-    private bool CanTriggerWarriorExtraAttack(UnitStat unitStat, bool isWarriorBonusAttack)
+    private bool CanTriggerWarriorExtraAttack(UnitStat unitStat, AttackContext context)
     {
         if (unitStat == null)
             return false;
 
-        if (isWarriorBonusAttack)
+        if (context.IsWarriorBonus)
             return false;
 
         if (!HasSynergyTag(unitStat, (int)SynergyManager.SynergyType.Warrior))

@@ -110,6 +110,14 @@ public class AnimationController : MonoBehaviour
         cachedAnimator.speed = animatorSpeed;
         spum.PlayAnimation(PlayerState.ATTACK, index);
 
+        // spum.PlayAnimation이 발생시킨 Trigger가 Play()와 충돌하지 않도록 리셋한다.
+        // (클립 오버라이드만 남기고 Trigger는 취소)
+        ResetAttackTriggers();
+
+        // 이미 ATTACK 상태일 때 Trigger가 재진입을 못하는 문제 해결:
+        // 클립 오버라이드 후 상태를 normalizedTime=0에서 강제 재시작한다.
+        cachedAnimator.Play(attackStateShortHash, 0, 0f);
+
         result.Success = true;
         result.ClipIndex = index;
         result.ClipLength = clip.length;
@@ -153,5 +161,24 @@ public class AnimationController : MonoBehaviour
     {
         if (cachedAnimator != null)
             cachedAnimator.speed = defaultAnimatorSpeed;
+    }
+
+    /// <summary>
+    /// ATTACK 관련 Trigger 파라미터를 모두 리셋한다.
+    /// spum.PlayAnimation이 발생시킨 Trigger가 Play()와 충돌하지 않도록 하기 위함.
+    /// </summary>
+    private void ResetAttackTriggers()
+    {
+        if (cachedAnimator == null)
+            return;
+
+        foreach (var param in cachedAnimator.parameters)
+        {
+            if (param.type == AnimatorControllerParameterType.Trigger
+                && param.name.ToUpper().Contains(attackStateName.ToUpper()))
+            {
+                cachedAnimator.ResetTrigger(param.name);
+            }
+        }
     }
 }

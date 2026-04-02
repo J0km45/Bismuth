@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
 
@@ -23,8 +24,11 @@ public class UnitAutoAttack : MonoBehaviour
     private const int GunnerSynergyId = (int)SynergyManager.SynergyType.Gunner;
     private const int WizardSynergyId = (int)SynergyManager.SynergyType.Magician;
     private const int ArcherSynergyId = (int)SynergyManager.SynergyType.Archer;
+    private const int FurrySynergyId = (int)SynergyManager.SynergyType.Furry;
     private const int ArcherRequiredAttackCount = 5;
+    private const int FurryRequiredAttackCount = 3;
     private const float WizardBonusCooldownSeconds = 5f;
+    private const float FurryTriggerAnimSpeedBoost = 1.3f;
 
     [Header("Synergy")]
     [SerializeField] private SynergyDataController synergyDataController;
@@ -47,12 +51,11 @@ public class UnitAutoAttack : MonoBehaviour
 
     private bool isRanged = false;
 
-    private bool currentAttackIsWarriorBonus = false;
-    private bool currentAttackIsWizardBonus = false;
-    private bool currentAttackIsArcherBonus = false;
+    private AttackContext currentAttackContext;
 
-    private int pendingWarriorExtraAttackCount = 0;
+    private Queue<PendingExtraAttack> pendingExtraAttacks = new Queue<PendingExtraAttack>();
     private int archerAttackCount = 0;
+    private int furryNormalAttackCount = 0;
     private float nextWizardBonusReadyTime = 0f;
 
     private void Awake()
@@ -97,7 +100,7 @@ public class UnitAutoAttack : MonoBehaviour
             return;
         }
 
-        if (TryStartPendingWarriorExtraAttack())
+        if (TryStartPendingExtraAttack())
             return;
 
         if (currentTarget == null)
@@ -106,7 +109,7 @@ public class UnitAutoAttack : MonoBehaviour
         if (Time.time < nextAttackReadyTime)
             return;
 
-        StartAttack(currentTarget, false);
+        StartAttack(currentTarget, AttackContext.Normal());
     }
 
     public void RefreshFromCurrentStat()
@@ -141,11 +144,10 @@ public class UnitAutoAttack : MonoBehaviour
         isAttacking = false;
         hasEnteredAttackState = false;
         hasAppliedHit = false;
-        currentAttackIsWarriorBonus = false;
-        currentAttackIsWizardBonus = false;
-        currentAttackIsArcherBonus = false;
-        pendingWarriorExtraAttackCount = 0;
+        currentAttackContext = default;
+        pendingExtraAttacks.Clear();
         archerAttackCount = 0;
+        furryNormalAttackCount = 0;
 
         nextAttackReadyTime = Time.time + attackInterval;
         nextWizardBonusReadyTime = Time.time + WizardBonusCooldownSeconds;
@@ -224,7 +226,7 @@ public class UnitAutoAttack : MonoBehaviour
         }
     }
 
-    private void StartAttack(MonsterController target, bool isWarriorBonusAttack)
+    private void StartAttack(MonsterController target, AttackContext context)
     {
         if (target == null)
             return;
@@ -253,13 +255,25 @@ public class UnitAutoAttack : MonoBehaviour
         hasEnteredAttackState = false;
         hasAppliedHit = false;
 
-        currentAttackIsWarriorBonus = isWarriorBonusAttack;
-        currentAttackIsWizardBonus = CanUseWizardBonusThisAttack();
-        currentAttackIsArcherBonus = CanUseArcherBonusThisAttack();
+        // 전달받은 컨텍스트에 마법사/궁수 보너스 여부를 추가 설정
+        context.IsWizardBonus = CanUseWizardBonusThisAttack();
+        context.IsArcherBonus = CanUseArcherBonusThisAttack();
+
+        // 일반공격이 수인 추가타를 유발할 경우 애니메이션 부스트
+        if (context.IsNormalAttack && WillTriggerFurryExtraAttack())
+            context.AnimSpeedMultiplier = Mathf.Max(context.AnimSpeedMultiplier, FurryTriggerAnimSpeedBoost);
+
+        // AnimSpeedMultiplier가 설정되지 않은 경우 기본값 1
+        if (context.AnimSpeedMultiplier <= 0f)
+            context.AnimSpeedMultiplier = 1f;
+
+        currentAttackContext = context;
 
         nextAttackReadyTime = Time.time + attackInterval;
 
-        AttackPlaybackData playback = anim.PlayAttackAnimation(attackAnimationIndex, unitStat.AttackSpeed);
+        // 애니메이션 배속 적용: 기본 공속에 컨텍스트 배율을 곱한다
+        float effectiveAttackSpeed = unitStat.AttackSpeed * context.AnimSpeedMultiplier;
+        AttackPlaybackData playback = anim.PlayAttackAnimation(attackAnimationIndex, effectiveAttackSpeed);
 
         if (!playback.Success)
         {
@@ -270,7 +284,7 @@ public class UnitAutoAttack : MonoBehaviour
         if (attackLog)
         {
             DebugTool.Log(
-                $"공격 시작 | target={lockedTarget.name}, interval={attackInterval:F3}, animSpeed={playback.AnimatorSpeed:F2}, animDuration={playback.ActualDuration:F3}, hitNormalized={hitNormalizedTime:F2}, warriorBonus={currentAttackIsWarriorBonus}, wizardBonus={currentAttackIsWizardBonus}, archerBonus={currentAttackIsArcherBonus}",
+                $"공격 시작 | target={lockedTarget.name}, interval={attackInterval:F3}, animSpeed={playback.AnimatorSpeed:F2}, animDuration={playback.ActualDuration:F3}, hitNormalized={hitNormalizedTime:F2}, context=[{currentAttackContext}]",
                 DebugType.Unit,
                 this
             );
@@ -307,7 +321,9 @@ public class UnitAutoAttack : MonoBehaviour
         if (!hasAppliedHit && normalizedTime >= hitNormalizedTime)
             ApplyLockedHit(normalizedTime);
 
-        if (TryStartPendingWarriorExtraAttack())
+        // 현재 공격의 히트 판정이 끝난 후에만 다음 추가타를 시작한다.
+        // 이 가드가 없으면 히트 전에 매 프레임 큐에서 꺼내서 추가타가 씹힌다.
+        if (hasAppliedHit && TryStartPendingExtraAttack())
             return;
 
         bool attackStatePlaying = anim.IsAttackStatePlaying();
@@ -328,7 +344,7 @@ public class UnitAutoAttack : MonoBehaviour
 
             ApplyLockedHit(normalizedTime);
 
-            if (TryStartPendingWarriorExtraAttack())
+            if (TryStartPendingExtraAttack())
                 return;
         }
 
@@ -365,23 +381,22 @@ public class UnitAutoAttack : MonoBehaviour
             this.gameObject,
             lockedTarget,
             attackSensor,
-            currentAttackIsWarriorBonus,
-            currentAttackIsWizardBonus,
-            currentAttackIsArcherBonus
+            currentAttackContext
         );
 
         if (success)
         {
-            if (currentAttackIsWizardBonus)
+            if (currentAttackContext.IsWizardBonus)
                 ConsumeWizardBonus();
 
             UpdateArcherAttackProgressAfterSuccessfulHit();
+            UpdateFurryAttackProgressAfterSuccessfulHit();
         }
 
         if (attackLog)
         {
             DebugTool.Log(
-                $"히트 판정 | target={lockedTarget.name}, normalized={normalizedTime:F2}, success={success}, warriorBonus={currentAttackIsWarriorBonus}, wizardBonus={currentAttackIsWizardBonus}, archerBonus={currentAttackIsArcherBonus}",
+                $"히트 판정 | target={lockedTarget.name}, normalized={normalizedTime:F2}, success={success}, context=[{currentAttackContext}]",
                 DebugType.Unit,
                 this
             );
@@ -408,7 +423,7 @@ public class UnitAutoAttack : MonoBehaviour
         if (attackLog)
         {
             DebugTool.Log(
-                $"공격 종료 | lockedTarget={(lockedTarget != null ? lockedTarget.name : "None")}, warriorBonus={currentAttackIsWarriorBonus}, wizardBonus={currentAttackIsWizardBonus}, archerBonus={currentAttackIsArcherBonus}",
+                $"공격 종료 | lockedTarget={(lockedTarget != null ? lockedTarget.name : "None")}, context=[{currentAttackContext}]",
                 DebugType.Unit,
                 this
             );
@@ -417,9 +432,7 @@ public class UnitAutoAttack : MonoBehaviour
         isAttacking = false;
         hasEnteredAttackState = false;
         hasAppliedHit = false;
-        currentAttackIsWarriorBonus = false;
-        currentAttackIsWizardBonus = false;
-        currentAttackIsArcherBonus = false;
+        currentAttackContext = default;
         lockedTarget = null;
 
         if (anim != null)
@@ -440,8 +453,7 @@ public class UnitAutoAttack : MonoBehaviour
         isAttacking = false;
         hasEnteredAttackState = false;
         hasAppliedHit = false;
-        currentAttackIsWarriorBonus = false;
-        currentAttackIsWizardBonus = false;
+        currentAttackContext = default;
         lockedTarget = null;
 
         if (anim != null)
@@ -449,52 +461,93 @@ public class UnitAutoAttack : MonoBehaviour
     }
     public void RequestWarriorExtraAttack()
     {
-        pendingWarriorExtraAttackCount++;
+        EnqueueExtraAttack(new PendingExtraAttack
+        {
+            Type = ExtraAttackType.Warrior,
+            RemainingCount = 1,
+            ForcedTarget = null,
+            AnimSpeedMultiplier = 1f
+        });
+    }
+
+    /// <summary>
+    /// 추가 공격 배치를 큐에 등록한다.
+    /// 전사, 수인 등 시너지별로 이 메서드를 통해 추가타를 요청한다.
+    /// </summary>
+    public void EnqueueExtraAttack(PendingExtraAttack entry)
+    {
+        pendingExtraAttacks.Enqueue(entry);
         nextAttackReadyTime = 0f;
 
         if (attackLog)
         {
             DebugTool.Log(
-                $"전사 추가 공격 요청 | pending={pendingWarriorExtraAttackCount}",
+                $"추가 공격 등록 | [{entry}], 큐 크기={pendingExtraAttacks.Count}",
                 DebugType.Synergy,
                 this
             );
         }
     }
 
-    private bool TryStartPendingWarriorExtraAttack()
+    private bool TryStartPendingExtraAttack()
     {
-        if (pendingWarriorExtraAttackCount <= 0)
+        if (pendingExtraAttacks.Count == 0)
             return false;
 
-        UpdateTarget();
+        // 큐 앞쪽을 꺼내서 확인 (아직 Dequeue 하지 않음)
+        PendingExtraAttack front = pendingExtraAttacks.Peek();
 
-        if (currentTarget == null)
+        // 타겟 결정: ForcedTarget이 유효하면 사용, 아니면 센서 타겟
+        MonsterController target = ResolveExtraAttackTarget(front);
+
+        if (target == null)
         {
+            // 타겟 없음 → 이 배치를 버린다
+            pendingExtraAttacks.Dequeue();
+
             if (attackLog)
             {
                 DebugTool.Log(
-                    $"전사 추가 공격 취소 | 사거리 내 다음 타겟이 없어 pending을 비웁니다.",
+                    $"추가 공격 취소 | type={front.Type}, 유효 타겟 없음, 큐 남은 크기={pendingExtraAttacks.Count}",
                     DebugType.Synergy,
                     this
                 );
             }
 
-            pendingWarriorExtraAttackCount = 0;
             return false;
         }
 
-        pendingWarriorExtraAttackCount--;
+        // 배치에서 1회 차감
+        front.RemainingCount--;
+
+        if (front.HasRemaining)
+        {
+            // 아직 남은 타수가 있으면 업데이트된 값으로 다시 넣기 (struct이므로 Dequeue 후 Enqueue)
+            pendingExtraAttacks.Dequeue();
+
+            // 큐 맨 앞에 다시 넣기 위해 임시 보관
+            PendingExtraAttack[] remaining = pendingExtraAttacks.ToArray();
+            pendingExtraAttacks.Clear();
+            pendingExtraAttacks.Enqueue(front);
+            for (int i = 0; i < remaining.Length; i++)
+                pendingExtraAttacks.Enqueue(remaining[i]);
+        }
+        else
+        {
+            // 이 배치 소진 → 제거
+            pendingExtraAttacks.Dequeue();
+        }
 
         if (attackLog)
         {
             DebugTool.Log(
-                $"전사 추가 공격 시작 | target={currentTarget.name}, 남은 pending={pendingWarriorExtraAttackCount}",
+                $"추가 공격 시작 | type={front.Type}, target={target.name}, 배치 남은={front.RemainingCount}, 큐 크기={pendingExtraAttacks.Count}",
                 DebugType.Synergy,
                 this
             );
         }
 
+        // 현재 진행 중인 공격이 있으면 중단
         if (isAttacking)
         {
             if (anim != null)
@@ -506,8 +559,51 @@ public class UnitAutoAttack : MonoBehaviour
             lockedTarget = null;
         }
 
-        StartAttack(currentTarget, true);
+        // 타입에 맞는 AttackContext 생성
+        AttackContext context = BuildExtraAttackContext(front.Type, front.AnimSpeedMultiplier);
+        StartAttack(target, context);
         return true;
+    }
+
+    /// <summary>
+    /// 추가 공격의 타겟을 결정한다.
+    /// ForcedTarget이 유효하면 그것을 사용하고, 아니면 센서에서 탐색한다.
+    /// </summary>
+    private MonsterController ResolveExtraAttackTarget(PendingExtraAttack entry)
+    {
+        if (entry.ForcedTarget != null)
+        {
+            // 강제 타겟이 지정된 경우 (수인 등): 유효하면 사용, 죽었으면 null (센서 폴백 없음)
+            if (entry.ForcedTarget.gameObject.activeInHierarchy
+                && entry.ForcedTarget.CurrentHp > 0f)
+            {
+                return entry.ForcedTarget;
+            }
+
+            return null;
+        }
+
+        // 강제 타겟이 없는 경우 (전사 등) → 센서에서 탐색
+        UpdateTarget();
+        return currentTarget;
+    }
+
+    /// <summary>
+    /// 추가 공격 타입에 맞는 AttackContext를 생성한다.
+    /// </summary>
+    private AttackContext BuildExtraAttackContext(ExtraAttackType type, float animSpeedMultiplier = 1f)
+    {
+        switch (type)
+        {
+            case ExtraAttackType.Warrior:
+                return new AttackContext { IsWarriorBonus = true, AnimSpeedMultiplier = animSpeedMultiplier };
+
+            case ExtraAttackType.Furry:
+                return new AttackContext { IsFurryBonus = true, AnimSpeedMultiplier = animSpeedMultiplier };
+
+            default:
+                return new AttackContext { AnimSpeedMultiplier = animSpeedMultiplier };
+        }
     }
 
 
@@ -567,7 +663,7 @@ public class UnitAutoAttack : MonoBehaviour
         if (bonusPercent <= 0f)
             return;
 
-        if (currentAttackIsArcherBonus)
+        if (currentAttackContext.IsArcherBonus)
         {
             ConsumeArcherBonus(bonusPercent);
             return;
@@ -650,6 +746,124 @@ public class UnitAutoAttack : MonoBehaviour
 
         warnedMissingArcherSynergyDataController = true;
         DebugTool.Warnning("SynergyDataController 참조가 없어 궁수 최대 체력 비례 시너지를 적용하지 않습니다.", DebugType.Synergy, this);
+    }
+
+    // ─────────────────────────────── 수인 시너지 ───────────────────────────────
+
+    /// <summary>
+    /// 이번 일반공격이 수인 추가타를 유발하는 3번째 타격인지 사전 판별한다.
+    /// StartAttack에서 애니메이션 부스트 여부를 결정하는 데 사용한다.
+    /// </summary>
+    private bool WillTriggerFurryExtraAttack()
+    {
+        if (unitStat == null)
+            return false;
+
+        if (!HasSynergyTag(FurrySynergyId))
+            return false;
+
+        if (furryNormalAttackCount < FurryRequiredAttackCount - 1)
+            return false;
+
+        int extraCount = GetFurryExtraAttackCount();
+        return extraCount > 0;
+    }
+
+    /// <summary>
+    /// 히트 성공 후 수인 카운터를 갱신하고, 조건 충족 시 추가타를 큐에 등록한다.
+    /// </summary>
+    private void UpdateFurryAttackProgressAfterSuccessfulHit()
+    {
+        if (unitStat == null)
+            return;
+
+        if (!HasSynergyTag(FurrySynergyId))
+            return;
+
+        // 수인 추가타·전사 추가타 등 스킬 공격은 카운터를 올리지 않는다
+        if (!currentAttackContext.CountsForSynergyStacks)
+            return;
+
+        int extraCount = GetFurryExtraAttackCount();
+        if (extraCount <= 0)
+            return;
+
+        furryNormalAttackCount++;
+
+        if (attackLog)
+        {
+            DebugTool.Log(
+                $"수인 카운트 적립 | unit={unitStat.Name}, count={furryNormalAttackCount}/{FurryRequiredAttackCount}",
+                DebugType.Synergy,
+                this
+            );
+        }
+
+        if (furryNormalAttackCount >= FurryRequiredAttackCount)
+        {
+            furryNormalAttackCount = 0;
+
+            EnqueueExtraAttack(new PendingExtraAttack
+            {
+                Type = ExtraAttackType.Furry,
+                RemainingCount = extraCount,
+                ForcedTarget = lockedTarget,
+                AnimSpeedMultiplier = Mathf.Max(1f, extraCount)
+            });
+
+            if (attackLog)
+            {
+                DebugTool.Log(
+                    $"수인 추가타 발동 | unit={unitStat.Name}, extraCount={extraCount}, target={(lockedTarget != null ? lockedTarget.name : "None")}",
+                    DebugType.Synergy,
+                    this
+                );
+            }
+        }
+    }
+
+    /// <summary>
+    /// 현재 시너지 레벨에 따른 수인 추가타 횟수를 반환한다. (0이면 미활성)
+    /// </summary>
+    private int GetFurryExtraAttackCount()
+    {
+        if (unitStat == null)
+            return 0;
+
+        if (!HasSynergyTag(FurrySynergyId))
+            return 0;
+
+        if (CombatManager.Instance == null)
+            return 0;
+
+        TryResolveSynergyDataController();
+
+        if (synergyDataController == null)
+            return 0;
+
+        SynergyData furryData = synergyDataController.GetById(FurrySynergyId);
+        if (furryData == null || furryData.Levels == null || furryData.Levels.Count == 0)
+            return 0;
+
+        int activeCount = CombatManager.Instance.GetSynergyLevel(FurrySynergyId);
+        int extraAttacks = 0;
+
+        for (int i = 0; i < furryData.Levels.Count; i++)
+        {
+            SynergyLevelData level = furryData.Levels[i];
+            if (level == null)
+                continue;
+
+            if (activeCount < level.ActiveCount)
+                continue;
+
+            if (level.EffectValues == null || level.EffectValues.Count == 0)
+                continue;
+
+            extraAttacks = (int)level.EffectValues[0];
+        }
+
+        return extraAttacks;
     }
 
     private float GetWizardDamageBonusPercent()
