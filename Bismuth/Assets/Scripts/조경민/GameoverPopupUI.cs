@@ -11,12 +11,16 @@ public class GameoverPopupUI : MonoBehaviour
     [Tooltip("메인화면")]
     [SerializeField] private TMP_Text _mainText;
 
-    private void Start()
+    private void OnEnable()
     {
-        // TODO : 로컬라이징 수정
-        _gameoverText.text = "GAME OVER";
-        _retryText.text = "RETRY";
-        _mainText.text = "MAIN";
+        RefreshText();
+    }
+
+    private void RefreshText()
+    {
+        _gameoverText.text = LocalizationManager.Instance.Get("GAME_OVER");
+        _retryText.text = LocalizationManager.Instance.Get("RESTART");
+        _mainText.text = LocalizationManager.Instance.Get("MAIN");
     }
 
     public void OnClickRetry()
