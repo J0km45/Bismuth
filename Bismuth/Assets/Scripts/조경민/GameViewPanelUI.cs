@@ -41,6 +41,12 @@ public class GameViewPanelUI : MonoBehaviour
     [Tooltip("재생 이미지")]
     [SerializeField] private Sprite _playSprite;
 
+    [Header("━━━━ 게임 종료 ━━━━")]
+    [Tooltip("게임 클리어")]
+    [SerializeField] private GameclearPopupUI _gameclearPopupUI;
+    [Tooltip("게임 오버")]
+    [SerializeField] private GameoverPopupUI _gameoverPopupUI;
+
     private bool _isPausePanelOpened => _pausePanel.activeSelf;
     private bool _isFast;
     private Color _originalColor;
@@ -157,12 +163,18 @@ public class GameViewPanelUI : MonoBehaviour
     private void BattleCompleted()
     {
         SetPreparationUIActive(false);
+
+        _gameclearPopupUI.gameObject.SetActive(true);
+        MapBattleConfigSO config = _battleWaveRunner.MapBattleConfig;
+        _gameclearPopupUI.ShowResult(config.MapName, config.DifficultyName);
     }
 
     // 배틀 실패 때 정비시간 텍스트, 스킵 버튼 비활성화
     private void BattleFailed()
     {
         SetPreparationUIActive(false);
+
+        _gameoverPopupUI.gameObject.SetActive(true);
     }
 
     private void RefreshWaveText()
