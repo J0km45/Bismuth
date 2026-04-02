@@ -146,7 +146,7 @@ public class PlayerUIController : MonoBehaviour
         stat.CurrentAttackPower = stat.BaseAttackPower + (stat.BaseAttackPower * UpgradeRatio) * (unitLevel - 1);
         DebugTool.Log($"유닛 강화 성공! [유닛 레벨 : {unitLevel} | 소모 골드 : {gold}", DebugType.Unit, this);
 
-        _unitInfoPanelUI.RefreshUnitInfo();
+        _unitInfoPanelUI.RefreshStats();
     }
     
     // 플레이어 레벨 업그레이드 시 호출

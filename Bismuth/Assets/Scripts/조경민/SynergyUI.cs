@@ -1,3 +1,4 @@
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -18,33 +19,52 @@ public class SynergyUI : MonoBehaviour, IPointerClickHandler
     [SerializeField] private TMP_Text _dNameText; // 설명칸에 들어갈 시너지 이름 텍스트
     [SerializeField] private TMP_Text _descriptionText; // 시너지 설명
 
+    private SynergyData _data;
+    private int _count;
+
+    private void OnEnable()
+    {
+        LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
+    }
+
+    private void OnDisable()
+    {
+        LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
+    }
+
     public void SetData(int synergyId, int count, SynergySO synergySO)
     {
-        SynergyData data = GetSynergyData(synergyId, synergySO);
-
-        // 시너지 이름
-        _hNameText.text = data.SynergyName;
-        _dNameText.text = data.SynergyName;
+        _data = GetSynergyData(synergyId, synergySO);
+        _count = count;
 
         // 최대 시너지 수
         int maxCount = 0;
-        if (data.Levels != null && data.Levels.Count > 0)
+        if (_data.Levels != null && _data.Levels.Count > 0)
         {
-            maxCount = data.Levels[data.Levels.Count - 1].ActiveCount;
+            maxCount = _data.Levels[_data.Levels.Count - 1].ActiveCount;
         }
-        _countText.text = $"{count} / {maxCount}";
-
-        // 시너지 설명
-        _descriptionText.text = GetDescriptionText(data, count);
+        _countText.text = $"{_count} / {maxCount}";
 
         // 아이콘 활성/비활성
         bool isActive = false;
-        if (data.Levels != null && data.Levels.Count > 0)
+        if (_data.Levels != null && _data.Levels.Count > 0)
         {
-            isActive = count >= data.Levels[0].ActiveCount;
+            isActive = _count >= _data.Levels[0].ActiveCount;
         }
 
         _icon.sprite = isActive ? activeSprite : inactiveSprite;
+
+        RefreshText();
+    }
+
+    private void RefreshText()
+    {
+        // 시너지 이름
+        _hNameText.text = LocalizationManager.Instance.Get(_data.SynergyName);
+        _dNameText.text = LocalizationManager.Instance.Get(_data.SynergyName);
+
+        // 시너지 설명
+        _descriptionText.text = GetDescriptionText(_data, _count);
     }
 
     private SynergyData GetSynergyData(int synergyId, SynergySO synergySO)
@@ -80,8 +100,8 @@ public class SynergyUI : MonoBehaviour, IPointerClickHandler
             return "---";
         }
 
-        //return "Description";
-        return string.Join("\n", currentLevel.EffectValues);
+        string key = $"{data.SynergyName}_DESC";
+        return LocalizationManager.Instance.Get(key, currentLevel.EffectValues.Cast<object>().ToArray());
     }
 
     public void OnPointerClick(PointerEventData eventData)
