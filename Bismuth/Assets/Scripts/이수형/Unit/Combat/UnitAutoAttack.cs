@@ -73,7 +73,7 @@ public class UnitAutoAttack : MonoBehaviour
             skillCast = gameObject.AddComponent<SkillCast>();
 
         EnsureSensor();
-        //attackAnimationIndex = unitStat.Range > 1f ? 2 : 0;
+
     }
 
     private void Start()
@@ -255,15 +255,15 @@ public class UnitAutoAttack : MonoBehaviour
         hasEnteredAttackState = false;
         hasAppliedHit = false;
 
-        // 전달받은 컨텍스트에 마법사/궁수 보너스 여부를 추가 설정
+
         context.IsWizardBonus = CanUseWizardBonusThisAttack();
         context.IsArcherBonus = CanUseArcherBonusThisAttack();
 
-        // 일반공격이 수인 추가타를 유발할 경우 애니메이션 부스트
+
         if (context.IsNormalAttack && WillTriggerFurryExtraAttack())
             context.AnimSpeedMultiplier = Mathf.Max(context.AnimSpeedMultiplier, FurryTriggerAnimSpeedBoost);
 
-        // AnimSpeedMultiplier가 설정되지 않은 경우 기본값 1
+
         if (context.AnimSpeedMultiplier <= 0f)
             context.AnimSpeedMultiplier = 1f;
 
@@ -271,10 +271,10 @@ public class UnitAutoAttack : MonoBehaviour
 
         nextAttackReadyTime = Time.time + attackInterval;
 
-        // 애니메이션 배속 적용: 기본 공속에 컨텍스트 배율을 곱한다
+
         float effectiveAttackSpeed = unitStat.AttackSpeed * context.AnimSpeedMultiplier;
 
-        // 스킬 공격(전사·수인 추가타·마법사 차징)은 index 1(스킬 모션), 일반 공격은 index 0(기본 모션)
+
         bool isSkillAttack = context.IsWarriorBonus || context.IsFurryBonus || context.IsWizardBonus;
         int animIndex = isSkillAttack ? 1 : attackAnimationIndex;
 
@@ -326,8 +326,7 @@ public class UnitAutoAttack : MonoBehaviour
         if (!hasAppliedHit && normalizedTime >= hitNormalizedTime)
             ApplyLockedHit(normalizedTime);
 
-        // 현재 공격의 히트 판정이 끝난 후에만 다음 추가타를 시작한다.
-        // 이 가드가 없으면 히트 전에 매 프레임 큐에서 꺼내서 추가타가 씹힌다.
+
         if (hasAppliedHit && TryStartPendingExtraAttack())
             return;
 
@@ -440,7 +439,7 @@ public class UnitAutoAttack : MonoBehaviour
         currentAttackContext = default;
         lockedTarget = null;
 
-        // Play()로 ATTACK에 강제 진입했으므로, 명시적으로 IDLE 복귀시킨다.
+
         if (anim != null)
             anim.PlayIdleAnimation();
     }
@@ -477,8 +476,7 @@ public class UnitAutoAttack : MonoBehaviour
     }
 
 
-    /// 추가 공격 배치를 큐에 등록한다.
-    /// 전사, 수인 등 시너지별로 이 메서드를 통해 추가타를 요청한다.
+
 
     public void EnqueueExtraAttack(PendingExtraAttack entry)
     {
@@ -500,15 +498,15 @@ public class UnitAutoAttack : MonoBehaviour
         if (pendingExtraAttacks.Count == 0)
             return false;
 
-        // 큐 앞쪽을 꺼내서 확인 (아직 Dequeue 하지 않음)
+
         PendingExtraAttack front = pendingExtraAttacks.Peek();
 
-        // 타겟 결정: ForcedTarget이 유효하면 사용, 아니면 센서 타겟
+
         MonsterController target = ResolveExtraAttackTarget(front);
 
         if (target == null)
         {
-            // 타겟 없음 → 이 배치를 버린다
+
             pendingExtraAttacks.Dequeue();
 
             if (attackLog)
@@ -523,15 +521,15 @@ public class UnitAutoAttack : MonoBehaviour
             return false;
         }
 
-        // 배치에서 1회 차감
+
         front.RemainingCount--;
 
         if (front.HasRemaining)
         {
-            // 아직 남은 타수가 있으면 업데이트된 값으로 다시 넣기 (struct이므로 Dequeue 후 Enqueue)
+
             pendingExtraAttacks.Dequeue();
 
-            // 큐 맨 앞에 다시 넣기 위해 임시 보관
+
             PendingExtraAttack[] remaining = pendingExtraAttacks.ToArray();
             pendingExtraAttacks.Clear();
             pendingExtraAttacks.Enqueue(front);
@@ -540,7 +538,7 @@ public class UnitAutoAttack : MonoBehaviour
         }
         else
         {
-            // 이 배치 소진 → 제거
+
             pendingExtraAttacks.Dequeue();
         }
 
@@ -553,7 +551,7 @@ public class UnitAutoAttack : MonoBehaviour
             );
         }
 
-        // 현재 진행 중인 공격이 있으면 중단
+
         if (isAttacking)
         {
             if (anim != null)
@@ -565,20 +563,18 @@ public class UnitAutoAttack : MonoBehaviour
             lockedTarget = null;
         }
 
-        // 타입에 맞는 AttackContext 생성
+
         AttackContext context = BuildExtraAttackContext(front.Type, front.AnimSpeedMultiplier);
         StartAttack(target, context);
         return true;
     }
 
-    /// 추가 공격의 타겟을 결정한다.
-    /// ForcedTarget이 유효하면 그것을 사용하고, 아니면 센서에서 탐색한다.
 
     private MonsterController ResolveExtraAttackTarget(PendingExtraAttack entry)
     {
         if (entry.ForcedTarget != null)
         {
-            // 강제 타겟이 지정된 경우 (수인 등): 유효하면 사용, 죽었으면 null (센서 폴백 없음)
+
             if (entry.ForcedTarget.gameObject.activeInHierarchy
                 && entry.ForcedTarget.CurrentHp > 0f)
             {
@@ -588,13 +584,13 @@ public class UnitAutoAttack : MonoBehaviour
             return null;
         }
 
-        // 강제 타겟이 없는 경우 (전사 등) → 센서에서 탐색
+
         UpdateTarget();
         return currentTarget;
     }
 
 
-    /// 추가 공격 타입에 맞는 AttackContext를 생성한다.
+
 
     private AttackContext BuildExtraAttackContext(ExtraAttackType type, float animSpeedMultiplier = 1f)
     {
@@ -828,7 +824,6 @@ public class UnitAutoAttack : MonoBehaviour
     }
 
 
-    /// 현재 시너지 레벨에 따른 수인 추가타 횟수를 반환한다. (0이면 미활성)
 
     private int GetFurryExtraAttackCount()
     {
@@ -962,7 +957,7 @@ public class UnitAutoAttack : MonoBehaviour
             if (level.EffectValues == null || level.EffectValues.Count == 0)
                 continue;
 
-            // 거너 시너지는 첫 번째 effect value를 공속 증가량(%)으로 사용
+
             bonusPercent = level.EffectValues[0];
         }
 

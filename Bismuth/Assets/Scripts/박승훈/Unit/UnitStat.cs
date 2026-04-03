@@ -20,4 +20,6 @@ public class UnitStat : MonoBehaviour
     public int[] SynergIDs;
     public int KillCount;
     public int DealtDamage;
+
+    public int ElfWaveKillCount;
 }
