@@ -19,6 +19,7 @@ public class GameSceneManager : MonoBehaviour
     // 게임 씬 이동
     public void ChangeScene(int index)
     {
+        TimeScaleController.Instance.ResetState();
         SceneManager.LoadScene(index);
     }
 
@@ -44,7 +45,7 @@ public class GameSceneManager : MonoBehaviour
     // 타이틀 씬 이동
     public void LoadTitle()
     {
-        Time.timeScale = 1f;
+        TimeScaleController.Instance.ResetState();
         SceneManager.LoadScene((int)SceneIndex.TitleScene);
     }
 

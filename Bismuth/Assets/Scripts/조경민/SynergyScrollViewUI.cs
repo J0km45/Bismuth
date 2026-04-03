@@ -1,14 +1,21 @@
 using System.Collections.Generic;
 using System.Linq;
+using TMPro;
 using UnityEngine;
 
 // 스크롤뷰에 들어갈 스크립트
 public class SynergyScrollViewUI : MonoBehaviour
 {
+    [Header("━━━━ 시너지 ━━━━")]
     [SerializeField] private Transform _synergyContent; // 시너지 스크롤뷰 속 Content
     [SerializeField] private SynergyUI _synergyPrefab;
     [SerializeField] private SynergyManager _synergyManager;
     [SerializeField] private SynergySO _synergySO;
+
+    [Header("━━━━ 설명 ━━━━")]
+    [SerializeField] private GameObject _descriptionPanel; // 마우스 올리면 켜질 설명 패널
+    [SerializeField] private TMP_Text _dNameText; // 설명칸에 들어갈 시너지 이름 텍스트
+    [SerializeField] private TMP_Text _descriptionText; // 시너지 설명
 
     private List<SynergyUI> _synergys = new List<SynergyUI>(); // 존재하는 시너지 프리팹 리스트
 
@@ -40,7 +47,7 @@ public class SynergyScrollViewUI : MonoBehaviour
             int count = pair.Value.Count;
 
             SynergyUI synergy = Instantiate(_synergyPrefab, _synergyContent);
-            synergy.SetData(synergyId, count, _synergySO);
+            synergy.SetData(synergyId, count, _synergySO, this);
             _synergys.Add(synergy);
         }
     }
@@ -83,5 +90,17 @@ public class SynergyScrollViewUI : MonoBehaviour
 
         _synergys.Clear();
         DebugTool.Log("Synergys cleared", DebugType.Synergy, this);
+    }
+
+    public void ShowDescription(SynergyUI synergyUI)
+    {
+        _dNameText.text = synergyUI.GetSynergyName();
+        _descriptionText.text = synergyUI.GetDescriptionText();
+        _descriptionPanel.SetActive(true);
+    }
+
+    public void CloseDescription()
+    {
+        _descriptionPanel.SetActive(false);
     }
 }
