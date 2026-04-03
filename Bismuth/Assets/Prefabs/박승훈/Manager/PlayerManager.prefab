@@ -17,6 +17,7 @@ GameObject:
   - component: {fileID: 8554172300313096461}
   - component: {fileID: 7012402871630413712}
   - component: {fileID: 5106607783468869301}
+  - component: {fileID: 2799974427374469838}
   m_Layer: 0
   m_Name: PlayerManager
   m_TagString: Untagged
@@ -271,4 +272,21 @@ MonoBehaviour:
   OnSummonUnit:
     m_PersistentCalls:
       m_Calls: []
+  _log: 1
+--- !u!114 &2799974427374469838
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4351018382781704222}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ee204b8813310a49854ce7794ab8eb0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BattleRewardHandler
+  _battleWaveRunner: {fileID: 0}
+  _playerDataManager: {fileID: 0}
+  _synergySO: {fileID: 11400000, guid: ae19ff350cd21684392c987d6ab5e999, type: 2}
+  _synergyManager: {fileID: 0}
   _log: 1
