@@ -794,6 +794,17 @@ MonoBehaviour:
   _synergySO: {fileID: 11400000, guid: ae19ff350cd21684392c987d6ab5e999, type: 2}
   _synergyManager: {fileID: 0}
   _log: 1
+--- !u!114 &553961997 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3586491415078184626, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
+  m_PrefabInstance: {fileID: 4138993132534094891}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 553961979}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1baa8ab0c926664448af434a2d22aaa7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombineMangager
 --- !u!114 &639690648 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8973870960450476074, guid: d534f106b310f624784d9c461904f74e, type: 3}
@@ -1073,6 +1084,14 @@ PrefabInstance:
       propertyPath: _synergyText
       value: 
       objectReference: {fileID: 325870676}
+    - target: {fileID: 7437691279759536612, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
+      propertyPath: _combineManager
+      value: 
+      objectReference: {fileID: 553961997}
+    - target: {fileID: 7437691279759536612, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
+      propertyPath: _playerUIController
+      value: 
+      objectReference: {fileID: 553961980}
     - target: {fileID: 8176491976207515799, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
       propertyPath: _battleWaveRunner
       value: 
