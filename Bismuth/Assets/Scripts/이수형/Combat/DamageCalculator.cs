@@ -303,7 +303,6 @@ public class DamageCalculator : MonoBehaviour
             if (level.EffectValues == null || level.EffectValues.Count == 0)
                 continue;
 
-            // 전사 시너지는 첫 번째 effect value를 공격력 배율 보너스로 사용
             bonus = level.EffectValues[0];
         }
 
@@ -367,8 +366,7 @@ public class DamageCalculator : MonoBehaviour
         int activeCount = synergyManager.GetSynergyLevel(FighterSynergyId);
         float bonus = GetMatchedBonus(fighterData, activeCount);
 
-        // SynergySO 값이 10,20,30처럼 들어오든
-        // 0.1,0.2,0.3처럼 들어오든 둘 다 안전하게 처리
+
         if (bonus > 1f)
             bonus *= 0.01f;
 
