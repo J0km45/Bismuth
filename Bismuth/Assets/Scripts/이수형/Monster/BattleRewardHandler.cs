@@ -29,6 +29,12 @@ public class BattleRewardHandler : MonoBehaviour
     private bool _warnedMissingSynergySo;
     private bool _warnedMissingSynergyManager;
 
+    private void Awake()
+    {
+        _playerDataManager = GetComponentInParent<PlayerDataManager>();
+        _synergyManager = GetComponentInParent<SynergyManager>();
+    }
+
     private void Start()
     {
         DebugTool.DebugSelect(DebugType.Synergy, _log);
