@@ -11,7 +11,6 @@ public class PlayerUIController : MonoBehaviour
     [SerializeField] private CombineManager _combineManger;
     [SerializeField] private UnitEnhanceSO _unitEnhanceSO;
     [SerializeField] private UnitInfoPanelUI _unitInfoPanelUI;
-    [SerializeField] private SynergyManager _synergyManager;
     
     
     private readonly int MAX_PLAYER_LEVEL = 5;
@@ -61,7 +60,6 @@ public class PlayerUIController : MonoBehaviour
         
         unit = null;
         _unitInfoPanelUI.gameObject.SetActive(false);
-        // _synergyManager.OnUnitRemoved?.Invoke(stat);
     }
 
     private int SellUnit(int payback, int tier)
@@ -143,8 +141,11 @@ public class PlayerUIController : MonoBehaviour
 
         _player.Gold -= gold;
         stat.Level++;
-        stat.CurrentAttackPower = stat.BaseAttackPower + (stat.BaseAttackPower * UpgradeRatio) * (unitLevel - 1);
-        DebugTool.Log($"유닛 강화 성공! [유닛 레벨 : {unitLevel} | 소모 골드 : {gold}", DebugType.Unit, this);
+        float upgradeAttackPower = stat.BaseAttackPower * UpgradeRatio * unitLevel;
+        float beforeAttackPower = stat.CurrentAttackPower;
+        stat.CurrentAttackPower = stat.BaseAttackPower + upgradeAttackPower;
+        DebugTool.Log($"유닛 강화 성공! [유닛 레벨 : {unitLevel} | 소모 골드 : {gold}\n" +
+                      $"이전 공격력 : {beforeAttackPower}, 추가 공격력 : {upgradeAttackPower}, 현재 공격력 : {stat.CurrentAttackPower}", DebugType.Unit, this);
 
         _unitInfoPanelUI.RefreshStats();
     }
@@ -221,6 +222,5 @@ public class PlayerUIController : MonoBehaviour
         _player = GetComponent<PlayerDataManager>();
         _summonManger = GetComponent<SummonManager>();
         _combineManger = GetComponent<CombineManager>();
-        _synergyManager = GetComponent<SynergyManager>();
     }
 }
