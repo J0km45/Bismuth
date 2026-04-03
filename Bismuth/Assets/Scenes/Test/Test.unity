@@ -213,22 +213,18 @@ PrefabInstance:
       propertyPath: _battleWaveRunner
       value: 
       objectReference: {fileID: 1800732796}
+    - target: {fileID: 1989442104882972823, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
+      propertyPath: m_Value
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 2966134180550267831, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
       propertyPath: m_SizeDelta.y
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3256323829387137434, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
-      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3256323829387137434, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
       value: 
       objectReference: {fileID: 553961980}
-    - target: {fileID: 3256323829387137434, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
-      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnPlayerLevelUpgrade
-      objectReference: {fileID: 0}
     - target: {fileID: 3276245877223818212, guid: 1c1f7e5898091004eb43ca5d5136aa0d, type: 3}
       propertyPath: m_Name
       value: CombatCanvas
@@ -1852,6 +1848,10 @@ PrefabInstance:
       propertyPath: unitInfoPanel
       value: 
       objectReference: {fileID: 2069794616}
+    - target: {fileID: 7012402871630413712, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
+      propertyPath: battleWaveRunner
+      value: 
+      objectReference: {fileID: 1800732796}
     - target: {fileID: 7012402871630413712, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
       propertyPath: _combinationScrollView
       value: 

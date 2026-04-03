@@ -20,6 +20,9 @@ public class TowerLongPressDragHandler : MonoBehaviour
     private float pressedTime;
     private Vector2 pressedScreenPos;
     private Vector3 dragOffset;
+    
+    // 웨이브 진행 중 체크
+    private bool _isIntermissionActive;
 
     public void Initialize(BoardSystem board, Camera cam, CellHighlight highlight)
     {
@@ -72,6 +75,11 @@ public class TowerLongPressDragHandler : MonoBehaviour
     }
     public bool BeginPress(Vector2 screenPos, GameObject unitInfoPanel)
     {
+        if (!_isIntermissionActive)
+        {
+            DebugTool.Log($"점검 시간 진행 중 여부 : {_isIntermissionActive}", DebugType.Wave, this);
+            return false;
+        }
         if (isActiveAndEnabled == false)
             return false;
         if (towerUnit == null || towerUnit.CurrentSlot == null) 
@@ -263,5 +271,8 @@ public class TowerLongPressDragHandler : MonoBehaviour
         ResetState();
     }
 
-    
+    public void GetIsRunning(bool isRunning)
+    {
+        _isIntermissionActive = isRunning;
+    }
 }
