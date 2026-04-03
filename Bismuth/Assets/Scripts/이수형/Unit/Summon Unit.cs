@@ -152,6 +152,7 @@ public class SummonUnit : MonoBehaviour
         DebugTool.Log("PrepareSpawnedTower까지 실행완료",DebugType.Summon,this);
 
         UnitStat stat = ApplyUnitStat(createdTower.gameObject, data);
+        createdTower.stat = stat;
 
         SetAnimationController(createdTower.gameObject);
 
@@ -487,6 +488,8 @@ public class SummonUnit : MonoBehaviour
             DebugType.Summon,
             this
         );
+        
+        synergyManager.OnUnitRemoved?.Invoke(tower.stat);
 
         Destroy(tower.gameObject);
         return true;

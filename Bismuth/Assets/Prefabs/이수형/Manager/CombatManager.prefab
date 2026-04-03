@@ -113,12 +113,15 @@ MonoBehaviour:
   projectileHitDistance: 0.12
   projectileMaxLifetime: 3
   projectilePool: {fileID: 0}
-  projectileLog: 1
+  projectileLog: 0
   monsterLayerMask:
     serializedVersion: 2
     m_Bits: 32768
   aoeOverlapBufferSize: 32
   aoeEffectScalePerRadius: 2
+  synergyManager: {fileID: 0}
+  wizardFollowUpDelay: 0.35
+  wizardFollowUpLog: 0
 --- !u!114 &125510194641839064
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -131,3 +134,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e4e57c35dc1e3af47a62268cf8e51bc9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DamageCalculator
+  synergySO: {fileID: 11400000, guid: ae19ff350cd21684392c987d6ab5e999, type: 2}
+  synergyManager: {fileID: 0}
+  synergyLog: 0

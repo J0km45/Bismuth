@@ -35,14 +35,25 @@ public class ControlPanelUI : MonoBehaviour
         }
     }
 
-    private void Start()
+    private void OnEnable()
     {
-        // TODO : 수정해야됨(로컬라이징)
-        _combinationText.text = "Combination";
-        _drawText.text = "Draw";
-        _upgradeText.text = "Upgrade";
-
+        LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
+        RefreshText();
         RefreshLevel();
+    }
+
+    private void OnDisable()
+    {
+        LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
+    }
+
+    private void RefreshText()
+    {
+        _combinationText.text = LocalizationManager.Instance.Get("MERGE");
+        _synergyText.text = LocalizationManager.Instance.Get("SYNERGY");
+        _drawText.text = LocalizationManager.Instance.Get("SUMMON");
+        _upgradeText.text = LocalizationManager.Instance.Get("UPGRADE");
+
         RefreshGold();
     }
 
@@ -62,7 +73,6 @@ public class ControlPanelUI : MonoBehaviour
         _timeText.text = $"{minutes:D2} : {seconds:D2}";
     }
 
-    // PlayerDataManager에서 이걸 호출 하거나 PlayerDataManager에 이벤트를 만들어서 이걸 구독하는 방식으로 연결 필요
     public void RefreshLevel()
     {
         if (_playerData == null)
@@ -76,7 +86,7 @@ public class ControlPanelUI : MonoBehaviour
         if (_playerData == null)
             return;
 
-        _goldText.text = $"Gold : {_playerData.Gold}";
+        _goldText.text = $": {_playerData.Gold}";
     }
 
     public void OnClickCombination()

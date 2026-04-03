@@ -21,6 +21,8 @@ public class TowerUnit : MonoBehaviour
     public PlacementSlot CurrentSlot { get; private set; }
     public Collider2D SelectionCollider => selectionCollider;
 
+    public UnitStat stat;
+
     private void Reset()
     {
         spriteRenderer = GetComponent<SpriteRenderer>();
