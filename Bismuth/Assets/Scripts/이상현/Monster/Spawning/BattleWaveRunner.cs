@@ -65,7 +65,7 @@ public class BattleWaveRunner : MonoBehaviour
     public int AliveMonsterCount => _aliveMonsterCount;
     public int CurrentWaveTotalCount => _currentWaveTotalCount;
     public int CurrentWaveSpawnedCount => _currentWaveSpawnedCount;
-    public int CurrentWaveRemainingCount => Mathf.Max(0, _currentWaveTotalCount - _currentWaveSpawnedCount);
+    public int CurrentWaveRemainingCount => Mathf.Max(0, _aliveMonsterCount);
     public bool IsRunning => _isRunning;
     public bool IsWaitingForNextWaveStart => _isWaitingForNextWaveStart;
     public bool IsIntermissionActive => _isIntermissionActive;
@@ -77,7 +77,7 @@ public class BattleWaveRunner : MonoBehaviour
     public event Action<WaveDataSO> WaveStarted;
     public event Action<WaveDataSO> WaveCleared;
     public event Action<int> AliveMonsterCountChanged;
-    public event Action<int, int> WaveSpawnProgressChanged;// <남은 몬스터 수, 전체 몬스터 수>
+    public event Action<int, int> WaveSpawnProgressChanged;// <필드에 남은 몬스터 수, 전체 몬스터 수>
     public event Action BattleCompleted;
     public event Action BattleFailed;
     public event Action<MonsterController, int> KillRewardReady;
@@ -166,7 +166,7 @@ public class BattleWaveRunner : MonoBehaviour
             return;
         }
 
-        StartCurrentWave();
+        BeginIntermission(_mapBattleConfig.Waves[0]);
     }
 
     private bool ValidateSettings()
@@ -251,6 +251,7 @@ public class BattleWaveRunner : MonoBehaviour
             this);
 
         WaveStarted?.Invoke(waveData);
+        DebugTool.Log($"{CurrentWaveRemainingCount} 필드 몬스터 수", DebugType.Enemy, this);
 
         WaveSpawnProgressChanged?.Invoke(CurrentWaveRemainingCount, CurrentWaveTotalCount);
 
@@ -264,7 +265,6 @@ public class BattleWaveRunner : MonoBehaviour
 
         // 몬스터 생성될 때마다 소환된 몬스터 수 증가
         _currentWaveSpawnedCount++;
-        WaveSpawnProgressChanged?.Invoke(CurrentWaveRemainingCount, CurrentWaveTotalCount);
 
         if (_trackedMonsters.Add(monster) == false)
             return;
@@ -274,6 +274,7 @@ public class BattleWaveRunner : MonoBehaviour
 
         _aliveMonsterCount = _trackedMonsters.Count;
         AliveMonsterCountChanged?.Invoke(_aliveMonsterCount);
+        WaveSpawnProgressChanged?.Invoke(CurrentWaveRemainingCount, CurrentWaveTotalCount);
     }
 
     private void HandleWaveSpawnCompleted(WaveDataSO waveData)
@@ -289,6 +290,7 @@ public class BattleWaveRunner : MonoBehaviour
         UntrackMonster(monster);
 
         KillRewardReady?.Invoke(monster, monster.KillReward);
+        WaveSpawnProgressChanged?.Invoke(CurrentWaveRemainingCount, CurrentWaveTotalCount);
         TryAdvanceNextWave();
     }
 
