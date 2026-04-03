@@ -74,6 +74,7 @@ MonoBehaviour:
   _combineManger: {fileID: 0}
   _unitEnhanceSO: {fileID: 11400000, guid: a63d15e893752584497909e9d1b163f3, type: 2}
   _unitInfoPanelUI: {fileID: 0}
+  _synergyManager: {fileID: 0}
 --- !u!114 &8140035803927745397
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -117,7 +118,7 @@ MonoBehaviour:
           m_BoolArgument: 0
         m_CallState: 2
   _unitCount: 0
-  _log: 0
+  _log: 1
 --- !u!114 &651773196946485032
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -148,7 +149,7 @@ MonoBehaviour:
   _summonUnit: {fileID: 0}
   _units: {fileID: 11400000, guid: cd09fb10c1adca94facd263909f98d92, type: 2}
   _combineSO: {fileID: 11400000, guid: 0dfded2c1c40dd54498084b03b040f27, type: 2}
-  _log: 0
+  _log: 1
   OnAddUnit:
     m_PersistentCalls:
       m_Calls: []
@@ -233,7 +234,7 @@ MonoBehaviour:
   - {fileID: 3715344090090077805, guid: 6469e238013eabc42b5a7777d07a1c1e, type: 3}
   - {fileID: 4662263023091883543, guid: 7c5cfd8c835d81c4a91eceea394af01c, type: 3}
   ownedTowers: []
-  summonLog: 0
+  summonLog: 1
   boardLog: 0
 --- !u!114 &7012402871630413712
 MonoBehaviour:
