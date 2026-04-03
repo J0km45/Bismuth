@@ -42,9 +42,8 @@ public class SummonManager : MonoBehaviour
             DebugTool.Error("SummonUnit 참조가 없습니다.", DebugType.Summon, this);
             //return false;
         }
-
         bool success = summonUnit.TryDespawnTower(tower);
-
+        
         if (!success)
         {
             DebugTool.Warnning("디스폰에 실패했습니다.", DebugType.Summon, this);

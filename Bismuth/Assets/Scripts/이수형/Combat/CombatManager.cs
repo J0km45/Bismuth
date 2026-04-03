@@ -35,6 +35,17 @@ public class CombatManager : MonoBehaviour
     [SerializeField, Min(0.05f)] private float wizardFollowUpDelay = 0.35f;
     [SerializeField] private bool wizardFollowUpLog = false;
 
+    [Header("Elf Synergy")]
+    [SerializeField] private BattleWaveRunner _battleWaveRunner;
+
+    [Header("Spirit Synergy")]
+    [SerializeField] private SynergySO spiritSynergySO;
+    [SerializeField, Min(0.1f)] private float spiritCooldown = 10f;
+    [SerializeField] private bool spiritSynergyLog = false;
+
+    private Coroutine _spiritRoutine;
+    private readonly List<MonsterMover> _slowedMonsters = new();
+    private bool _isSpiritActive;
 
     private Collider2D[] aoeOverlapResults;
 
@@ -62,6 +73,21 @@ public class CombatManager : MonoBehaviour
 
         if (synergyManager == null && gameManager != null)
             synergyManager = gameManager.GetComponent<SynergyManager>();
+    }
+
+    private void OnEnable()
+    {
+        if (_battleWaveRunner != null)
+            _battleWaveRunner.WaveStarted += OnWaveStarted;
+
+        if (synergyManager != null)
+            synergyManager.OnSynergyChanged += HandleSynergyChangedForSpirit;
+    }
+
+    private void OnDisable()
+    {
+        if (_battleWaveRunner != null)
+            _battleWaveRunner.WaveStarted -= OnWaveStarted;
     }
 
     private void OnValidate()
@@ -406,7 +432,7 @@ public class CombatManager : MonoBehaviour
 
         int finalDamage = normalDamage + archerSkillDamage;
 
-        // 마법사 후속타격 예약: 즉시 합산하지 않고 딜레이 후 별도 적용
+
         if (context.IsWizardBonus)
         {
             int wizardDamage = damageCalculator.CalculateSkillDamage(unitStat, attackPower, target.BaseDefense, crit, true);
@@ -427,6 +453,15 @@ public class CombatManager : MonoBehaviour
             );
 
             TryTriggerWarriorExtraAttack(unit, unitStat, sourceName, context);
+
+
+            if (HasSynergyTag(unitStat, (int)SynergyManager.SynergyType.Elf))
+            {
+                unitStat.ElfWaveKillCount++;
+                DebugTool.Log(
+                    $"엘프 웨이브 킬 적립 | source={sourceName}, elfKill={unitStat.ElfWaveKillCount}",
+                    DebugType.Synergy, this);
+            }
         }
 
         unitStat.DealtDamage += finalDamage;
@@ -585,12 +620,7 @@ public class CombatManager : MonoBehaviour
         return synergyManager.GetSynergyLevel(synergyId);
     }
 
-    // ─────────────────────────────── 마법사 후속타격 ───────────────────────────────
 
-    /// <summary>
-    /// 마법사 후속타격을 딜레이 후 실행하도록 코루틴을 예약한다.
-    /// 타격 시점의 몬스터 위치를 저장해, 몬스터가 죽어도 이펙트가 나오도록 한다.
-    /// </summary>
     private void ScheduleWizardFollowUp(
         MonsterController target,
         Vector3 hitPosition,
@@ -611,10 +641,7 @@ public class CombatManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 딜레이 후 마법사 후속타격을 실행한다.
-    /// 몬스터가 살아있으면 대미지 + 이펙트, 죽었으면 이펙트만 생성한다.
-    /// </summary>
+
     private IEnumerator ExecuteWizardFollowUp(
         MonsterController target,
         Vector3 hitPosition,
@@ -625,7 +652,7 @@ public class CombatManager : MonoBehaviour
     {
         yield return new WaitForSeconds(wizardFollowUpDelay);
 
-        // 이펙트 위치 결정: 몬스터가 살아있으면 현재 위치, 아니면 타격 시점 위치
+
         Vector3 effectPosition = hitPosition;
         bool targetAlive = target != null
                            && target.gameObject.activeInHierarchy
@@ -634,12 +661,12 @@ public class CombatManager : MonoBehaviour
         if (targetAlive)
             effectPosition = target.transform.position;
 
-        // 이펙트는 몬스터 생사와 무관하게 항상 생성
+
         if (hitEffect != null)
         {
             GameObject spawnedEffect = HitEffectPool.SpawnPooled(hitEffect, effectPosition, Quaternion.identity);
 
-            // 살아있는 몬스터라면 이펙트가 타겟을 추적하도록 설정
+
             if (spawnedEffect != null && targetAlive)
             {
                 HitEffectSpawner effectSpawner = spawnedEffect.GetComponent<HitEffectSpawner>();
@@ -648,10 +675,10 @@ public class CombatManager : MonoBehaviour
             }
         }
 
-        // 살아있는 몬스터에게만 대미지 적용
+
         if (targetAlive)
         {
-            // 후속타격에는 히트이펙트를 전달하지 않음 (이미 위에서 수동 생성함)
+
             if (target.TakeDamage(damage, null))
             {
                 if (unitStat != null)
@@ -662,6 +689,15 @@ public class CombatManager : MonoBehaviour
                         DebugType.Synergy,
                         this
                     );
+
+
+                    if (HasSynergyTag(unitStat, (int)SynergyManager.SynergyType.Elf))
+                    {
+                        unitStat.ElfWaveKillCount++;
+                        DebugTool.Log(
+                            $"엘프 웨이브 킬 적립 (마법사 후속) | source={sourceName}, elfKill={unitStat.ElfWaveKillCount}",
+                            DebugType.Synergy, this);
+                    }
                 }
             }
 
@@ -677,5 +713,217 @@ public class CombatManager : MonoBehaviour
                 this
             );
         }
+    }
+
+
+
+    private void OnWaveStarted(WaveDataSO waveData)
+    {
+        ResetAllElfWaveKillCounts();
+    }
+
+    private void ResetAllElfWaveKillCounts()
+    {
+        UnitStat[] allUnits = FindObjectsByType<UnitStat>(FindObjectsSortMode.None);
+
+        for (int i = 0; i < allUnits.Length; i++)
+        {
+            if (allUnits[i].ElfWaveKillCount > 0)
+            {
+                DebugTool.Log(
+                    $"엘프 웨이브 킬 초기화 | unit={allUnits[i].Name}, was={allUnits[i].ElfWaveKillCount}",
+                    DebugType.Synergy, this);
+
+                allUnits[i].ElfWaveKillCount = 0;
+            }
+        }
+    }
+
+
+
+    private void HandleSynergyChangedForSpirit(Dictionary<int, List<int>> synergiesDict)
+    {
+        const int spiritId = (int)SynergyManager.SynergyType.Spirit;
+
+        bool shouldBeActive = synergiesDict.ContainsKey(spiritId)
+                              && synergiesDict[spiritId].Count >= GetSpiritMinActiveCount();
+
+        if (shouldBeActive && !_isSpiritActive)
+        {
+            StartSpiritSynergy();
+        }
+        else if (!shouldBeActive && _isSpiritActive)
+        {
+            StopSpiritSynergy();
+        }
+    }
+
+    private void StartSpiritSynergy()
+    {
+        if (_isSpiritActive)
+            return;
+
+        _isSpiritActive = true;
+        _spiritRoutine = StartCoroutine(SpiritSynergyRoutine());
+
+        DebugTool.Log("정령 시너지 활성화 | 쿨다운 타이머 시작", DebugType.Synergy, this);
+    }
+
+    private void StopSpiritSynergy()
+    {
+        if (!_isSpiritActive)
+            return;
+
+        _isSpiritActive = false;
+
+        if (_spiritRoutine != null)
+        {
+            StopCoroutine(_spiritRoutine);
+            _spiritRoutine = null;
+        }
+
+        RemoveAllSlows();
+
+        DebugTool.Log("정령 시너지 비활성화 | 슬로우 해제 및 타이머 중단", DebugType.Synergy, this);
+    }
+
+    private IEnumerator SpiritSynergyRoutine()
+    {
+        while (_isSpiritActive)
+        {
+
+            if (!TryGetSpiritEffectValues(out float duration, out float slowPercent))
+            {
+                if (spiritSynergyLog)
+                    DebugTool.Log("정령 시너지 효과값 조회 실패 | 다음 쿨다운 대기", DebugType.Synergy, this);
+
+                yield return new WaitForSeconds(spiritCooldown);
+                continue;
+            }
+
+
+            ApplySlowToAllMonsters(slowPercent);
+
+            if (spiritSynergyLog)
+                DebugTool.Log(
+                    $"정령 시너지 발동 | slow={slowPercent:F1}%, duration={duration:F1}s, targets={_slowedMonsters.Count}",
+                    DebugType.Synergy, this);
+
+
+            yield return new WaitForSeconds(duration);
+
+
+            RemoveAllSlows();
+
+            if (spiritSynergyLog)
+                DebugTool.Log("정령 시너지 슬로우 해제 | 쿨다운 재시작", DebugType.Synergy, this);
+
+
+            yield return new WaitForSeconds(spiritCooldown);
+
+            if (!_isSpiritActive)
+                yield break;
+        }
+    }
+
+    private bool TryGetSpiritEffectValues(out float duration, out float slowPercent)
+    {
+        duration = 0f;
+        slowPercent = 0f;
+
+        if (spiritSynergySO == null || synergyManager == null)
+            return false;
+
+        const int spiritId = (int)SynergyManager.SynergyType.Spirit;
+
+        SynergyData spiritData = GetSpiritSynergyData(spiritId);
+        if (spiritData == null || spiritData.Levels == null || spiritData.Levels.Count == 0)
+            return false;
+
+        int activeCount = synergyManager.GetSynergyLevel(spiritId);
+
+        // 활성 단계에 맞는 레벨 데이터 찾기 (가장 높은 충족 단계)
+        SynergyLevelData matchedLevel = null;
+        for (int i = 0; i < spiritData.Levels.Count; i++)
+        {
+            SynergyLevelData level = spiritData.Levels[i];
+            if (level == null)
+                continue;
+
+            if (activeCount < level.ActiveCount)
+                continue;
+
+            matchedLevel = level;
+        }
+
+        if (matchedLevel == null || matchedLevel.EffectValues == null || matchedLevel.EffectValues.Count < 2)
+            return false;
+
+        duration = matchedLevel.EffectValues[0];
+        slowPercent = matchedLevel.EffectValues[1];
+        return true;
+    }
+
+    private void ApplySlowToAllMonsters(float slowPercent)
+    {
+        _slowedMonsters.Clear();
+
+        MonsterMover[] allMovers = FindObjectsByType<MonsterMover>(FindObjectsSortMode.None);
+
+        for (int i = 0; i < allMovers.Length; i++)
+        {
+            MonsterMover mover = allMovers[i];
+
+            if (mover == null || !mover.gameObject.activeInHierarchy)
+                continue;
+
+            mover.ApplySlow(slowPercent);
+            _slowedMonsters.Add(mover);
+        }
+    }
+
+    private void RemoveAllSlows()
+    {
+        for (int i = 0; i < _slowedMonsters.Count; i++)
+        {
+            MonsterMover mover = _slowedMonsters[i];
+
+            if (mover == null || !mover.gameObject.activeInHierarchy)
+                continue;
+
+            mover.RemoveSlow();
+        }
+
+        _slowedMonsters.Clear();
+    }
+
+    private SynergyData GetSpiritSynergyData(int synergyId)
+    {
+        if (spiritSynergySO == null || spiritSynergySO.Rows == null)
+            return null;
+
+        for (int i = 0; i < spiritSynergySO.Rows.Count; i++)
+        {
+            SynergyData data = spiritSynergySO.Rows[i];
+            if (data != null && data.ID == synergyId)
+                return data;
+        }
+
+        return null;
+    }
+
+
+    private int GetSpiritMinActiveCount()
+    {
+        if (spiritSynergySO == null)
+            return int.MaxValue;
+
+        const int spiritId = (int)SynergyManager.SynergyType.Spirit;
+        SynergyData spiritData = GetSpiritSynergyData(spiritId);
+
+        if (spiritData == null || spiritData.Levels == null || spiritData.Levels.Count == 0)
+            return int.MaxValue;
+
+        return spiritData.Levels[0].ActiveCount;
     }
 }

@@ -16,7 +16,7 @@ public class AttackRangeVisualizer : MonoBehaviour
 
         SetupLineRenderer();
         DrawCircle();
-        lr.enabled = true; // 처음부터 보이게
+        lr.enabled = false; 
     }
 
     private void Awake()

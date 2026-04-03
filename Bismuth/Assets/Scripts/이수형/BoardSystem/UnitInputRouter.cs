@@ -6,11 +6,15 @@ public class UnitPointerInputRouter : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private Camera worldCamera;
+    [SerializeField] private BattleWaveRunner battleWaveRunner;
 
     [Header("Layers")]
     [SerializeField] private LayerMask unitLayer;
     [SerializeField] private GameObject unitInfoPanel;
     [SerializeField] private GameObject _combinationScrollView;
+
+
+    private AttackRangeVisualizer _previousRangeVisualizer;
 
     private void Awake()
     {
@@ -27,14 +31,15 @@ public class UnitPointerInputRouter : MonoBehaviour
         if (!Input.GetMouseButtonDown(0))
             return;
 
-        
-
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
         {
             DebugTool.Log("유닛 입력 무시 - UI 위 클릭", DebugType.Unit, this);
             return;
         }
         GameObject.Find("CombatCanvas").transform.Find("ControlPanel").transform.Find("UnitInfoPanel").gameObject.SetActive(false);
+
+
+        HidePreviousRange();
 
         Vector3 mouseWorld = GetMouseWorld();
         DebugTool.Log($"마우스 월드 좌표: {mouseWorld}", DebugType.Board, this);
@@ -43,9 +48,14 @@ public class UnitPointerInputRouter : MonoBehaviour
         if (hit == null)
             return;
 
+
+
+
         TowerLongPressDragHandler dragHandler = hit.GetComponent<TowerLongPressDragHandler>();
+
         if (dragHandler == null)
             dragHandler = hit.GetComponentInParent<TowerLongPressDragHandler>();
+
 
         if (dragHandler == null)
         {
@@ -56,6 +66,8 @@ public class UnitPointerInputRouter : MonoBehaviour
             );
             return;
         }
+
+        dragHandler.GetIsRunning(battleWaveRunner.IsIntermissionActive);
 
         bool started = dragHandler.BeginPress((Vector2)Input.mousePosition, unitInfoPanel);
         if (started)
@@ -68,8 +80,11 @@ public class UnitPointerInputRouter : MonoBehaviour
         }
         unitInfoPanel.transform.SetAsLastSibling();
         unitInfoPanel.SetActive(true);
-        if(_combinationScrollView.activeSelf) 
+        if (_combinationScrollView.activeSelf)
             _combinationScrollView.SetActive(false);
+
+
+        ShowSelectedRange(hit.gameObject);
 
 
     }
@@ -80,6 +95,29 @@ public class UnitPointerInputRouter : MonoBehaviour
     //    CollectUnitInfo collectUnitInfo = unitInfoPanel.GetComponent<CollectUnitInfo>();
     //    unitInfoPanel.SetActive(true);
     //}
+
+    private void HidePreviousRange()
+    {
+        if (_previousRangeVisualizer != null)
+        {
+            _previousRangeVisualizer.Hide();
+            _previousRangeVisualizer = null;
+        }
+    }
+
+    private void ShowSelectedRange(GameObject unitObject)
+    {
+        AttackRangeVisualizer rangeVis = unitObject.GetComponentInChildren<AttackRangeVisualizer>();
+        if (rangeVis == null)
+            rangeVis = unitObject.GetComponentInParent<AttackRangeVisualizer>();
+
+        if (rangeVis != null)
+        {
+            rangeVis.Show();
+            _previousRangeVisualizer = rangeVis;
+            DebugTool.Log($"사거리 표시 - {unitObject.name}", DebugType.Unit, this);
+        }
+    }
 
     private Vector3 GetMouseWorld()
     {

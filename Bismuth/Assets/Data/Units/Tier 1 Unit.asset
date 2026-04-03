@@ -15,196 +15,211 @@ MonoBehaviour:
   units:
   - unitName: "\uC778\uAC04 \uC804\uC0AC"
     id: 10001
+    icon: {fileID: 6820139924936220718, guid: fee414cd44d532842bb5912b2f853244, type: 3}
+    illustration: {fileID: 0}
     tier: 1
-    attackPower: 500
-    attackSpeed: 0.6
+    attackPower: 20
+    attackSpeed: 0.75
     criticalChance: 0
-    attackRange: 1
+    attackRange: 1.3
     attackArea: 1
     attackType: 0
-    synergy1: "\uC778\uAC04"
-    synergy2: "\uC804\uC0AC"
-    synergy3: 
-    visualConcept: 
+    attackTargetCount: 1
+    synergyIDs: 56c3000051c3000000000000
+    visualConcept: 0_Attack_Normal
   - unitName: "\uC778\uAC04 \uAC70\uB108"
     id: 10002
+    icon: {fileID: 5653301244423711692, guid: a9b33cd8daecd944aaf53c1f17e5d4c7, type: 3}
+    illustration: {fileID: 0}
     tier: 1
-    attackPower: 17
-    attackSpeed: 0.65
+    attackPower: 10
+    attackSpeed: 0.6
     criticalChance: 0
-    attackRange: 5
+    attackRange: 2.9
     attackArea: 1
     attackType: 0
-    synergy1: "\uC778\uAC04"
-    synergy2: "\uAC70\uB108"
-    synergy3: 
-    visualConcept: 
+    attackTargetCount: 1
+    synergyIDs: 56c3000054c3000000000000
+    visualConcept: 0_Attack_Bow
   - unitName: "\uC778\uAC04 \uB9C8\uBC95\uC0AC"
     id: 10003
+    icon: {fileID: 673478992328258140, guid: e17df8615cad7db42ba8c761b4853f76, type: 3}
+    illustration: {fileID: 0}
     tier: 1
-    attackPower: 12
+    attackPower: 17
     attackSpeed: 0.7
     criticalChance: 0
-    attackRange: 2
+    attackRange: 1.7
     attackArea: 1
     attackType: 0
-    synergy1: "\uC778\uAC04"
-    synergy2: "\uB9C8\uBC95\uC0AC"
-    synergy3: 
-    visualConcept: 
+    attackTargetCount: 1
+    synergyIDs: 56c3000052c3000000000000
+    visualConcept: 0_Attack_Bow
   - unitName: "\uC5D8\uD504 \uACA9\uD22C\uAC00"
     id: 10004
-    tier: 1
-    attackPower: 14
-    attackSpeed: 1.4
-    criticalChance: 0.03
-    attackRange: 1
-    attackArea: 1
-    attackType: 0
-    synergy1: "\uC5D8\uD504"
-    synergy2: "\uACA9\uD22C\uAC00"
-    synergy3: 
-    visualConcept: 
-  - unitName: "\uC5D8\uD504 \uB9C8\uBC95\uC0AC"
-    id: 10005
+    icon: {fileID: -7215233862995813327, guid: 04f08e94e7ecf8f4c97aecf3da762329, type: 3}
+    illustration: {fileID: 0}
     tier: 1
     attackPower: 11
+    attackSpeed: 1.4
+    criticalChance: 0.03
+    attackRange: 1.3
+    attackArea: 1
+    attackType: 0
+    attackTargetCount: 1
+    synergyIDs: 57c3000055c3000000000000
+    visualConcept: 0_Attack_Normal
+  - unitName: "\uC5D8\uD504 \uB9C8\uBC95\uC0AC"
+    id: 10005
+    icon: {fileID: -8447093495080867278, guid: 13aaecc6134f2e440ab2e377719d1f70, type: 3}
+    illustration: {fileID: 0}
+    tier: 1
+    attackPower: 10
     attackSpeed: 0.8
     criticalChance: 0
-    attackRange: 2
-    attackArea: 2
-    attackType: 1
-    synergy1: "\uC5D8\uD504"
-    synergy2: "\uB9C8\uBC95\uC0AC"
-    synergy3: 
-    visualConcept: 
+    attackRange: 1.7
+    attackArea: 1
+    attackType: 0
+    attackTargetCount: 2
+    synergyIDs: 57c3000052c3000000000000
+    visualConcept: 0_Attack_Normal
   - unitName: "\uC5D8\uD504 \uAD81\uC218"
     id: 10006
+    icon: {fileID: -6535359433419030914, guid: 0003590568976f4499a73b6f76e77004, type: 3}
+    illustration: {fileID: 0}
     tier: 1
-    attackPower: 9
+    attackPower: 5
     attackSpeed: 1.2
     criticalChance: 0
-    attackRange: 5
+    attackRange: 2.9
     attackArea: 1
     attackType: 0
-    synergy1: "\uC5D8\uD504"
-    synergy2: "\uAD81\uC218"
-    synergy3: 
-    visualConcept: 
+    attackTargetCount: 1
+    synergyIDs: 57c3000053c3000000000000
+    visualConcept: 0_Attack_Bow
   - unitName: "\uC624\uD06C \uACA9\uD22C\uAC00"
     id: 10007
+    icon: {fileID: 51442971146027005, guid: f0944116382a42c4089a4d7e8db28ae6, type: 3}
+    illustration: {fileID: 0}
     tier: 1
-    attackPower: 16
+    attackPower: 15
     attackSpeed: 1
     criticalChance: 0.02
-    attackRange: 1
+    attackRange: 1.3
     attackArea: 1
     attackType: 0
-    synergy1: "\uC624\uD06C"
-    synergy2: "\uACA9\uD22C\uAC00"
-    synergy3: 
-    visualConcept: 
+    attackTargetCount: 1
+    synergyIDs: 58c3000055c3000000000000
+    visualConcept: 0_Attack_Normal
   - unitName: "\uC624\uD06C \uC804\uC0AC"
     id: 10008
+    icon: {fileID: 5595111834083260066, guid: ac9181409e0967a4f8fed476062d1626, type: 3}
+    illustration: {fileID: 0}
     tier: 1
     attackPower: 20
     attackSpeed: 0.5
     criticalChance: 0
-    attackRange: 1
+    attackRange: 1.3
     attackArea: 1
-    attackType: 1
-    synergy1: "\uC624\uD06C"
-    synergy2: "\uC804\uC0AC"
-    synergy3: 
-    visualConcept: 
+    attackType: 0
+    attackTargetCount: 2
+    synergyIDs: 58c3000051c3000000000000
+    visualConcept: 0_Attack_Normal
   - unitName: "\uC624\uD06C \uAC70\uB108"
     id: 10009
+    icon: {fileID: 7556657804639102451, guid: 46233f3b38500cd4eaac90a10627e85a, type: 3}
+    illustration: {fileID: 0}
     tier: 1
     attackPower: 17
     attackSpeed: 0.55
     criticalChance: 0
-    attackRange: 1
+    attackRange: 2.1
     attackArea: 1
     attackType: 0
-    synergy1: "\uC624\uD06C"
-    synergy2: "\uAC70\uB108"
-    synergy3: 
-    visualConcept: 
+    attackTargetCount: 1
+    synergyIDs: 58c3000054c3000000000000
+    visualConcept: 0_Attack_Bow
   - unitName: "\uC218\uC778 \uACA9\uD22C\uAC00"
     id: 10010
+    icon: {fileID: 6238606540396085786, guid: e7d0fe3657627ce47b6d64cd5826e307, type: 3}
+    illustration: {fileID: 0}
     tier: 1
-    attackPower: 14
-    attackSpeed: 1.2
+    attackPower: 12
+    attackSpeed: 1.25
     criticalChance: 0.03
-    attackRange: 1
+    attackRange: 1.3
     attackArea: 1
     attackType: 0
-    synergy1: "\uC218\uC778"
-    synergy2: "\uACA9\uD22C\uAC00"
-    synergy3: 
-    visualConcept: 
+    attackTargetCount: 1
+    synergyIDs: 59c3000055c3000000000000
+    visualConcept: 0_Attack_Normal
   - unitName: "\uC218\uC778 \uAD81\uC218"
     id: 10011
+    icon: {fileID: -104466125189204210, guid: e4cc76a8e261526419cd5c5618367b71, type: 3}
+    illustration: {fileID: 0}
     tier: 1
-    attackPower: 10
-    attackSpeed: 1.1
-    criticalChance: 0
-    attackRange: 4
-    attackArea: 1
-    attackType: 0
-    synergy1: "\uC218\uC778"
-    synergy2: "\uAD81\uC218"
-    synergy3: 
-    visualConcept: 
-  - unitName: "\uC218\uC778 \uAC70\uB108"
-    id: 10012
-    tier: 1
-    attackPower: 16
-    attackSpeed: 0.7
-    criticalChance: 0
-    attackRange: 4
-    attackArea: 1
-    attackType: 0
-    synergy1: "\uC218\uC778"
-    synergy2: "\uAC70\uB108"
-    synergy3: 
-    visualConcept: 
-  - unitName: "\uC815\uB839 \uB9C8\uBC95\uC0AC"
-    id: 10013
-    tier: 1
-    attackPower: 13
-    attackSpeed: 0.7
-    criticalChance: 0
-    attackRange: 3
-    attackArea: 2
-    attackType: 1
-    synergy1: "\uC815\uB839"
-    synergy2: "\uB9C8\uBC95\uC0AC"
-    synergy3: 
-    visualConcept: 
-  - unitName: "\uC815\uB839 \uC804\uC0AC"
-    id: 10014
-    tier: 1
-    attackPower: 17
-    attackSpeed: 0.6
-    criticalChance: 0
-    attackRange: 1
-    attackArea: 1
-    attackType: 0
-    synergy1: "\uC815\uB839"
-    synergy2: "\uC804\uC0AC"
-    synergy3: 
-    visualConcept: 
-  - unitName: "\uC815\uB839 \uAD81\uC218"
-    id: 10015
-    tier: 1
-    attackPower: 10
+    attackPower: 8
     attackSpeed: 1
     criticalChance: 0
-    attackRange: 5
+    attackRange: 2.5
     attackArea: 1
     attackType: 0
-    synergy1: "\uC815\uB839"
-    synergy2: "\uAD81\uC218"
-    synergy3: 
-    visualConcept: 
+    attackTargetCount: 1
+    synergyIDs: 59c3000053c3000000000000
+    visualConcept: 0_Attack_Bow
+  - unitName: "\uC218\uC778 \uAC70\uB108"
+    id: 10012
+    icon: {fileID: -5155213995146931463, guid: e3c3217c7f16e2641b379a8fa1755e12, type: 3}
+    illustration: {fileID: 0}
+    tier: 1
+    attackPower: 9
+    attackSpeed: 0.9
+    criticalChance: 0
+    attackRange: 2.5
+    attackArea: 1
+    attackType: 0
+    attackTargetCount: 1
+    synergyIDs: 59c3000054c3000000000000
+    visualConcept: 0_Attack_Bow
+  - unitName: "\uC815\uB839 \uB9C8\uBC95\uC0AC"
+    id: 10013
+    icon: {fileID: 7014273837736909631, guid: 74812e58c46558b4eb464801f76541ed, type: 3}
+    illustration: {fileID: 0}
+    tier: 1
+    attackPower: 6
+    attackSpeed: 0.7
+    criticalChance: 0
+    attackRange: 2.1
+    attackArea: 1
+    attackType: 0
+    attackTargetCount: 3
+    synergyIDs: 5ac3000052c3000000000000
+    visualConcept: 0_Attack_Bow
+  - unitName: "\uC815\uB839 \uC804\uC0AC"
+    id: 10014
+    icon: {fileID: -650548038848072230, guid: a498f334b2feb114eafcd60861720bfc, type: 3}
+    illustration: {fileID: 0}
+    tier: 1
+    attackPower: 25
+    attackSpeed: 0.6
+    criticalChance: 0
+    attackRange: 1.3
+    attackArea: 1
+    attackType: 0
+    attackTargetCount: 1
+    synergyIDs: 5ac3000051c3000000000000
+    visualConcept: 0_Attack_Normal
+  - unitName: "\uC815\uB839 \uAD81\uC218"
+    id: 10015
+    icon: {fileID: -4301068487828200916, guid: 19b3a4adf72c62843a4b5733d447b305, type: 3}
+    illustration: {fileID: 0}
+    tier: 1
+    attackPower: 6
+    attackSpeed: 1
+    criticalChance: 0
+    attackRange: 2.9
+    attackArea: 1
+    attackType: 0
+    attackTargetCount: 1
+    synergyIDs: 5ac3000053c3000000000000
+    visualConcept: 0_Attack_Bow

@@ -14,10 +14,16 @@ public class CollectUnitInfo : MonoBehaviour
         DebugTool.Log($"Unit Id: {unitStat.Id}, Unit AttackPower: {unitStat.CurrentAttackPower}, Unit AttackSpeed: {unitStat.AttackSpeed} ",DebugType.UI,this);
     }
 
-    private void Awake()
+    private void OnEnable()
     {
         upgradeButton.onClick.AddListener(OnUpgrade);
         sellButton.onClick.AddListener(OnSell);
+    }
+
+    private void OnDisable()
+    {
+        upgradeButton.onClick.RemoveListener(OnUpgrade);
+        sellButton.onClick.RemoveListener(OnSell);
     }
 
     private void OnUpgrade()

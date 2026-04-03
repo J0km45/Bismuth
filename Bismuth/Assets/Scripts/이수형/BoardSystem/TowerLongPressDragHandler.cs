@@ -11,7 +11,7 @@ public class TowerLongPressDragHandler : MonoBehaviour
     [SerializeField] private CellHighlight cellHighlight;
 
     [Header("Long Press")]
-    [SerializeField] private float holdDuration = 1f;
+    [SerializeField] private float holdDuration = 0.5f;
     [SerializeField] private float holdCancelThresholdPixels = 20f;
 
     private TowerUnit towerUnit;
@@ -20,6 +20,12 @@ public class TowerLongPressDragHandler : MonoBehaviour
     private float pressedTime;
     private Vector2 pressedScreenPos;
     private Vector3 dragOffset;
+
+
+    private bool _isIntermissionActive;
+
+
+    private BattleWaveRunner _battleWaveRunner;
 
     public void Initialize(BoardSystem board, Camera cam, CellHighlight highlight)
     {
@@ -39,6 +45,38 @@ public class TowerLongPressDragHandler : MonoBehaviour
 
         if (cellHighlight == null)
             cellHighlight = CellHighlight.Instance;
+
+        if (_battleWaveRunner == null)
+            _battleWaveRunner = FindAnyObjectByType<BattleWaveRunner>();
+    }
+
+    private void OnEnable()
+    {
+        if (_battleWaveRunner != null)
+            _battleWaveRunner.IntermissionEnded += HandleIntermissionEnded;
+    }
+
+    private void HandleIntermissionEnded()
+    {
+        _isIntermissionActive = false;
+
+        if (!isPressed && !isDragging)
+            return;
+
+
+        if (isDragging)
+        {
+            towerUnit.SetDragVisual(false);
+            towerUnit.SetSelectionColliderEnabled(true);
+            towerUnit.SnapToCurrentSlot();
+            DebugTool.Log("웨이브 시작으로 드래그 강제 취소 - 원위치 복귀", DebugType.Wave, this);
+        }
+        else
+        {
+            DebugTool.Log("웨이브 시작으로 홀드 강제 취소", DebugType.Wave, this);
+        }
+
+        ResetState();
     }
 
     private void Update()
@@ -54,6 +92,12 @@ public class TowerLongPressDragHandler : MonoBehaviour
 
         if (!isDragging)
         {
+            if (!_isIntermissionActive)
+            {
+                DebugTool.Log($"점검 시간 진행 중 여부 : {_isIntermissionActive}", DebugType.Wave, this);
+                return;
+            }
+
             if (Vector2.Distance(pressedScreenPos, (Vector2)Input.mousePosition) > holdCancelThresholdPixels)
             {
                 CancelHold("홀드 취소 - 1초 전에 마우스가 많이 움직였습니다.");
@@ -72,23 +116,26 @@ public class TowerLongPressDragHandler : MonoBehaviour
     }
     public bool BeginPress(Vector2 screenPos, GameObject unitInfoPanel)
     {
+
         if (isActiveAndEnabled == false)
             return false;
-        if (towerUnit == null || towerUnit.CurrentSlot == null) 
+        if (towerUnit == null || towerUnit.CurrentSlot == null)
             return false;
-
-
-        
 
         isPressed = true;
         isDragging = false;
         pressedTime = Time.time;
         pressedScreenPos = screenPos;
-        
+
+        if (!_isIntermissionActive)
+        {
+            DebugTool.Log($"점검 시간 진행 중 여부 : {_isIntermissionActive}", DebugType.Wave, this);
+            return false;
+        }
+
         DebugTool.Log($"타워({towerUnit.CurrentSlot.name}) 홀드 시작", DebugType.Unit, this);
 
         unitInfoPanel.GetComponent<CollectUnitInfo>().CollectInfo(this.gameObject);
-
 
 
         return true;
@@ -253,6 +300,9 @@ public class TowerLongPressDragHandler : MonoBehaviour
 
     private void OnDisable()
     {
+        if (_battleWaveRunner != null)
+            _battleWaveRunner.IntermissionEnded -= HandleIntermissionEnded;
+
         if (towerUnit != null)
         {
             towerUnit.SnapToCurrentSlot();
@@ -263,5 +313,8 @@ public class TowerLongPressDragHandler : MonoBehaviour
         ResetState();
     }
 
-    
+    public void GetIsRunning(bool isRunning)
+    {
+        _isIntermissionActive = isRunning;
+    }
 }
