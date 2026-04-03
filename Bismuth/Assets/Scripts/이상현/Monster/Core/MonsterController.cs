@@ -122,6 +122,9 @@ public class MonsterController : MonoBehaviour
 
         _currentHp = Mathf.Max(0f, _currentHp - damage);
         HealthChanged?.Invoke(this);
+        DebugTool.Log($"몬스터 좌표 {transform.position}", DebugType.Enemy, this);
+        Vector3 pos = transform.position + Vector3.up * 1.4f;
+        DamageTextManager.Instance.ShowDamageText((int)damage, pos);
 
         if (_currentHp <= 0f)
         {
@@ -134,6 +137,8 @@ public class MonsterController : MonoBehaviour
 
             Died?.Invoke(this);
             gameObject.SetActive(false);
+            
+            Destroy(gameObject);
             return true;
         }
 
