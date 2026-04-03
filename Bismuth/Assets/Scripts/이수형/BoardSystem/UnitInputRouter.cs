@@ -46,6 +46,7 @@ public class UnitPointerInputRouter : MonoBehaviour
         
 
         TowerLongPressDragHandler dragHandler = hit.GetComponent<TowerLongPressDragHandler>();
+        
         if (dragHandler == null)
             dragHandler = hit.GetComponentInParent<TowerLongPressDragHandler>();
         

@@ -61,7 +61,7 @@ public class PlayerUIController : MonoBehaviour
         
         unit = null;
         _unitInfoPanelUI.gameObject.SetActive(false);
-        _synergyManager.OnUnitRemoved?.Invoke(stat);
+        // _synergyManager.OnUnitRemoved?.Invoke(stat);
     }
 
     private int SellUnit(int payback, int tier)
