@@ -86,7 +86,7 @@ public class ControlPanelUI : MonoBehaviour
         if (_playerData == null)
             return;
 
-        _goldText.text = $"{LocalizationManager.Instance.Get("GOLD")} : {_playerData.Gold}";
+        _goldText.text = $": {_playerData.Gold}";
     }
 
     public void OnClickCombination()
