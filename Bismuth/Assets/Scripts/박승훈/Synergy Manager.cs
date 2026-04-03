@@ -28,6 +28,18 @@ public class SynergyManager : MonoBehaviour
 
     [SerializeField] private bool _log = true;
 
+    private void OnEnable()
+    {
+        OnUnitCreated.AddListener(ChangedSynergy);
+        OnUnitRemoved.AddListener(RemoveSynergy);
+    }
+
+    private void OnDisable()
+    {
+        OnUnitCreated.RemoveListener(ChangedSynergy);
+        OnUnitRemoved.RemoveListener(RemoveSynergy);
+    }
+
     private void Start()
     {
         DebugTool.DebugSelect(DebugType.Synergy, _log);
