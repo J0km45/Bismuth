@@ -65,7 +65,7 @@ public class BattleWaveRunner : MonoBehaviour
     public int AliveMonsterCount => _aliveMonsterCount;
     public int CurrentWaveTotalCount => _currentWaveTotalCount;
     public int CurrentWaveSpawnedCount => _currentWaveSpawnedCount;
-    public int CurrentWaveRemainingCount => Mathf.Max(0, _aliveMonsterCount);
+    public int CurrentWaveRemainingCount => Mathf.Max(0, _currentWaveTotalCount - _currentWaveSpawnedCount);
     public bool IsRunning => _isRunning;
     public bool IsWaitingForNextWaveStart => _isWaitingForNextWaveStart;
     public bool IsIntermissionActive => _isIntermissionActive;
