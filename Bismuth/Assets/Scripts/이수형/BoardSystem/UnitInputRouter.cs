@@ -67,7 +67,6 @@ public class UnitPointerInputRouter : MonoBehaviour
             return;
         }
 
-        dragHandler.GetIsRunning(battleWaveRunner.IsIntermissionActive);
 
         bool started = dragHandler.BeginPress((Vector2)Input.mousePosition, unitInfoPanel);
         if (started)
@@ -83,6 +82,7 @@ public class UnitPointerInputRouter : MonoBehaviour
         if (_combinationScrollView.activeSelf)
             _combinationScrollView.SetActive(false);
 
+        dragHandler.GetIsRunning(battleWaveRunner.IsIntermissionActive);
 
         ShowSelectedRange(hit.gameObject);
 

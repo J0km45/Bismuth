@@ -75,7 +75,6 @@ MonoBehaviour:
   _combineManger: {fileID: 0}
   _unitEnhanceSO: {fileID: 11400000, guid: a63d15e893752584497909e9d1b163f3, type: 2}
   _unitInfoPanelUI: {fileID: 0}
-  _synergyManager: {fileID: 0}
 --- !u!114 &8140035803927745397
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -88,36 +87,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8671bf31c6f0649468d77bb3be8925bb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SynergyManager
+  _summonUnit: {fileID: 0}
   OnUnitCreated:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 8140035803927745397}
-        m_TargetAssemblyTypeName: SynergyManager, Assembly-CSharp
-        m_MethodName: ChangedSynergy
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   OnUnitRemoved:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 8140035803927745397}
-        m_TargetAssemblyTypeName: SynergyManager, Assembly-CSharp
-        m_MethodName: RemoveSynergy
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   _unitCount: 0
   _log: 1
 --- !u!114 &651773196946485032
@@ -250,6 +226,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UnitPointerInputRouter
   worldCamera: {fileID: 0}
+  battleWaveRunner: {fileID: 0}
   unitLayer:
     serializedVersion: 2
     m_Bits: 1024

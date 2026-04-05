@@ -92,11 +92,11 @@ public class TowerLongPressDragHandler : MonoBehaviour
 
         if (!isDragging)
         {
-            if (!_isIntermissionActive)
+            /*if (!_isIntermissionActive)
             {
                 DebugTool.Log($"점검 시간 진행 중 여부 : {_isIntermissionActive}", DebugType.Wave, this);
                 return;
-            }
+            }*/
 
             if (Vector2.Distance(pressedScreenPos, (Vector2)Input.mousePosition) > holdCancelThresholdPixels)
             {
