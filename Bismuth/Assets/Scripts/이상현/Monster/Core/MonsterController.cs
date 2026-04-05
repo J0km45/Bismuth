@@ -126,6 +126,24 @@ public class MonsterController : MonoBehaviour
         Vector3 pos = transform.position + Vector3.up * 1.4f;
         DamageTextManager.Instance.ShowDamageText((int)damage, pos);
 
+        if (hitEffect != null)
+        {
+            GameObject spawnedEffect = HitEffectPool.SpawnPooled(hitEffect, transform.position, Quaternion.identity);
+
+            if (spawnedEffect != null)
+            {
+                HitEffectSpawner effectSpawner = spawnedEffect.GetComponent<HitEffectSpawner>();
+                if (effectSpawner != null)
+                {
+                    effectSpawner.ConfigureFollowTarget(transform, _currentHp > 0f);
+                }
+                else
+                {
+                    DebugTool.Warnning("피격 이펙트에 HitEffectSpawner가 없어 추적을 적용하지 못했습니다.", DebugType.Enemy, this);
+                }
+            }
+        }
+
         if (_currentHp <= 0f)
         {
             _hasDied = true;
@@ -142,23 +160,7 @@ public class MonsterController : MonoBehaviour
             return true;
         }
 
-        if (hitEffect != null)
-        {
-            GameObject spawnedEffect = HitEffectPool.SpawnPooled(hitEffect, transform.position, Quaternion.identity);
-
-            if (spawnedEffect != null)
-            {
-                HitEffectSpawner effectSpawner = spawnedEffect.GetComponent<HitEffectSpawner>();
-                if (effectSpawner != null)
-                {
-                    effectSpawner.ConfigureFollowTarget(transform, true);
-                }
-                else
-                {
-                    DebugTool.Warnning("피격 이펙트에 HitEffectSpawner가 없어 추적을 적용하지 못했습니다.", DebugType.Enemy, this);
-                }
-            }
-        }
+        
         return false;
 
     }
