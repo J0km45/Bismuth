@@ -90,14 +90,14 @@ public class TowerLongPressDragHandler : MonoBehaviour
             return;
         }
 
+        if (!_isIntermissionActive)
+        {
+            Release();
+            return;
+        }
+
         if (!isDragging)
         {
-            /*if (!_isIntermissionActive)
-            {
-                DebugTool.Log($"점검 시간 진행 중 여부 : {_isIntermissionActive}", DebugType.Wave, this);
-                return;
-            }*/
-
             if (Vector2.Distance(pressedScreenPos, (Vector2)Input.mousePosition) > holdCancelThresholdPixels)
             {
                 CancelHold("홀드 취소 - 1초 전에 마우스가 많이 움직였습니다.");
