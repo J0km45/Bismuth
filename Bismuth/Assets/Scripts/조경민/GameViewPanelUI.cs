@@ -188,7 +188,7 @@ public class GameViewPanelUI : MonoBehaviour
     {
         int minutes = (int)(time / 60);
         int seconds = (int)(time % 60);
-        _preparationTimeText.text = $"정비 시간 {minutes:D2}:{seconds:D2}";
+        _preparationTimeText.text = $"{LocalizationManager.Instance.Get("SETUP_TIME")} {minutes:D2}:{seconds:D2}";
     }
 
     private void SetBattleUIActive(bool isActive)
