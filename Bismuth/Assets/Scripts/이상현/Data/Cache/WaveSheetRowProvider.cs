@@ -25,11 +25,14 @@ public class WaveSheetRowProvider : MonoBehaviour
     
     private void Awake()
     {
+        DebugTool.Log("웨이브 프로바이더 Awake", DebugType.Data, this);
+        
         _waveSheetParser = new WaveSheetParser();
     }
 
     private void Start()
     {
+        DebugTool.Log("웨이브 프로바이더 start", DebugType.Data, this);
         if (string.IsNullOrWhiteSpace(_waveSheetLoader.Url))
         {
             ClearLoadedData();

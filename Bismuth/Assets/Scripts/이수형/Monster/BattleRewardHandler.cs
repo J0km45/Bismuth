@@ -91,7 +91,7 @@ public class BattleRewardHandler : MonoBehaviour
     {
         if (_playerDataManager == null)
         {
-            DebugTool.Error("PlayerDataManager 참조가 비어 있습니다.", DebugType.Synergy, this);
+            DebugTool.Error("PlayerDataManager 참조가 비어 있습니다.", DebugType.Wave, this);
             return;
         }
 
@@ -102,7 +102,7 @@ public class BattleRewardHandler : MonoBehaviour
             int waveNumber = waveData != null ? waveData.WaveNumber : -1;
             DebugTool.Log(
                 $"[웨이브 클리어 보상] 웨이브 : {waveNumber} / 보상 : {reward} / 소지금 : {_playerDataManager.Gold}",
-                DebugType.Synergy,
+                DebugType.Wave,
                 this
             );
         }

@@ -457,11 +457,11 @@ public class BattleWaveRunner : MonoBehaviour
                 this);
             return;
         }
+        DebugTool.Log($"기본 보상 : {clearedWave.ClearReward}, 난이도 배율 : {difficultyModifier}", DebugType.Wave, this);
 
-        int reward = MonsterRuntimeValueCalculator.CalculateWaveClearReward(
-            clearedWave.WaveNumber,
-            difficultyModifier);
-
+        int reward = (int)(clearedWave.ClearReward * difficultyModifier.ResourceGainMultiplier);
+        
+        
         WaveClearRewardReady?.Invoke(clearedWave, reward);
     }
 
