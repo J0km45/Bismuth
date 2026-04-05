@@ -59,7 +59,7 @@ public class AudioManager : MonoBehaviour
     {
         _masterVolume = value;
     }
-    
+
     public void SetBgmVolume(float value)
     {
         _bgmVolume = value;

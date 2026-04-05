@@ -27,7 +27,7 @@ public class UnitPointerInputRouter : MonoBehaviour
         if (!Input.GetMouseButtonDown(0))
             return;
 
-        
+
 
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
         {
@@ -68,7 +68,7 @@ public class UnitPointerInputRouter : MonoBehaviour
         }
         unitInfoPanel.transform.SetAsLastSibling();
         unitInfoPanel.SetActive(true);
-        if(_combinationScrollView.activeSelf) 
+        if (_combinationScrollView.activeSelf)
             _combinationScrollView.SetActive(false);
 
 

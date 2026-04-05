@@ -15,31 +15,48 @@ using UnityEngine;
 [System.Serializable]
 public class UnitData
 {
-    [Header("━━━━ 기본 정보 ━━━━")] [Tooltip("유닛 이름\n예: 인간 전사, 광전사, 웅혜")] [SerializeField]
+    [Header("━━━━ 기본 정보 ━━━━")]
+    [Tooltip("유닛 이름\n예: 인간 전사, 광전사, 웅혜")]
+    [SerializeField]
     private string unitName;
 
-    [Tooltip("유닛 고유 ID \n예: 10001 = 인간 전사")] [SerializeField]
+    [Tooltip("유닛 고유 ID \n예: 10001 = 인간 전사")]
+    [SerializeField]
     private int id;
 
-    [Tooltip("유닛 고유 스프라이트 아이콘")] [SerializeField]
+    [Tooltip("유닛 고유 스프라이트 아이콘")]
+    [SerializeField]
     private Sprite icon;
-    
-    [Tooltip("유닛 고유 일러스트")] [SerializeField]
+
+    [Tooltip("유닛 고유 일러스트")]
+    [SerializeField]
     private Sprite illustration;
 
-    [Tooltip("유닛 등급 단계 (1~4)\n1: 1성, 2: 2성, 3: 3성, 4: 4성(레어)")] [Range(1, 4)] [SerializeField]
+    [Tooltip("유닛 등급 단계 (1~4)\n1: 1성, 2: 2성, 3: 3성, 4: 4성(레어)")]
+    [Range(1, 4)]
+    [SerializeField]
     private int tier;
 
-    [Space(8)] [Header("━━━━ 전투 스탯 ━━━━")] [Tooltip("기본 공격력")] [Min(0)] [SerializeField]
+    [Space(8)]
+    [Header("━━━━ 전투 스탯 ━━━━")]
+    [Tooltip("기본 공격력")]
+    [Min(0)]
+    [SerializeField]
     private float attackPower;
 
-    [Tooltip("공격 속도 - 초당 공격 횟수\n예: 0.6 = 초당 0.6회, 1.4 = 초당 1.4회")] [Min(0.01f)] [SerializeField]
+    [Tooltip("공격 속도 - 초당 공격 횟수\n예: 0.6 = 초당 0.6회, 1.4 = 초당 1.4회")]
+    [Min(0.01f)]
+    [SerializeField]
     private float attackSpeed;
 
-    [Tooltip("치명타 확률 (0~1)\n0.1 = 10%, 0.14 = 14%")] [Range(0f, 1f)] [SerializeField]
+    [Tooltip("치명타 확률 (0~1)\n0.1 = 10%, 0.14 = 14%")]
+    [Range(0f, 1f)]
+    [SerializeField]
     private float criticalChance;
-    
-    [Tooltip("공격 사거리 (타일 수)")] [Min(1)] [SerializeField]
+
+    [Tooltip("공격 사거리 (타일 수)")]
+    [Min(1)]
+    [SerializeField]
     private float attackRange;
 
     [Space(8)]
@@ -49,10 +66,13 @@ public class UnitData
     private float attackArea;
 
     // 데이터 추가
-    [Tooltip("타겟팅 방법 (시트 I열)\n타겟팅 = 지정 수만큼, 광역 = 범위 내 전체 등")] [SerializeField]
+    [Tooltip("타겟팅 방법 (시트 I열)\n타겟팅 = 지정 수만큼, 광역 = 범위 내 전체 등")]
+    [SerializeField]
     private AttackTypes attackType;
 
-    [Tooltip("공격 대상 수 (시트 J열)\n1~3 또는 전체(시트 표기)")] [Min(1)] [SerializeField]
+    [Tooltip("공격 대상 수 (시트 J열)\n1~3 또는 전체(시트 표기)")]
+    [Min(1)]
+    [SerializeField]
     private int attackTargetCount = 1;
 
     [Space(8)]
@@ -63,7 +83,20 @@ public class UnitData
     [SerializeField]
     private int[] synergyIDs = new int[3];
 
-    [Space(8)] [Header("━━━━ 비주얼 ━━━━")] [Tooltip("유닛 외형 컨셉\n3성+ 유닛의 비주얼 디자인 가이드")] [TextArea(2, 4)] [SerializeField]
+    [Space(8)]
+    [Header("━━━━ 사운드 ━━━━")]
+    [Tooltip("시트 N열 원문 (파일명)")]
+    [SerializeField]
+    private string attackSound;
+
+    [SerializeField]
+    private AudioClip[] attackClips;
+
+    [Space(8)]
+    [Header("━━━━ 비주얼 ━━━━")]
+    [Tooltip("유닛 외형 컨셉\n3성+ 유닛의 비주얼 디자인 가이드")]
+    [TextArea(2, 4)]
+    [SerializeField]
     private string visualConcept;
 
     // 프로퍼티 (외부 접근용)
@@ -82,6 +115,9 @@ public class UnitData
     public int[] SynergyIDs => synergyIDs;
     public string VisualConcept => visualConcept;
 
+    public string AttackSound => attackSound;
+
+    public AudioClip[] AttackClips => attackClips;
 
     // 공격 대상 타입 (단일/광역/정령)
 
@@ -91,7 +127,7 @@ public class UnitData
         AOE, // 광역
     }
 
-    /// <summary>시트 I열: 타겟팅 / 광역 (구버전 단일·공격타겟 한 열 값도 허용)</summary>
+    // 시트 I열: 타겟팅 / 광역 (구버전 단일·공격타겟 한 열 값도 허용)
     public static AttackTypes ParseTargetingMethod(string value)
     {
         return value?.Trim() switch
@@ -103,7 +139,7 @@ public class UnitData
         };
     }
 
-    /// <summary>시트 J열: 공격 대상 수 (숫자 또는 전체)</summary>
+    // 시트 J열: 공격 대상 수 (숫자 또는 전체)
     public static int ParseAttackTargetCount(string value)
     {
         if (string.IsNullOrWhiteSpace(value)) return 1;
@@ -113,10 +149,10 @@ public class UnitData
         return 1;
     }
 
-    /// <summary>
-    /// 구글시트 한 행을 UnitData로 파싱
-    /// 컬럼: A=ID, B=단계, C=이름, D=공격력, E=공격속도, F=치명타, G=사거리, H=광역범위, I=타겟팅방법, J=공격대상수, K~M=시너지1~3, N=비주얼
-    /// </summary>
+
+    // 구글시트 한 행을 UnitData로 파싱
+    // 컬럼: A=ID, B=단계, C=이름, D=공격력, E=공격속도, F=치명타, G=사거리, H=광역범위, I=타겟팅, J=공격대상수, K~M=시너지1~3, N=공격 사운드 (O,P 미사용)
+
     public static UnitData CreateFromSheetRow(string[] line)
     {
         if (line == null || line.Length < 13) return null;
@@ -133,7 +169,8 @@ public class UnitData
         int.TryParse(SafeGet(line, 1), out tier);
         unitName = SafeGet(line, 2);
         icon = (Sprite)AssetDatabase.LoadAssetAtPath($"Assets/Resources/Units/Sprites/{Id}.png", typeof(Sprite));
-        illustration = (Sprite)AssetDatabase.LoadAssetAtPath($"Assets/Resources/Units/Illustration/{Id}.png", typeof(Sprite));
+        illustration =
+            (Sprite)AssetDatabase.LoadAssetAtPath($"Assets/Resources/Units/Illustration/{Id}.png", typeof(Sprite));
         float.TryParse(SafeGet(line, 3), out attackPower);
         attackSpeed = ParseAttackSpeed(SafeGet(line, 4));
         float.TryParse(SafeGet(line, 5).Replace(",", "."), out criticalChance);
@@ -144,7 +181,10 @@ public class UnitData
         int.TryParse(SafeGet(line, 10), out synergyIDs[0]);
         int.TryParse(SafeGet(line, 11), out synergyIDs[1]);
         int.TryParse(SafeGet(line, 12), out synergyIDs[2]);
-        visualConcept = SafeGet(line, 13);
+
+        attackSound = SafeGet(line, 13);
+        attackClips = SoundLoader.AttackGroup(attackSound);
+        visualConcept = "";
     }
 
     // string[] arr = { "10001", "1", "인간 전사" };  // 열이 3개뿐 (인덱스 0, 1, 2)

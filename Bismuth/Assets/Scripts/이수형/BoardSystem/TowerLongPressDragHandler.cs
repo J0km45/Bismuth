@@ -74,17 +74,17 @@ public class TowerLongPressDragHandler : MonoBehaviour
     {
         if (isActiveAndEnabled == false)
             return false;
-        if (towerUnit == null || towerUnit.CurrentSlot == null) 
+        if (towerUnit == null || towerUnit.CurrentSlot == null)
             return false;
 
 
-        
+
 
         isPressed = true;
         isDragging = false;
         pressedTime = Time.time;
         pressedScreenPos = screenPos;
-        
+
         DebugTool.Log($"타워({towerUnit.CurrentSlot.name}) 홀드 시작", DebugType.Unit, this);
 
         unitInfoPanel.GetComponent<CollectUnitInfo>().CollectInfo(this.gameObject);
@@ -263,5 +263,5 @@ public class TowerLongPressDragHandler : MonoBehaviour
         ResetState();
     }
 
-    
+
 }

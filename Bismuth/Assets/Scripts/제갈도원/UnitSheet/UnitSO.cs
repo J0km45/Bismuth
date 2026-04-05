@@ -52,17 +52,13 @@ public class UnitSO : ScriptableObject
         return result;
     }
 
-    /// <summary>
-    /// 시트 로드 시 기존 데이터 비우고 새로 채우기
-    /// </summary>
+    // 시트 로드 시 기존 데이터 비우고 새로 채우기
     public void ClearUnits()
     {
         units.Clear();
     }
 
-    /// <summary>
-    /// 파싱된 유닛 데이터 추가
-    /// </summary>
+    // 파싱된 유닛 데이터 추가
     public void AddUnit(UnitData unit)
     {
         if (unit != null)

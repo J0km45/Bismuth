@@ -21,7 +21,10 @@ public class CombatManager : MonoBehaviour
     [SerializeField, Min(0.1f)] private float projectileMaxLifetime = 4f;
     [SerializeField] private ProjectilePool projectilePool;
     [SerializeField] private bool projectileLog = false;
-    
+
+
+    [Header("공격 사운드")]
+    [SerializeField] private SoundManager soundManager;
 
     [Header("AOE")]
     [SerializeField] private LayerMask monsterLayerMask;
@@ -55,6 +58,9 @@ public class CombatManager : MonoBehaviour
 
         if (gameManager != null)
             gameManager.GetComponent<SynergyManager>();
+
+        if (soundManager == null)
+            soundManager = FindFirstObjectByType<SoundManager>();
     }
 
     private void OnValidate()
@@ -82,10 +88,12 @@ public class CombatManager : MonoBehaviour
             return false;
         }
 
-        if (unitStat.Range > 1.3f)
-            return FireProjectiles(unit,towerUnit, unitStat, targets);
+        soundManager?.RandomAttackUnit(unitStat);
 
-        return ApplyHitscan(unit,unitStat, towerUnit != null ? towerUnit.name : unitStat.Name, targets);
+        if (unitStat.Range > 1.3f)
+            return FireProjectiles(unit, towerUnit, unitStat, targets);
+
+        return ApplyHitscan(unit, unitStat, towerUnit != null ? towerUnit.name : unitStat.Name, targets);
     }
 
     public bool ResolveProjectileHit(
@@ -225,7 +233,7 @@ public class CombatManager : MonoBehaviour
                 this
             );
         }
-        
+
 
         return appliedCount > 0;
     }
@@ -387,7 +395,7 @@ public class CombatManager : MonoBehaviour
         int skillDamage = damageCalculator.CalculateSkillDamage(attackPower, target.BaseDefense, crit);
         int finalDamage = normalDamage + skillDamage;
         dealtDamage = finalDamage;
-        if(target.TakeDamage(finalDamage, hitEffect))
+        if (target.TakeDamage(finalDamage, hitEffect))
         {
             unitStat.KillCount++;
             DebugTool.Log(
@@ -454,19 +462,20 @@ public class CombatManager : MonoBehaviour
 
         if (unitStat.SynergIDs != null && unitStat.SynergIDs.Length > 1)
         {
-            if(unitStat.Tier < 3)
+            if (unitStat.Tier < 3)
             {
                 int synergyIndex = unitStat.SynergIDs[1] - 50003;
                 if (synergyIndex >= 0 && synergyIndex < sourceList.Count)
                     return sourceList[synergyIndex];
-            }else
+            }
+            else
             {
                 int synergyIndex = unitStat.Id - 10032;
                 if (synergyIndex >= 0 && synergyIndex < sourceList.Count)
                     return sourceList[synergyIndex];
             }
 
-                
+
         }
 
         return sourceList[0];

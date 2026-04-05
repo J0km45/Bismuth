@@ -17,7 +17,9 @@ public class SheetData
         // 1. URL에서 sheetId, gid 추출
         string sheetId = Url.Split(new[] { "/d/" }, System.StringSplitOptions.None).Length > 1
             ? Url.Split(new[] { "/d/" }, System.StringSplitOptions.None)[1].Split('/')[0]
-            : Url.Split('/').Length > 5 ? Url.Split('/')[5] : "0";
+            : Url.Split('/').Length > 5
+                ? Url.Split('/')[5]
+                : "0";
         string gid = Url.Contains("gid=") ? Url.Split("gid=")[1].Split('&')[0].Split('#')[0] : "0";
         string format = Type == SheetType.CSV ? "csv" : "tsv";
 
