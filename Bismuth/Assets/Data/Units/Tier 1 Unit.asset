@@ -25,11 +25,14 @@ MonoBehaviour:
     attackArea: 1
     attackType: 0
     attackTargetCount: 1
-    synergyIDs: 56c3000051c3000000000000
-    visualConcept: 0_Attack_Normal
+    synergyIDs: 000000000000000000000000
+    attackSound: sword_hit_impact_01
+    attackClips:
+    - {fileID: 8300000, guid: cf0e6a0164640224a987f98c6e7ec2df, type: 3}
+    visualConcept: 
   - unitName: "\uC778\uAC04 \uAC70\uB108"
     id: 10002
-    icon: {fileID: 5653301244423711692, guid: a9b33cd8daecd944aaf53c1f17e5d4c7, type: 3}
+    icon: {fileID: 0}
     illustration: {fileID: 0}
     tier: 1
     attackPower: 10
@@ -39,11 +42,14 @@ MonoBehaviour:
     attackArea: 1
     attackType: 0
     attackTargetCount: 1
-    synergyIDs: 56c3000054c3000000000000
-    visualConcept: 0_Attack_Bow
+    synergyIDs: 000000000000000000000000
+    attackSound: gun_semi_auto_shot_silenced1_02
+    attackClips:
+    - {fileID: 8300000, guid: dd0cc62ac75890341a23914468bf4faf, type: 3}
+    visualConcept: 
   - unitName: "\uC778\uAC04 \uB9C8\uBC95\uC0AC"
     id: 10003
-    icon: {fileID: 673478992328258140, guid: e17df8615cad7db42ba8c761b4853f76, type: 3}
+    icon: {fileID: 0}
     illustration: {fileID: 0}
     tier: 1
     attackPower: 17
@@ -53,11 +59,14 @@ MonoBehaviour:
     attackArea: 1
     attackType: 0
     attackTargetCount: 1
-    synergyIDs: 56c3000052c3000000000000
-    visualConcept: 0_Attack_Bow
+    synergyIDs: 000000000000000000000000
+    attackSound: weapon_fun_small_zapper_03
+    attackClips:
+    - {fileID: 8300000, guid: 3069aba82d109cf418bc1962d7d10c54, type: 3}
+    visualConcept: 
   - unitName: "\uC5D8\uD504 \uACA9\uD22C\uAC00"
     id: 10004
-    icon: {fileID: -7215233862995813327, guid: 04f08e94e7ecf8f4c97aecf3da762329, type: 3}
+    icon: {fileID: 0}
     illustration: {fileID: 0}
     tier: 1
     attackPower: 11
@@ -67,25 +76,34 @@ MonoBehaviour:
     attackArea: 1
     attackType: 0
     attackTargetCount: 1
-    synergyIDs: 57c3000055c3000000000000
-    visualConcept: 0_Attack_Normal
+    synergyIDs: 000000000000000000000000
+    attackSound: "\uACA9\uD22C\uAC00"
+    attackClips:
+    - {fileID: 8300000, guid: 9ad4228f1b971714a909a221cb885c46, type: 3}
+    - {fileID: 8300000, guid: 87a4bb3578fb8f1449a06520463b10aa, type: 3}
+    - {fileID: 8300000, guid: 0920df67d24e9d64a917fa66f19fd4a7, type: 3}
+    - {fileID: 8300000, guid: e80c218edd403494884f21f9c62af745, type: 3}
+    visualConcept: 
   - unitName: "\uC5D8\uD504 \uB9C8\uBC95\uC0AC"
     id: 10005
-    icon: {fileID: -8447093495080867278, guid: 13aaecc6134f2e440ab2e377719d1f70, type: 3}
+    icon: {fileID: 0}
     illustration: {fileID: 0}
     tier: 1
     attackPower: 10
     attackSpeed: 0.8
     criticalChance: 0
-    attackRange: 1.7
-    attackArea: 1
-    attackType: 0
-    attackTargetCount: 2
-    synergyIDs: 57c3000052c3000000000000
-    visualConcept: 0_Attack_Normal
+    attackRange: 2
+    attackArea: 2
+    attackType: 1
+    attackTargetCount: 1
+    synergyIDs: 000000000000000000000000
+    attackSound: weapon_fun_small_zapper_03
+    attackClips:
+    - {fileID: 8300000, guid: 3069aba82d109cf418bc1962d7d10c54, type: 3}
+    visualConcept: 
   - unitName: "\uC5D8\uD504 \uAD81\uC218"
     id: 10006
-    icon: {fileID: -6535359433419030914, guid: 0003590568976f4499a73b6f76e77004, type: 3}
+    icon: {fileID: 0}
     illustration: {fileID: 0}
     tier: 1
     attackPower: 5
@@ -95,11 +113,14 @@ MonoBehaviour:
     attackArea: 1
     attackType: 0
     attackTargetCount: 1
-    synergyIDs: 57c3000053c3000000000000
-    visualConcept: 0_Attack_Bow
+    synergyIDs: 000000000000000000000000
+    attackSound: bow_crossbow_arrow_shoot_type2_03
+    attackClips:
+    - {fileID: 8300000, guid: 9eed384074e082e4f93d8b2fe86c0d0b, type: 3}
+    visualConcept: 
   - unitName: "\uC624\uD06C \uACA9\uD22C\uAC00"
     id: 10007
-    icon: {fileID: 51442971146027005, guid: f0944116382a42c4089a4d7e8db28ae6, type: 3}
+    icon: {fileID: 0}
     illustration: {fileID: 0}
     tier: 1
     attackPower: 15
@@ -109,11 +130,17 @@ MonoBehaviour:
     attackArea: 1
     attackType: 0
     attackTargetCount: 1
-    synergyIDs: 58c3000055c3000000000000
-    visualConcept: 0_Attack_Normal
+    synergyIDs: 000000000000000000000000
+    attackSound: "\uACA9\uD22C\uAC00"
+    attackClips:
+    - {fileID: 8300000, guid: 9ad4228f1b971714a909a221cb885c46, type: 3}
+    - {fileID: 8300000, guid: 87a4bb3578fb8f1449a06520463b10aa, type: 3}
+    - {fileID: 8300000, guid: 0920df67d24e9d64a917fa66f19fd4a7, type: 3}
+    - {fileID: 8300000, guid: e80c218edd403494884f21f9c62af745, type: 3}
+    visualConcept: 
   - unitName: "\uC624\uD06C \uC804\uC0AC"
     id: 10008
-    icon: {fileID: 5595111834083260066, guid: ac9181409e0967a4f8fed476062d1626, type: 3}
+    icon: {fileID: 0}
     illustration: {fileID: 0}
     tier: 1
     attackPower: 20
@@ -121,13 +148,16 @@ MonoBehaviour:
     criticalChance: 0
     attackRange: 1.3
     attackArea: 1
-    attackType: 0
-    attackTargetCount: 2
-    synergyIDs: 58c3000051c3000000000000
-    visualConcept: 0_Attack_Normal
+    attackType: 1
+    attackTargetCount: 1
+    synergyIDs: 000000000000000000000000
+    attackSound: sword_impact_body
+    attackClips:
+    - {fileID: 8300000, guid: 27d6062cc0b07fd43abe39485ce0cc4a, type: 3}
+    visualConcept: 
   - unitName: "\uC624\uD06C \uAC70\uB108"
     id: 10009
-    icon: {fileID: 7556657804639102451, guid: 46233f3b38500cd4eaac90a10627e85a, type: 3}
+    icon: {fileID: 0}
     illustration: {fileID: 0}
     tier: 1
     attackPower: 17
@@ -137,11 +167,14 @@ MonoBehaviour:
     attackArea: 1
     attackType: 0
     attackTargetCount: 1
-    synergyIDs: 58c3000054c3000000000000
-    visualConcept: 0_Attack_Bow
+    synergyIDs: 000000000000000000000000
+    attackSound: gun_pistol_shot_01
+    attackClips:
+    - {fileID: 8300000, guid: 99a3234da979aad42ac84647c3124558, type: 3}
+    visualConcept: 
   - unitName: "\uC218\uC778 \uACA9\uD22C\uAC00"
     id: 10010
-    icon: {fileID: 6238606540396085786, guid: e7d0fe3657627ce47b6d64cd5826e307, type: 3}
+    icon: {fileID: 0}
     illustration: {fileID: 0}
     tier: 1
     attackPower: 12
@@ -151,11 +184,17 @@ MonoBehaviour:
     attackArea: 1
     attackType: 0
     attackTargetCount: 1
-    synergyIDs: 59c3000055c3000000000000
-    visualConcept: 0_Attack_Normal
+    synergyIDs: 000000000000000000000000
+    attackSound: "\uACA9\uD22C\uAC00"
+    attackClips:
+    - {fileID: 8300000, guid: 9ad4228f1b971714a909a221cb885c46, type: 3}
+    - {fileID: 8300000, guid: 87a4bb3578fb8f1449a06520463b10aa, type: 3}
+    - {fileID: 8300000, guid: 0920df67d24e9d64a917fa66f19fd4a7, type: 3}
+    - {fileID: 8300000, guid: e80c218edd403494884f21f9c62af745, type: 3}
+    visualConcept: 
   - unitName: "\uC218\uC778 \uAD81\uC218"
     id: 10011
-    icon: {fileID: -104466125189204210, guid: e4cc76a8e261526419cd5c5618367b71, type: 3}
+    icon: {fileID: 0}
     illustration: {fileID: 0}
     tier: 1
     attackPower: 8
@@ -165,11 +204,14 @@ MonoBehaviour:
     attackArea: 1
     attackType: 0
     attackTargetCount: 1
-    synergyIDs: 59c3000053c3000000000000
-    visualConcept: 0_Attack_Bow
+    synergyIDs: 000000000000000000000000
+    attackSound: bow_crossbow_arrow_shoot_type2_03
+    attackClips:
+    - {fileID: 8300000, guid: 9eed384074e082e4f93d8b2fe86c0d0b, type: 3}
+    visualConcept: 
   - unitName: "\uC218\uC778 \uAC70\uB108"
     id: 10012
-    icon: {fileID: -5155213995146931463, guid: e3c3217c7f16e2641b379a8fa1755e12, type: 3}
+    icon: {fileID: 0}
     illustration: {fileID: 0}
     tier: 1
     attackPower: 9
@@ -179,25 +221,31 @@ MonoBehaviour:
     attackArea: 1
     attackType: 0
     attackTargetCount: 1
-    synergyIDs: 59c3000054c3000000000000
-    visualConcept: 0_Attack_Bow
+    synergyIDs: 000000000000000000000000
+    attackSound: gun_semi_auto_shot_silenced1_02
+    attackClips:
+    - {fileID: 8300000, guid: dd0cc62ac75890341a23914468bf4faf, type: 3}
+    visualConcept: 
   - unitName: "\uC815\uB839 \uB9C8\uBC95\uC0AC"
     id: 10013
-    icon: {fileID: 7014273837736909631, guid: 74812e58c46558b4eb464801f76541ed, type: 3}
+    icon: {fileID: 0}
     illustration: {fileID: 0}
     tier: 1
     attackPower: 6
     attackSpeed: 0.7
     criticalChance: 0
-    attackRange: 2.1
-    attackArea: 1
-    attackType: 0
-    attackTargetCount: 3
-    synergyIDs: 5ac3000052c3000000000000
-    visualConcept: 0_Attack_Bow
+    attackRange: 3
+    attackArea: 2
+    attackType: 1
+    attackTargetCount: 1
+    synergyIDs: 000000000000000000000000
+    attackSound: Fire_Hit_2_S
+    attackClips:
+    - {fileID: 8300000, guid: 53b666018fd6b934b8eba74067ec370e, type: 3}
+    visualConcept: 
   - unitName: "\uC815\uB839 \uC804\uC0AC"
     id: 10014
-    icon: {fileID: -650548038848072230, guid: a498f334b2feb114eafcd60861720bfc, type: 3}
+    icon: {fileID: 0}
     illustration: {fileID: 0}
     tier: 1
     attackPower: 25
@@ -207,11 +255,14 @@ MonoBehaviour:
     attackArea: 1
     attackType: 0
     attackTargetCount: 1
-    synergyIDs: 5ac3000051c3000000000000
-    visualConcept: 0_Attack_Normal
+    synergyIDs: 000000000000000000000000
+    attackSound: kick_hard_impact_08
+    attackClips:
+    - {fileID: 8300000, guid: 374afeb0ed987164eb6b13500d97f5f2, type: 3}
+    visualConcept: 
   - unitName: "\uC815\uB839 \uAD81\uC218"
     id: 10015
-    icon: {fileID: -4301068487828200916, guid: 19b3a4adf72c62843a4b5733d447b305, type: 3}
+    icon: {fileID: 0}
     illustration: {fileID: 0}
     tier: 1
     attackPower: 6
@@ -221,5 +272,8 @@ MonoBehaviour:
     attackArea: 1
     attackType: 0
     attackTargetCount: 1
-    synergyIDs: 5ac3000053c3000000000000
-    visualConcept: 0_Attack_Bow
+    synergyIDs: 000000000000000000000000
+    attackSound: bow_crossbow_arrow_shoot_type2_03
+    attackClips:
+    - {fileID: 8300000, guid: 9eed384074e082e4f93d8b2fe86c0d0b, type: 3}
+    visualConcept: 

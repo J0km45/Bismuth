@@ -24,6 +24,9 @@ public class CombatManager : MonoBehaviour
     [SerializeField] private bool projectileLog = false;
 
 
+    [Header("공격 사운드")]
+    [SerializeField] private SoundManager soundManager;
+
     [Header("AOE")]
     [SerializeField] private LayerMask monsterLayerMask;
     [SerializeField, Min(1)] private int aoeOverlapBufferSize = 32;
@@ -71,6 +74,11 @@ public class CombatManager : MonoBehaviour
         TrySetDefaultMonsterLayer();
         EnsureAoeBuffer();
 
+        if (gameManager != null)
+            gameManager.GetComponent<SynergyManager>();
+
+        if (soundManager == null)
+            soundManager = FindFirstObjectByType<SoundManager>();
         if (synergyManager == null && gameManager != null)
             synergyManager = gameManager.GetComponent<SynergyManager>();
     }
@@ -114,6 +122,8 @@ public class CombatManager : MonoBehaviour
             DebugTool.Log("피해를 줄 유효한 타겟이 없습니다.", DebugType.Unit, this);
             return false;
         }
+
+        soundManager?.RandomAttackUnit(unitStat);
 
         if (unitStat.Range > 1.3f)
             return FireProjectiles(unit, towerUnit, unitStat, targets, context);

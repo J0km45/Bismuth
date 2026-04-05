@@ -44,7 +44,7 @@ public class SummonUnit : MonoBehaviour
     [SerializeField] private Camera worldCamera;
     [SerializeField] private UnitCatalogManager unitCatalogManager;
     [SerializeField] private CombineManager combineManager;
-     
+
     [Header("Data")]
     [SerializeField] private List<UnitSO> units = new List<UnitSO>(4);
     public List<UnitSO> Units => units;
@@ -59,7 +59,7 @@ public class SummonUnit : MonoBehaviour
 
     [SerializeField] private bool summonLog = true;
     [SerializeField] private bool boardLog = true;
-    
+
     private int summonSequence = 0;
 
     private void Awake()
@@ -77,10 +77,10 @@ public class SummonUnit : MonoBehaviour
             cellHighlight = FindAnyObjectByType<CellHighlight>();
         if (worldCamera == null)
             worldCamera = Camera.main;
-        
+
         if (unitCatalogManager == null)
             unitCatalogManager = GetComponent<UnitCatalogManager>();
-        
+
         if (combineManager == null)
             combineManager = GetComponent<CombineManager>();
     }
@@ -131,7 +131,7 @@ public class SummonUnit : MonoBehaviour
         }
 
         GameObject prefab = GetUnitPrefab(data);
-        
+
         if (prefab == null)
         {
             DebugTool.Warnning(
@@ -149,7 +149,7 @@ public class SummonUnit : MonoBehaviour
         }
 
         PrepareSpawnedTower(createdTower, data);
-        DebugTool.Log("PrepareSpawnedTower까지 실행완료",DebugType.Summon,this);
+        DebugTool.Log("PrepareSpawnedTower까지 실행완료", DebugType.Summon, this);
 
         UnitStat stat = ApplyUnitStat(createdTower.gameObject, data);
         createdTower.stat = stat;
@@ -161,14 +161,14 @@ public class SummonUnit : MonoBehaviour
         synergyManager?.OnUnitCreated?.Invoke(stat);
         unitCatalogManager.OnSummonUnit?.Invoke(stat);
         combineManager.OnAddUnit?.Invoke(stat.Id);
-        
+
         PrintStat(stat);
         DebugTool.Log("PrintStat까지 실행완료", DebugType.Summon, this);
 
-        
+
 
         RegisterOwnedTower(data, createdTower, stat);
-        
+
 
 
         DebugTool.Log(
@@ -304,15 +304,15 @@ public class SummonUnit : MonoBehaviour
             DebugTool.Warnning("프리팹 등록 필요", DebugType.Unit, this);
             return null;
         }
-        
+
         if (unitPrefabTable.Count < (data.Id - 10001))
         {
             DebugTool.Warnning($"{data.Id} : 해당 프리펩을 찾을 수 없습니다.", DebugType.Unit, this);
             return null;
         }
-        
+
         GameObject prefab = unitPrefabTable[data.Id - 10001];
-        
+
         return prefab;
     }
 
@@ -358,6 +358,7 @@ public class SummonUnit : MonoBehaviour
         stat.attackTypes = unitData.AttackType;
         stat.AttackTargetCount = unitData.AttackTargetCount;
         stat.SynergIDs = unitData.SynergyIDs;
+        stat.AttackClips = unitData.AttackClips; // TODO : 제갈도원 코드 수정 후 사용
         DebugTool.Log("스탯 맵핑 완료", DebugType.Data, this);
         return stat;
     }

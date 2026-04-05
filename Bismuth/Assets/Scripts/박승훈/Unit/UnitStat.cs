@@ -18,6 +18,9 @@ public class UnitStat : MonoBehaviour
     public UnitData.AttackTypes attackTypes;
     public int AttackTargetCount;
     public int[] SynergIDs;
+
+    public AudioClip[] AttackClips;
+
     public int KillCount;
     public int DealtDamage;
 

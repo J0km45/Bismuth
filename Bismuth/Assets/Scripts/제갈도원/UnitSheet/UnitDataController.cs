@@ -37,9 +37,7 @@ public class UnitDataController : MonoBehaviour
         StartCoroutine(unitSheet.Load(SetUnitDatas));
     }
 
-    /// <summary>
-    /// 구글시트 로드 완료 시 호출 - 각 행을 파싱하여 UnitDatabase에 추가
-    /// </summary>
+    // 구글시트 로드 완료 시 호출 - 각 행을 파싱하여 UnitDatabase에 추가
     private void SetUnitDatas(char splitSymbol, string[] lines)
     {
         if (lines == null || lines.Length < 2) return;
