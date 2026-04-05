@@ -16,14 +16,18 @@ public class ControlPanelUI : MonoBehaviour
     [SerializeField] private TMP_Text _synergyText;
     [Tooltip("일반 뽑기")]
     [SerializeField] private TMP_Text _drawText;
-    [Tooltip("확률 +")]
+    [Tooltip("업그레이드")]
     [SerializeField] private TMP_Text _upgradeText;
+    [Tooltip("업그레이드 소모 비용")]
+    [SerializeField] private TMP_Text _upgradeGoldText;
 
     [Header("━━━━ 패널 ━━━━")]
     [Tooltip("합성소")]
     [SerializeField] private GameObject _combinationScrollView;
 
     private PlayerDataManager _playerData;
+    private PlayerUIController _playerUIController;
+
     private bool _isCombinationSVOpened => _combinationScrollView.activeSelf;
     private float _elapsedTime = 0f; // 누적 시간 저장용
 
@@ -33,6 +37,10 @@ public class ControlPanelUI : MonoBehaviour
         {
             _playerData = FindAnyObjectByType<PlayerDataManager>();
         }
+        if (_playerUIController == null)
+        {
+            _playerUIController = FindAnyObjectByType<PlayerUIController>();
+        }
     }
 
     private void OnEnable()
@@ -40,6 +48,7 @@ public class ControlPanelUI : MonoBehaviour
         LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
         RefreshText();
         RefreshLevel();
+        RefreshUpgradeGold();
     }
 
     private void OnDisable()
@@ -87,6 +96,21 @@ public class ControlPanelUI : MonoBehaviour
             return;
 
         _goldText.text = $": {_playerData.Gold}";
+    }
+
+    public void RefreshUpgradeGold()
+    {
+        int level = _playerData.Level;
+        int gold = _playerUIController.GetUpgradeGold(level);
+
+        if(gold < 0)
+        {
+            _upgradeGoldText.text = "MAX";
+        }
+        else
+        {
+            _upgradeGoldText.text = $"{gold}";
+        }
     }
 
     public void OnClickCombination()

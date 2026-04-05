@@ -35,6 +35,7 @@ public class PlayerDataManager : MonoBehaviour
         {
             _level = value;
             _controlPanelUI.RefreshLevel();
+            _controlPanelUI.RefreshUpgradeGold();
         }
     }
 
