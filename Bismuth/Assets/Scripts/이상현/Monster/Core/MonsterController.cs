@@ -135,7 +135,7 @@ public class MonsterController : MonoBehaviour
                 HitEffectSpawner effectSpawner = spawnedEffect.GetComponent<HitEffectSpawner>();
                 if (effectSpawner != null)
                 {
-                    effectSpawner.ConfigureFollowTarget(transform, _currentHp > 0f);
+                    effectSpawner.ConfigureFollowTarget(transform, true);
                 }
                 else
                 {
