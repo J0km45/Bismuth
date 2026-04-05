@@ -63,6 +63,8 @@ public class UnitData
     [SerializeField]
     private int[] synergyIDs = new int[3];
 
+    private AudioClip attackSFX;
+
     [Space(8)] [Header("━━━━ 비주얼 ━━━━")] [Tooltip("유닛 외형 컨셉\n3성+ 유닛의 비주얼 디자인 가이드")] [TextArea(2, 4)] [SerializeField]
     private string visualConcept;
 
