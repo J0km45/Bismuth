@@ -1,6 +1,6 @@
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 public class LobbySceneUI : MonoBehaviour
 {
@@ -35,13 +35,21 @@ public class LobbySceneUI : MonoBehaviour
     [SerializeField] private GameObject _difficultyPanel;
     [Tooltip("게임 방법")]
     [SerializeField] private GameObject _howToPlayPanel;
-    [Tooltip("게임 방법")]
+    [Tooltip("도감")]
     [SerializeField] private GameObject _encyclopdiaPanel;
 
     [Header("━━━━ 버튼 ━━━━")]
     [SerializeField] private GameObject _startButton;
 
-    // 현재 선택된 맵과 난이도 저장용 (임시)
+    [Header("━━━━ 이미지 ━━━━")]
+    [SerializeField] private Image _mapImage;
+    [SerializeField] private Sprite[] _mapSprites;
+    [SerializeField] private Image _howtoImage;
+    [Tooltip("한국어 - 0 / 영어 - 1")]
+    [SerializeField] private Sprite[] _howtoSprites;
+
+
+    // 현재 선택된 맵과 난이도 저장용
     private int _currentMapIndex = -1;
     private Difficulty _currentDifficulty = Difficulty.None;
 
@@ -64,6 +72,7 @@ public class LobbySceneUI : MonoBehaviour
         _unitsText.text = LocalizationManager.Instance.Get("ENCYCLOPEDIA");
 
         RefreshInfoText();
+        RefreshHowtoImage();
     }
 
     private void RefreshInfoText()
@@ -77,6 +86,11 @@ public class LobbySceneUI : MonoBehaviour
         string key = $"{_currentDifficulty}_INFO";
 
         _infoText.text = LocalizationManager.Instance.Get(key);
+    }
+
+    private void RefreshHowtoImage()
+    {
+        _howtoImage.sprite = _howtoSprites[(int)LocalizationManager.Instance.CurrentLanguage];
     }
 
     // 환경 설정 버튼
@@ -105,7 +119,7 @@ public class LobbySceneUI : MonoBehaviour
             // _combatOutline.SetActive(false);
 
             _currentMapIndex = -1;
-            ResetDifficulty();
+            SetDifficulty(Difficulty.None);
             return;
         }
 
@@ -122,7 +136,8 @@ public class LobbySceneUI : MonoBehaviour
         _settingsPopup.SetActive(false);
         _mapScrollView.SetActive(false);
         _encyclopdiaPanel.SetActive(false);
-        
+
+        RefreshHowtoImage();
         bool isActive = _howToPlayPanel.activeSelf;
         _howToPlayPanel.SetActive(!isActive);
     }
@@ -131,6 +146,8 @@ public class LobbySceneUI : MonoBehaviour
     public void OnClickMap(int index)
     {
         _currentMapIndex = index;
+        _mapImage.sprite = _mapSprites[index];
+
         _mapScrollView.SetActive(false);
         _difficultyPanel.SetActive(true);
         _howToPlayPanel.SetActive(false);
@@ -141,7 +158,7 @@ public class LobbySceneUI : MonoBehaviour
     public void OnClickBack()
     {
         _currentMapIndex = -1;
-        ResetDifficulty();
+        SetDifficulty(Difficulty.None);
         _difficultyPanel.SetActive(false);
         _mapScrollView.SetActive(true);
     }
@@ -178,12 +195,6 @@ public class LobbySceneUI : MonoBehaviour
         }
         UpdateDifficultyUI();
         RefreshInfoText();
-    }
-
-    private void ResetDifficulty()
-    {
-        _currentDifficulty = Difficulty.None;
-        UpdateDifficultyUI();
     }
 
     private void UpdateDifficultyUI()
