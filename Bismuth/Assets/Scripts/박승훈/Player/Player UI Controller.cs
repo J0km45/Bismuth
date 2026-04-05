@@ -216,6 +216,13 @@ public class PlayerUIController : MonoBehaviour
     private void NotEnoughGold()
         => DebugTool.Log("골드가 부족합니다.", DebugType.Game, this);
 
+    public int GetUpgradeGold(int level)
+    {
+        if (level >= PLAYER_UPGRADE_GOLD.Length) return -1;
+
+        return PLAYER_UPGRADE_GOLD[level];
+    }
+
     private void Init()
     {
         _player = GetComponent<PlayerDataManager>();

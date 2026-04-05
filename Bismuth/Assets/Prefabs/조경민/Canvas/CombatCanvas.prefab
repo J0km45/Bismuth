@@ -5125,7 +5125,7 @@ GameObject:
   - component: {fileID: 4616611124021401034}
   - component: {fileID: 1831335735886093588}
   m_Layer: 5
-  m_Name: CostText
+  m_Name: UpgradeGoldText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5949,7 +5949,7 @@ GameObject:
   - component: {fileID: 52619905765401528}
   - component: {fileID: 2967528940293706764}
   m_Layer: 5
-  m_Name: CostText
+  m_Name: DrawGoldText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -7101,6 +7101,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5aa02fffde1a19449ae09a69e2f23caa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ControlPanelUI
+  _playerUIController: {fileID: 0}
   _levelText: {fileID: 1799629101702152826}
   _timeText: {fileID: 4628673140955427411}
   _goldText: {fileID: 5158284334980097527}
@@ -7108,6 +7109,7 @@ MonoBehaviour:
   _synergyText: {fileID: 1041810442501793172}
   _drawText: {fileID: 9095277279049131064}
   _upgradeText: {fileID: 7557360089465797660}
+  _upgradeGoldText: {fileID: 1831335735886093588}
   _combinationScrollView: {fileID: 8939785613328792470}
 --- !u!1 &6273098788992383913
 GameObject:
@@ -8044,7 +8046,7 @@ GameObject:
   - component: {fileID: 5439025495068134637}
   - component: {fileID: 7331378427596610479}
   m_Layer: 5
-  m_Name: CostImage
+  m_Name: DrawCostImage
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
