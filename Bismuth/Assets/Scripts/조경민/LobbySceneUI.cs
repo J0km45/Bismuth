@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class LobbySceneUI : MonoBehaviour
 {
@@ -8,12 +9,16 @@ public class LobbySceneUI : MonoBehaviour
     [SerializeField] private TMP_Text _combatText;
     [Tooltip("전투시작")]
     [SerializeField] private TMP_Text _startText;
-    [Tooltip("맵 정보")]
+    [Tooltip("난이도 정보")]
     [SerializeField] private TMP_Text _infoText;
+    [Tooltip("게임 방법")]
+    [SerializeField] private TMP_Text _howToPlayText;
+    [Tooltip("도감")]
+    [SerializeField] private TMP_Text _unitsText;
 
     [Header("━━━━ 테두리 ━━━━")]
-    [Tooltip("전투 버튼")]
-    [SerializeField] private GameObject _combatOutline;
+    // [Tooltip("전투 버튼")]
+    // [SerializeField] private GameObject _combatOutline;
     [Tooltip("쉬움")]
     [SerializeField] private GameObject _easyOutline;
     [Tooltip("보통")]
@@ -28,19 +33,64 @@ public class LobbySceneUI : MonoBehaviour
     [SerializeField] private GameObject _mapScrollView;
     [Tooltip("난이도")]
     [SerializeField] private GameObject _difficultyPanel;
+    [Tooltip("게임 방법")]
+    [SerializeField] private GameObject _howToPlayPanel;
+    [Tooltip("도감")]
+    [SerializeField] private GameObject _encyclopdiaPanel;
 
     [Header("━━━━ 버튼 ━━━━")]
     [SerializeField] private GameObject _startButton;
 
-    // 현재 선택된 맵과 난이도 저장용 (임시)
+    [Header("━━━━ 이미지 ━━━━")]
+    [SerializeField] private Image _mapImage;
+    [SerializeField] private Sprite[] _mapSprites;
+    [SerializeField] private Image _howtoImage;
+    [Tooltip("한국어 - 0 / 영어 - 1")]
+    [SerializeField] private Sprite[] _howtoSprites;
+
+
+    // 현재 선택된 맵과 난이도 저장용
     private int _currentMapIndex = -1;
     private Difficulty _currentDifficulty = Difficulty.None;
 
-    private void Start()
+    private void OnEnable()
     {
-        // TODO : 로컬라이징 수정
-        _combatText.text = "COMBAT";
-        _startText.text = "START";
+        LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
+        RefreshText();
+    }
+
+    private void OnDisable()
+    {
+        LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
+    }
+
+    private void RefreshText()
+    {
+        _combatText.text = LocalizationManager.Instance.Get("COMBAT");
+        _startText.text = LocalizationManager.Instance.Get("START");
+        _howToPlayText.text = LocalizationManager.Instance.Get("HOW_TO_PLAY");
+        _unitsText.text = LocalizationManager.Instance.Get("ENCYCLOPEDIA");
+
+        RefreshInfoText();
+        RefreshHowtoImage();
+    }
+
+    private void RefreshInfoText()
+    {
+        if (_currentDifficulty == Difficulty.None)
+        {
+            _infoText.text = "";
+            return;
+        }
+
+        string key = $"{_currentDifficulty}_INFO";
+
+        _infoText.text = LocalizationManager.Instance.Get(key);
+    }
+
+    private void RefreshHowtoImage()
+    {
+        _howtoImage.sprite = _howtoSprites[(int)LocalizationManager.Instance.CurrentLanguage];
     }
 
     // 환경 설정 버튼
@@ -58,37 +108,57 @@ public class LobbySceneUI : MonoBehaviour
     // 전투 버튼 - 클릭하면 맵 선택 스크롤뷰 나옴
     public void OnClickCombat()
     {
+        _howToPlayPanel.SetActive(false);
+        _encyclopdiaPanel.SetActive(false);
+        
         // 난이도 선택이 열려있을땐 다 닫음
         if (_difficultyPanel.activeSelf)
         {
             _difficultyPanel.SetActive(false);
             _mapScrollView.SetActive(false);
-            _combatOutline.SetActive(false);
+            // _combatOutline.SetActive(false);
 
             _currentMapIndex = -1;
-            ResetDifficulty();
+            SetDifficulty(Difficulty.None);
             return;
         }
 
         bool isActive = _mapScrollView.activeSelf;
-        _combatOutline.SetActive(!isActive);
+        // _combatOutline.SetActive(!isActive);
         _mapScrollView.SetActive(!isActive);
         if (!isActive) SetDifficulty(Difficulty.None);
+    }
+
+    // 게임 방법 버튼
+    public void OnClickHowToPlay()
+    {
+        _difficultyPanel.SetActive(false);
+        _settingsPopup.SetActive(false);
+        _mapScrollView.SetActive(false);
+        _encyclopdiaPanel.SetActive(false);
+
+        RefreshHowtoImage();
+        bool isActive = _howToPlayPanel.activeSelf;
+        _howToPlayPanel.SetActive(!isActive);
     }
 
     // 맵 선택
     public void OnClickMap(int index)
     {
         _currentMapIndex = index;
+        _mapImage.sprite = _mapSprites[index];
+
         _mapScrollView.SetActive(false);
         _difficultyPanel.SetActive(true);
+        _howToPlayPanel.SetActive(false);
+        _encyclopdiaPanel.SetActive(false);
     }
 
     // 뒤로가기 - 난이도 선택에서 맵 선택으로
     public void OnClickBack()
     {
         _currentMapIndex = -1;
-        ResetDifficulty();
+        SetDifficulty(Difficulty.None);
         _difficultyPanel.SetActive(false);
         _mapScrollView.SetActive(true);
     }
@@ -124,11 +194,7 @@ public class LobbySceneUI : MonoBehaviour
             _currentDifficulty = difficulty;
         }
         UpdateDifficultyUI();
-    }
-    private void ResetDifficulty()
-    {
-        _currentDifficulty = Difficulty.None;
-        UpdateDifficultyUI();
+        RefreshInfoText();
     }
 
     private void UpdateDifficultyUI()

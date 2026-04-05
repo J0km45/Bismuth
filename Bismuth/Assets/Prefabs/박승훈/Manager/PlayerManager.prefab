@@ -17,6 +17,7 @@ GameObject:
   - component: {fileID: 8554172300313096461}
   - component: {fileID: 7012402871630413712}
   - component: {fileID: 5106607783468869301}
+  - component: {fileID: 2799974427374469838}
   m_Layer: 0
   m_Name: PlayerManager
   m_TagString: Untagged
@@ -86,38 +87,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8671bf31c6f0649468d77bb3be8925bb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SynergyManager
+  _summonUnit: {fileID: 0}
   OnUnitCreated:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 8140035803927745397}
-        m_TargetAssemblyTypeName: SynergyManager, Assembly-CSharp
-        m_MethodName: ChangedSynergy
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   OnUnitRemoved:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 8140035803927745397}
-        m_TargetAssemblyTypeName: SynergyManager, Assembly-CSharp
-        m_MethodName: RemoveSynergy
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   _unitCount: 0
-  _log: 0
+  _log: 1
 --- !u!114 &651773196946485032
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -148,7 +126,7 @@ MonoBehaviour:
   _summonUnit: {fileID: 0}
   _units: {fileID: 11400000, guid: cd09fb10c1adca94facd263909f98d92, type: 2}
   _combineSO: {fileID: 11400000, guid: 0dfded2c1c40dd54498084b03b040f27, type: 2}
-  _log: 0
+  _log: 1
   OnAddUnit:
     m_PersistentCalls:
       m_Calls: []
@@ -233,7 +211,7 @@ MonoBehaviour:
   - {fileID: 3715344090090077805, guid: 6469e238013eabc42b5a7777d07a1c1e, type: 3}
   - {fileID: 4662263023091883543, guid: 7c5cfd8c835d81c4a91eceea394af01c, type: 3}
   ownedTowers: []
-  summonLog: 0
+  summonLog: 1
   boardLog: 0
 --- !u!114 &7012402871630413712
 MonoBehaviour:
@@ -248,6 +226,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UnitPointerInputRouter
   worldCamera: {fileID: 0}
+  battleWaveRunner: {fileID: 0}
   unitLayer:
     serializedVersion: 2
     m_Bits: 1024
@@ -270,4 +249,21 @@ MonoBehaviour:
   OnSummonUnit:
     m_PersistentCalls:
       m_Calls: []
+  _log: 1
+--- !u!114 &2799974427374469838
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4351018382781704222}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ee204b8813310a49854ce7794ab8eb0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BattleRewardHandler
+  _battleWaveRunner: {fileID: 0}
+  _playerDataManager: {fileID: 0}
+  _synergySO: {fileID: 11400000, guid: ae19ff350cd21684392c987d6ab5e999, type: 2}
+  _synergyManager: {fileID: 0}
   _log: 1

@@ -23,4 +23,6 @@ public class UnitStat : MonoBehaviour
 
     public int KillCount;
     public int DealtDamage;
+
+    public int ElfWaveKillCount;
 }

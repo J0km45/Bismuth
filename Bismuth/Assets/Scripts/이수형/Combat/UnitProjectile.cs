@@ -30,6 +30,7 @@ public class UnitProjectile : MonoBehaviour
     private float critChance;
 
     private bool isAoe;
+    private AttackContext attackContext;
     private float explosionRadius;
 
     private float lifeTimer;
@@ -38,10 +39,11 @@ public class UnitProjectile : MonoBehaviour
     private SpriteRenderer[] spriteRenderers;
     private UnitStat unitStat;
 
+
     private void Awake()
     {
         poolMember = GetComponent<ProjectilePoolMember>();
-        
+
 
     }
 
@@ -61,18 +63,19 @@ public class UnitProjectile : MonoBehaviour
     }
 
     public void Initialize(
-        float attackPower,
-        float critChance,
-        string sourceName,
-        MonsterController target,
-        GameObject hitEffect,
-        GameObject owner,
-        bool isAoe,
-        float explosionRadius,
-        float moveSpeed,
-        float hitDistance,
-        float maxLifetime,
-        bool projectileLog = false)
+    float attackPower,
+    float critChance,
+    string sourceName,
+    MonsterController target,
+    GameObject hitEffect,
+    GameObject owner,
+    bool isAoe,
+    AttackContext context,
+    float explosionRadius,
+    float moveSpeed,
+    float hitDistance,
+    float maxLifetime,
+    bool projectileLog = false)
     {
         this.attackPower = attackPower;
         this.critChance = critChance;
@@ -81,6 +84,7 @@ public class UnitProjectile : MonoBehaviour
         this.hitEffect = hitEffect;
         this.owner = owner;
         this.isAoe = isAoe;
+        this.attackContext = context;
         this.explosionRadius = Mathf.Max(0.01f, explosionRadius);
         this.moveSpeed = Mathf.Max(0.1f, moveSpeed);
         this.hitDistance = Mathf.Max(0.01f, hitDistance);
@@ -164,6 +168,7 @@ public class UnitProjectile : MonoBehaviour
                 owner,
                 sourceName,
                 isAoe,
+                attackContext,
                 explosionRadius,
                 impactPosition,
                 unitStat
@@ -238,6 +243,7 @@ public class UnitProjectile : MonoBehaviour
         attackPower = 0f;
         critChance = 0f;
         isAoe = false;
+        attackContext = default;
         explosionRadius = 0f;
         lifeTimer = 0f;
     }

@@ -16,13 +16,23 @@ public class PausePopupUI : MonoBehaviour
     [Header("━━━━ 패널 ━━━━")]
     [SerializeField] private GameObject _settingsPopup;
 
-    private void Start()
+    private void OnEnable()
     {
-        // TODO : 수정해야됨(로컬라이징)
-        _menuText.text = "MENU";
-        _resumeText.text = "Resume";
-        _settingsText.text = "Settings";
-        _lobbyText.text = "Lobby";
+        LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
+        RefreshText();
+    }
+
+    private void OnDisable()
+    {
+        LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
+    }
+
+    private void RefreshText()
+    {
+        _menuText.text = LocalizationManager.Instance.Get("MENU");
+        _resumeText.text = LocalizationManager.Instance.Get("RESUME");
+        _settingsText.text = LocalizationManager.Instance.Get("SETTINGS");
+        _lobbyText.text = LocalizationManager.Instance.Get("LOBBY");
     }
 
     // 게임 재개 버튼

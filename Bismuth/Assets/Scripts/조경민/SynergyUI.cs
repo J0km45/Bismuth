@@ -1,50 +1,65 @@
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 // 시너지 프리팹에 들어갈 스크립트
-public class SynergyUI : MonoBehaviour, IPointerClickHandler
+public class SynergyUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
     [Header("━━━━ 헤더 ━━━━")]
     [SerializeField] private Image _icon; // 시너지 이름 앞 네모칸
     [SerializeField] private Sprite activeSprite; // 네모칸에 들어갈 이미지(활성화)
     [SerializeField] private Sprite inactiveSprite; // 네모칸에 들어갈 이미지(비활성화)
-    [SerializeField] private TMP_Text _hNameText; // 헤더에 들어갈 시너지 이름 텍스트
+    [SerializeField] private TMP_Text _NameText; // 시너지 이름 텍스트
     [SerializeField] private TMP_Text _countText; // 시너지 수 (현재 시너지 수/가능한 최대 시너지 수)
 
-    [Header("━━━━ 설명 ━━━━")]
-    [SerializeField] private GameObject _descriptionPanel; // 마우스 올리면 켜질 설명 패널
-    [SerializeField] private TMP_Text _dNameText; // 설명칸에 들어갈 시너지 이름 텍스트
-    [SerializeField] private TMP_Text _descriptionText; // 시너지 설명
+    private SynergyData _data;
+    private int _count;
+    private SynergyScrollViewUI _scrollView;
 
-    public void SetData(int synergyId, int count, SynergySO synergySO)
+    private void OnEnable()
     {
-        SynergyData data = GetSynergyData(synergyId, synergySO);
+        LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
+    }
 
-        // 시너지 이름
-        _hNameText.text = data.SynergyName;
-        _dNameText.text = data.SynergyName;
+    private void OnDisable()
+    {
+        LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
+    }
+
+    public void SetData(int synergyId, int count, SynergySO synergySO, SynergyScrollViewUI scrollView)
+    {
+        _data = GetSynergyData(synergyId, synergySO);
+        _count = count;
+        _scrollView = scrollView;
+
+        if (_data == null) return;
 
         // 최대 시너지 수
         int maxCount = 0;
-        if (data.Levels != null && data.Levels.Count > 0)
+        if (_data.Levels != null && _data.Levels.Count > 0)
         {
-            maxCount = data.Levels[data.Levels.Count - 1].ActiveCount;
+            maxCount = _data.Levels[_data.Levels.Count - 1].ActiveCount;
         }
-        _countText.text = $"{count} / {maxCount}";
-
-        // 시너지 설명
-        _descriptionText.text = GetDescriptionText(data, count);
+        _countText.text = $"{_count} / {maxCount}";
 
         // 아이콘 활성/비활성
         bool isActive = false;
-        if (data.Levels != null && data.Levels.Count > 0)
+        if (_data.Levels != null && _data.Levels.Count > 0)
         {
-            isActive = count >= data.Levels[0].ActiveCount;
+            isActive = _count >= _data.Levels[0].ActiveCount;
         }
 
         _icon.sprite = isActive ? activeSprite : inactiveSprite;
+
+        RefreshText();
+    }
+
+    private void RefreshText()
+    {
+        // 시너지 이름
+        _NameText.text = LocalizationManager.Instance.Get(_data.SynergyName);
     }
 
     private SynergyData GetSynergyData(int synergyId, SynergySO synergySO)
@@ -57,20 +72,20 @@ public class SynergyUI : MonoBehaviour, IPointerClickHandler
         return null;
     }
 
-    private string GetDescriptionText(SynergyData data, int count)
+    public string GetDescriptionText()
     {
-        if (data.Levels == null || data.Levels.Count == 0)
+        if (_data.Levels == null || _data.Levels.Count == 0)
         {
             return "";
         }
 
         SynergyLevelData currentLevel = null;
 
-        for (int i = 0; i < data.Levels.Count; i++)
+        for (int i = 0; i < _data.Levels.Count; i++)
         {
-            if (count >= data.Levels[i].ActiveCount)
+            if (_count >= _data.Levels[i].ActiveCount)
             {
-                currentLevel = data.Levels[i];
+                currentLevel = _data.Levels[i];
             }
         }
 
@@ -80,13 +95,24 @@ public class SynergyUI : MonoBehaviour, IPointerClickHandler
             return "---";
         }
 
-        //return "Description";
-        return string.Join("\n", currentLevel.EffectValues);
+        string key = $"{_data.SynergyName}_DESC";
+        return LocalizationManager.Instance.Get(key, currentLevel.EffectValues.Cast<object>().ToArray());
     }
 
-    public void OnPointerClick(PointerEventData eventData)
+    public string GetSynergyName()
     {
-        bool isDescriptionOpened = _descriptionPanel.activeSelf;
-        _descriptionPanel.SetActive(!isDescriptionOpened);
+        if (_data == null) return "";
+
+        return LocalizationManager.Instance.Get(_data.SynergyName);
+    }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        _scrollView.ShowDescription(this);
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        _scrollView.CloseDescription();
     }
 }

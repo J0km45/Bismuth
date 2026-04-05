@@ -17,6 +17,8 @@ public class CatalogUIController : MonoBehaviour
     [SerializeField] private GameObject _slotPrefab;           // 슬롯 프리팹
     [SerializeField] private TextMeshProUGUI _leftPageTitle;   // 왼쪽 페이지 번호 텍스트
     [SerializeField] private TextMeshProUGUI _rightPageTitle;  // 오른쪽 페이지 번호 텍스트
+    [SerializeField] private GameObject _howToPlayPanel;
+    [SerializeField] private GameObject _mapScrollView;
 
     [Header("━━━━ 상세 패널 ━━━━")]
     [SerializeField] private GameObject _detailPanel;            // 상세 정보 패널
@@ -26,6 +28,7 @@ public class CatalogUIController : MonoBehaviour
 
     private int _currentSpread; // 현재 펼쳐진 양면 페이지 인덱스
     private Coroutine _spreadRoutine;    // 페이지 갱신 코루틴
+    private UnitData _currentUnitData;
 
     private const int _SlotsPerPage = 12;  // 한 페이지에 들어갈 슬롯 수
     private const int _SlotsPerSpread = _SlotsPerPage * 2; // 양면(왼쪽+오른쪽) 전체 슬롯 수
@@ -39,6 +42,24 @@ public class CatalogUIController : MonoBehaviour
     // 전체 페이지 수
     private int TotalPages => Mathf.Max(1, Mathf.CeilToInt((float)TotalUnits / _SlotsPerPage));
 
+    private void OnEnable()
+    {
+        LocalizationManager.Instance.OnLocalizationLoaded += UpdatePageTitles;
+        LocalizationManager.Instance.OnLocalizationLoaded += RefreshDetail;
+        UpdatePageTitles();
+    }
+
+    private void OnDisable()
+    {
+        LocalizationManager.Instance.OnLocalizationLoaded -= UpdatePageTitles;
+        LocalizationManager.Instance.OnLocalizationLoaded -= RefreshDetail;
+    }
+
+    private void RefreshDetail()
+    {
+        if (_currentUnitData != null)
+            RefreshUnitDetailText(_currentUnitData);
+    }
 
     private void Start()
     {
@@ -51,6 +72,8 @@ public class CatalogUIController : MonoBehaviour
     public void OpenCatalog()
     {
         bool isOpening = !_encyclopediaPopup.activeSelf;
+        _howToPlayPanel.SetActive(false);
+        _mapScrollView.SetActive(false);
 
         if (isOpening)
         {
@@ -142,7 +165,15 @@ public class CatalogUIController : MonoBehaviour
         if (label == null) return;
 
         // 페이지가 존재하면 번호 표시, 없으면 빈 문자열
-        label.text = pageNumber > 0 ? $"Page {pageNumber}" : "";
+        if (pageNumber > 0)
+        {
+            string pageText = LocalizationManager.Instance.Get("PAGE");
+            label.text = $"{pageText} {pageNumber}";
+        }
+        else
+        {
+            label.text = "";
+        }
     }
 
     private void FillGrid(Transform grid, int startIndex)
@@ -157,6 +188,12 @@ public class CatalogUIController : MonoBehaviour
             // 슬롯 프리팹 생성
             GameObject slot = Instantiate(_slotPrefab, grid);
             CatalogSlotUI slotUI = slot.GetComponent<CatalogSlotUI>();
+
+            if (slotUI == null)
+            {
+                DebugTool.Log("Slot UI Null", DebugType.Catalog,this);
+                return;
+            }
 
             // 해당 인덱스에 유닛 데이터가 없으면 빈 슬롯 처리
             if (unitIndex >= units.Count)
@@ -175,7 +212,9 @@ public class CatalogUIController : MonoBehaviour
     {
         // 기존 슬롯 전부 삭제
         for (int i = grid.childCount - 1; i >= 0; i--)
-            Object.Destroy(grid.GetChild(i).gameObject);
+        {
+            Destroy(grid.GetChild(i).gameObject);
+        }
     }
 
     private bool IsUnitSummoned(int unitId)
@@ -196,10 +235,17 @@ public class CatalogUIController : MonoBehaviour
 
     public void ShowUnitDetail(UnitData unitData)
     {
+        _currentUnitData = unitData;
+
         _detailPanel.SetActive(true);
-        _illustration.sprite = unitData.Icon;
-        _unitNameText.text = unitData.UnitName;
-        _descriptionText.text = unitData.Id.ToString();
+        _illustration.sprite = unitData.Illustration;
+        RefreshUnitDetailText(unitData);
+    }
+
+    private void RefreshUnitDetailText(UnitData unitData)
+    {
+        _unitNameText.text = LocalizationManager.Instance.Get($"{unitData.UnitName}");
+        _descriptionText.text = LocalizationManager.Instance.Get($"{unitData.UnitName}_DESC");
     }
 
     public void CloseUnitDetail()

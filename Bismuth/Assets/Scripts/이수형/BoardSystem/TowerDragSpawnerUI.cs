@@ -44,6 +44,7 @@ public class TowerDragSpawnerUI : MonoBehaviour, IBeginDragHandler, IDragHandler
 
     public void OnBeginDrag(PointerEventData eventData)
     {
+        
         if (boardSystem == null || towerPrefab == null || rootCanvas == null)
             return;
 

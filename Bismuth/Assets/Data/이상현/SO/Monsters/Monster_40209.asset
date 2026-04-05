@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 227430d99f341e041a2aa06cc7bc1beb, type: 3}
+  m_Name: Monster_40209
+  m_EditorClassIdentifier: Assembly-CSharp::MonsterDataSO
+  _id: 40209
+  _displayName: "\uAC00\uACE0\uC77C \uB300\uC7A5"
+  _category: 1
+  _prefab: {fileID: 5587212859042961002, guid: cc0e3bee069242b4d82e0944ef5168ec, type: 3}
+  _baseHp: 5000
+  _hpGrowth: 500
+  _baseDefense: 30
+  _defenseGrowth: 10
+  _moveSpeed: 2
+  _waitTime: 0
+  _moveType: 0
+  _baseDamageToBase: 100
+  _killReward: 20

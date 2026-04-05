@@ -169,8 +169,7 @@ public class UnitData
         int.TryParse(SafeGet(line, 1), out tier);
         unitName = SafeGet(line, 2);
         icon = (Sprite)AssetDatabase.LoadAssetAtPath($"Assets/Resources/Units/Sprites/{Id}.png", typeof(Sprite));
-        illustration =
-            (Sprite)AssetDatabase.LoadAssetAtPath($"Assets/Resources/Units/Illustration/{Id}.png", typeof(Sprite));
+        illustration = (Sprite)AssetDatabase.LoadAssetAtPath($"Assets/Resources/Units/Illustrations/{Id}.png", typeof(Sprite));
         float.TryParse(SafeGet(line, 3), out attackPower);
         attackSpeed = ParseAttackSpeed(SafeGet(line, 4));
         float.TryParse(SafeGet(line, 5).Replace(",", "."), out criticalChance);

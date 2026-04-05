@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -31,6 +32,23 @@ public class CombatManager : MonoBehaviour
     [SerializeField, Min(1)] private int aoeOverlapBufferSize = 32;
     [SerializeField, Min(0.01f)] private float aoeEffectScalePerRadius = 2f;
 
+    [SerializeField] private SynergyManager synergyManager;
+
+    [Header("Wizard Follow-Up")]
+    [SerializeField, Min(0.05f)] private float wizardFollowUpDelay = 0.35f;
+    [SerializeField] private bool wizardFollowUpLog = false;
+
+    [Header("Elf Synergy")]
+    [SerializeField] private BattleWaveRunner _battleWaveRunner;
+
+    [Header("Spirit Synergy")]
+    [SerializeField] private SynergySO spiritSynergySO;
+    [SerializeField, Min(0.1f)] private float spiritCooldown = 10f;
+    [SerializeField] private bool spiritSynergyLog = false;
+
+    private Coroutine _spiritRoutine;
+    private readonly List<MonsterMover> _slowedMonsters = new();
+    private bool _isSpiritActive;
 
     private Collider2D[] aoeOverlapResults;
 
@@ -61,6 +79,23 @@ public class CombatManager : MonoBehaviour
 
         if (soundManager == null)
             soundManager = FindFirstObjectByType<SoundManager>();
+        if (synergyManager == null && gameManager != null)
+            synergyManager = gameManager.GetComponent<SynergyManager>();
+    }
+
+    private void OnEnable()
+    {
+        if (_battleWaveRunner != null)
+            _battleWaveRunner.WaveStarted += OnWaveStarted;
+
+        if (synergyManager != null)
+            synergyManager.OnSynergyChanged += HandleSynergyChangedForSpirit;
+    }
+
+    private void OnDisable()
+    {
+        if (_battleWaveRunner != null)
+            _battleWaveRunner.WaveStarted -= OnWaveStarted;
     }
 
     private void OnValidate()
@@ -71,10 +106,10 @@ public class CombatManager : MonoBehaviour
 
     public bool DamageOccured(GameObject unit, MonsterController currentTarget)
     {
-        return DamageOccured(unit, currentTarget, null);
+        return DamageOccured(unit, currentTarget, null, AttackContext.Normal());
     }
 
-    public bool DamageOccured(GameObject unit, MonsterController currentTarget, UnitAttackSensor attackSensor)
+    public bool DamageOccured(GameObject unit, MonsterController currentTarget, UnitAttackSensor attackSensor, AttackContext context)
     {
         TowerUnit towerUnit = unit.GetComponent<TowerUnit>();
 
@@ -91,9 +126,9 @@ public class CombatManager : MonoBehaviour
         soundManager?.RandomAttackUnit(unitStat);
 
         if (unitStat.Range > 1.3f)
-            return FireProjectiles(unit, towerUnit, unitStat, targets);
+            return FireProjectiles(unit, towerUnit, unitStat, targets, context);
 
-        return ApplyHitscan(unit, unitStat, towerUnit != null ? towerUnit.name : unitStat.Name, targets);
+        return ApplyHitscan(unit, unitStat, towerUnit != null ? towerUnit.name : unitStat.Name, targets, context);
     }
 
     public bool ResolveProjectileHit(
@@ -104,6 +139,7 @@ public class CombatManager : MonoBehaviour
     GameObject unit,
     string sourceName,
     bool isAoe,
+    AttackContext context,
     float explosionRadius,
     Vector3 impactPosition,
     UnitStat unitStat)
@@ -119,7 +155,8 @@ public class CombatManager : MonoBehaviour
                 explosionRadius,
                 sourceName,
                 unitStat,
-                unit
+                unit,
+                context
             );
         }
 
@@ -131,7 +168,8 @@ public class CombatManager : MonoBehaviour
             sourceName,
             "투사체",
             unitStat,
-            unit
+            unit,
+            context
         );
     }
 
@@ -199,7 +237,7 @@ public class CombatManager : MonoBehaviour
         return attackSensor.GetTargets(targetCount, currentTarget);
     }
 
-    private bool ApplyHitscan(GameObject unit, UnitStat unitStat, string sourceName, List<MonsterController> targets)
+    private bool ApplyHitscan(GameObject unit, UnitStat unitStat, string sourceName, List<MonsterController> targets, AttackContext context)
     {
         GameObject hitEffect = GetHitEffect(unitStat);
         int appliedCount = 0;
@@ -218,7 +256,8 @@ public class CombatManager : MonoBehaviour
                 sourceName,
                 "히트스캔",
                 unitStat,
-                unit
+                unit,
+                context
             );
 
             if (success)
@@ -234,11 +273,10 @@ public class CombatManager : MonoBehaviour
             );
         }
 
-
         return appliedCount > 0;
     }
 
-    private bool FireProjectiles(GameObject unit, TowerUnit towerUnit, UnitStat unitStat, List<MonsterController> targets)
+    private bool FireProjectiles(GameObject unit, TowerUnit towerUnit, UnitStat unitStat, List<MonsterController> targets, AttackContext context)
     {
         GameObject projectilePrefab = GetProjectilePrefab(unitStat);
         GameObject hitEffect = GetHitEffect(unitStat);
@@ -284,6 +322,7 @@ public class CombatManager : MonoBehaviour
                 hitEffect,
                 unit,
                 isAoe,
+                context,
                 explosionRadius,
                 projectileSpeed,
                 projectileHitDistance,
@@ -297,7 +336,7 @@ public class CombatManager : MonoBehaviour
         if (spawnedCount > 0)
         {
             DebugTool.Log(
-                $"투사체 발사 완료 | unit={sourceName}, type={unitStat.attackTypes}, 요청 수={Mathf.Max(1, unitStat.AttackTargetCount)}, 실제 발사 수={spawnedCount}",
+                $"투사체 발사 완료 | unit={sourceName}, type={unitStat.attackTypes}, 요청 수={Mathf.Max(1, unitStat.AttackTargetCount)}, 실제 생성 수={spawnedCount}",
                 DebugType.Unit,
                 this
             );
@@ -313,7 +352,8 @@ public class CombatManager : MonoBehaviour
     float radius,
     string sourceName,
     UnitStat unitStat,
-    GameObject unit)
+    GameObject unit,
+    AttackContext context)
     {
         EnsureAoeBuffer();
 
@@ -348,7 +388,8 @@ public class CombatManager : MonoBehaviour
                 sourceName,
                 "투사체 폭발",
                 unitStat,
-                unit
+                unit,
+                context
             );
 
             if (success)
@@ -376,25 +417,42 @@ public class CombatManager : MonoBehaviour
     }
 
     private bool ApplyDamageToTarget(
-        float attackPower,
-        float critChance,
-        MonsterController target,
-        GameObject hitEffect,
-        string sourceName,
-        string attackChannel,
-        UnitStat unitStat,
-        GameObject unit)
+    float attackPower,
+    float critChance,
+    MonsterController target,
+    GameObject hitEffect,
+    string sourceName,
+    string attackChannel,
+    UnitStat unitStat,
+    GameObject unit,
+    AttackContext context)
     {
         if (!IsTargetValid(target))
             return false;
-        int dealtDamage = 0;
-        float clampedCritChance = Mathf.Clamp01(critChance);
+
+        float finalCritChance = critChance;
+        if (damageCalculator != null)
+            finalCritChance = damageCalculator.GetFinalCritChance(unitStat, critChance);
+
+        float clampedCritChance = Mathf.Clamp01(finalCritChance);
         float crit = (Random.value < clampedCritChance) ? 0.5f : 0f;
 
-        int normalDamage = damageCalculator.CalculateNormalDamage(attackPower, target.BaseDefense, crit);
-        int skillDamage = damageCalculator.CalculateSkillDamage(attackPower, target.BaseDefense, crit);
-        int finalDamage = normalDamage + skillDamage;
-        dealtDamage = finalDamage;
+        int normalDamage = damageCalculator.CalculateNormalDamage(unitStat, attackPower, target.BaseDefense, crit);
+        int archerSkillDamage = damageCalculator.CalculateArcherSkillDamage(unitStat, target, context.IsArcherBonus);
+
+        int finalDamage = normalDamage + archerSkillDamage;
+
+
+        if (context.IsWizardBonus)
+        {
+            int wizardDamage = damageCalculator.CalculateSkillDamage(unitStat, attackPower, target.BaseDefense, crit, true);
+            if (wizardDamage > 0)
+            {
+                Vector3 targetPosition = target.transform.position;
+                ScheduleWizardFollowUp(target, targetPosition, wizardDamage, hitEffect, sourceName, unitStat);
+            }
+        }
+
         if (target.TakeDamage(finalDamage, hitEffect))
         {
             unitStat.KillCount++;
@@ -403,22 +461,87 @@ public class CombatManager : MonoBehaviour
                 DebugType.Unit,
                 this
             );
+
+            TryTriggerWarriorExtraAttack(unit, unitStat, sourceName, context);
+
+
+            if (HasSynergyTag(unitStat, (int)SynergyManager.SynergyType.Elf))
+            {
+                unitStat.ElfWaveKillCount++;
+                DebugTool.Log(
+                    $"엘프 웨이브 킬 적립 | source={sourceName}, elfKill={unitStat.ElfWaveKillCount}",
+                    DebugType.Synergy, this);
+            }
         }
-        unitStat.DealtDamage += dealtDamage;
+
+        unitStat.DealtDamage += finalDamage;
+
         DebugTool.Log(
-            $"{attackChannel} 피해 적용 | source={sourceName}, target={target.name}, final={finalDamage}, normal={normalDamage}, skill={skillDamage}, crit={(crit > 0f ? "Yes" : "No")}",
+            $"{attackChannel} 피해 적용 | source={sourceName}, target={target.name}, final={finalDamage}, normal={normalDamage}, archerSkill={archerSkillDamage}, wizardFollowUp={context.IsWizardBonus}, crit={(crit > 0f ? "Yes" : "No")}, context=[{context}]",
             DebugType.Unit,
             this
         );
-        DebugTool.Log(
-            $"{attackChannel} 피해 적용 | source={sourceName}, target={target.name}, final={finalDamage}, normal={normalDamage}, skill={skillDamage}, crit={(crit > 0f ? "Yes" : "No")}",
-            DebugType.Unit,
-            this
-        );
-
-
 
         return true;
+    }
+
+    private void TryTriggerWarriorExtraAttack(GameObject unit, UnitStat unitStat, string sourceName, AttackContext context)
+    {
+        if (!CanTriggerWarriorExtraAttack(unitStat, context))
+            return;
+
+        SkillCast skillCast = unit != null ? unit.GetComponent<SkillCast>() : null;
+        if (skillCast == null)
+        {
+            DebugTool.Warnning("SkillCast 참조가 없어 전사 추가 공격을 요청하지 못했습니다.", DebugType.Synergy, this);
+            return;
+        }
+
+        skillCast.SynergyWarriorCast();
+
+        DebugTool.Log(
+            $"전사 추가 공격 발동 | source={sourceName}, context=[{context}]",
+            DebugType.Synergy,
+            this
+        );
+    }
+
+    private bool CanTriggerWarriorExtraAttack(UnitStat unitStat, AttackContext context)
+    {
+        if (unitStat == null)
+            return false;
+
+        if (context.IsWarriorBonus)
+            return false;
+
+        if (!HasSynergyTag(unitStat, (int)SynergyManager.SynergyType.Warrior))
+            return false;
+
+        if (synergyManager == null && gameManager != null)
+            synergyManager = gameManager.GetComponent<SynergyManager>();
+
+        if (synergyManager == null)
+        {
+            DebugTool.Warnning("SynergyManager 참조가 없어 전사 활성 여부를 확인하지 못했습니다.", DebugType.Synergy, this);
+            return false;
+        }
+
+        int warriorLevel = synergyManager.GetSynergyLevel((int)SynergyManager.SynergyType.Warrior);
+        return warriorLevel >= 3;
+    }
+
+    private bool HasSynergyTag(UnitStat unitStat, int synergyId)
+    {
+        if (unitStat == null || unitStat.SynergIDs == null)
+            return false;
+
+        for (int i = 0; i < unitStat.SynergIDs.Length; i++)
+        {
+            if (unitStat.SynergIDs[i] == synergyId)
+                return true;
+        }
+
+        return false;
     }
 
     private GameObject GetHitEffect(UnitStat unitStat)
@@ -500,5 +623,317 @@ public class CombatManager : MonoBehaviour
     {
         if (aoeOverlapResults == null || aoeOverlapResults.Length != aoeOverlapBufferSize)
             aoeOverlapResults = new Collider2D[aoeOverlapBufferSize];
+    }
+
+    public int GetSynergyLevel(int synergyId)
+    {
+        return synergyManager.GetSynergyLevel(synergyId);
+    }
+
+
+    private void ScheduleWizardFollowUp(
+        MonsterController target,
+        Vector3 hitPosition,
+        int damage,
+        GameObject hitEffect,
+        string sourceName,
+        UnitStat unitStat)
+    {
+        StartCoroutine(ExecuteWizardFollowUp(target, hitPosition, damage, hitEffect, sourceName, unitStat));
+
+        if (wizardFollowUpLog)
+        {
+            DebugTool.Log(
+                $"마법사 후속타격 예약 | target={target.name}, damage={damage}, delay={wizardFollowUpDelay:F2}s",
+                DebugType.Synergy,
+                this
+            );
+        }
+    }
+
+
+    private IEnumerator ExecuteWizardFollowUp(
+        MonsterController target,
+        Vector3 hitPosition,
+        int damage,
+        GameObject hitEffect,
+        string sourceName,
+        UnitStat unitStat)
+    {
+        yield return new WaitForSeconds(wizardFollowUpDelay);
+
+
+        Vector3 effectPosition = hitPosition;
+        bool targetAlive = target != null
+                           && target.gameObject.activeInHierarchy
+                           && target.CurrentHp > 0f;
+
+        if (targetAlive)
+            effectPosition = target.transform.position;
+
+
+        if (hitEffect != null)
+        {
+            GameObject spawnedEffect = HitEffectPool.SpawnPooled(hitEffect, effectPosition, Quaternion.identity);
+
+
+            if (spawnedEffect != null && targetAlive)
+            {
+                HitEffectSpawner effectSpawner = spawnedEffect.GetComponent<HitEffectSpawner>();
+                if (effectSpawner != null)
+                    effectSpawner.ConfigureFollowTarget(target.transform, true);
+            }
+        }
+
+
+        if (targetAlive)
+        {
+
+            if (target.TakeDamage(damage, null))
+            {
+                if (unitStat != null)
+                {
+                    unitStat.KillCount++;
+                    DebugTool.Log(
+                        $"마법사 후속타격으로 처치 | source={sourceName}, killCount={unitStat.KillCount}",
+                        DebugType.Synergy,
+                        this
+                    );
+
+
+                    if (HasSynergyTag(unitStat, (int)SynergyManager.SynergyType.Elf))
+                    {
+                        unitStat.ElfWaveKillCount++;
+                        DebugTool.Log(
+                            $"엘프 웨이브 킬 적립 (마법사 후속) | source={sourceName}, elfKill={unitStat.ElfWaveKillCount}",
+                            DebugType.Synergy, this);
+                    }
+                }
+            }
+
+            if (unitStat != null)
+                unitStat.DealtDamage += damage;
+        }
+
+        if (wizardFollowUpLog)
+        {
+            DebugTool.Log(
+                $"마법사 후속타격 실행 | target={(target != null ? target.name : "Destroyed")}, alive={targetAlive}, damage={damage}, position={effectPosition}",
+                DebugType.Synergy,
+                this
+            );
+        }
+    }
+
+
+
+    private void OnWaveStarted(WaveDataSO waveData)
+    {
+        ResetAllElfWaveKillCounts();
+    }
+
+    private void ResetAllElfWaveKillCounts()
+    {
+        UnitStat[] allUnits = FindObjectsByType<UnitStat>(FindObjectsSortMode.None);
+
+        for (int i = 0; i < allUnits.Length; i++)
+        {
+            if (allUnits[i].ElfWaveKillCount > 0)
+            {
+                DebugTool.Log(
+                    $"엘프 웨이브 킬 초기화 | unit={allUnits[i].Name}, was={allUnits[i].ElfWaveKillCount}",
+                    DebugType.Synergy, this);
+
+                allUnits[i].ElfWaveKillCount = 0;
+            }
+        }
+    }
+
+
+
+    private void HandleSynergyChangedForSpirit(Dictionary<int, List<int>> synergiesDict)
+    {
+        const int spiritId = (int)SynergyManager.SynergyType.Spirit;
+
+        bool shouldBeActive = synergiesDict.ContainsKey(spiritId)
+                              && synergiesDict[spiritId].Count >= GetSpiritMinActiveCount();
+
+        if (shouldBeActive && !_isSpiritActive)
+        {
+            StartSpiritSynergy();
+        }
+        else if (!shouldBeActive && _isSpiritActive)
+        {
+            StopSpiritSynergy();
+        }
+    }
+
+    private void StartSpiritSynergy()
+    {
+        if (_isSpiritActive)
+            return;
+
+        _isSpiritActive = true;
+        _spiritRoutine = StartCoroutine(SpiritSynergyRoutine());
+
+        DebugTool.Log("정령 시너지 활성화 | 쿨다운 타이머 시작", DebugType.Synergy, this);
+    }
+
+    private void StopSpiritSynergy()
+    {
+        if (!_isSpiritActive)
+            return;
+
+        _isSpiritActive = false;
+
+        if (_spiritRoutine != null)
+        {
+            StopCoroutine(_spiritRoutine);
+            _spiritRoutine = null;
+        }
+
+        RemoveAllSlows();
+
+        DebugTool.Log("정령 시너지 비활성화 | 슬로우 해제 및 타이머 중단", DebugType.Synergy, this);
+    }
+
+    private IEnumerator SpiritSynergyRoutine()
+    {
+        while (_isSpiritActive)
+        {
+
+            if (!TryGetSpiritEffectValues(out float duration, out float slowPercent))
+            {
+                if (spiritSynergyLog)
+                    DebugTool.Log("정령 시너지 효과값 조회 실패 | 다음 쿨다운 대기", DebugType.Synergy, this);
+
+                yield return new WaitForSeconds(spiritCooldown);
+                continue;
+            }
+
+
+            ApplySlowToAllMonsters(slowPercent);
+
+            if (spiritSynergyLog)
+                DebugTool.Log(
+                    $"정령 시너지 발동 | slow={slowPercent:F1}%, duration={duration:F1}s, targets={_slowedMonsters.Count}",
+                    DebugType.Synergy, this);
+
+
+            yield return new WaitForSeconds(duration);
+
+
+            RemoveAllSlows();
+
+            if (spiritSynergyLog)
+                DebugTool.Log("정령 시너지 슬로우 해제 | 쿨다운 재시작", DebugType.Synergy, this);
+
+
+            yield return new WaitForSeconds(spiritCooldown);
+
+            if (!_isSpiritActive)
+                yield break;
+        }
+    }
+
+    private bool TryGetSpiritEffectValues(out float duration, out float slowPercent)
+    {
+        duration = 0f;
+        slowPercent = 0f;
+
+        if (spiritSynergySO == null || synergyManager == null)
+            return false;
+
+        const int spiritId = (int)SynergyManager.SynergyType.Spirit;
+
+        SynergyData spiritData = GetSpiritSynergyData(spiritId);
+        if (spiritData == null || spiritData.Levels == null || spiritData.Levels.Count == 0)
+            return false;
+
+        int activeCount = synergyManager.GetSynergyLevel(spiritId);
+
+        // 활성 단계에 맞는 레벨 데이터 찾기 (가장 높은 충족 단계)
+        SynergyLevelData matchedLevel = null;
+        for (int i = 0; i < spiritData.Levels.Count; i++)
+        {
+            SynergyLevelData level = spiritData.Levels[i];
+            if (level == null)
+                continue;
+
+            if (activeCount < level.ActiveCount)
+                continue;
+
+            matchedLevel = level;
+        }
+
+        if (matchedLevel == null || matchedLevel.EffectValues == null || matchedLevel.EffectValues.Count < 2)
+            return false;
+
+        duration = matchedLevel.EffectValues[0];
+        slowPercent = matchedLevel.EffectValues[1];
+        return true;
+    }
+
+    private void ApplySlowToAllMonsters(float slowPercent)
+    {
+        _slowedMonsters.Clear();
+
+        MonsterMover[] allMovers = FindObjectsByType<MonsterMover>(FindObjectsSortMode.None);
+
+        for (int i = 0; i < allMovers.Length; i++)
+        {
+            MonsterMover mover = allMovers[i];
+
+            if (mover == null || !mover.gameObject.activeInHierarchy)
+                continue;
+
+            mover.ApplySlow(slowPercent);
+            _slowedMonsters.Add(mover);
+        }
+    }
+
+    private void RemoveAllSlows()
+    {
+        for (int i = 0; i < _slowedMonsters.Count; i++)
+        {
+            MonsterMover mover = _slowedMonsters[i];
+
+            if (mover == null || !mover.gameObject.activeInHierarchy)
+                continue;
+
+            mover.RemoveSlow();
+        }
+
+        _slowedMonsters.Clear();
+    }
+
+    private SynergyData GetSpiritSynergyData(int synergyId)
+    {
+        if (spiritSynergySO == null || spiritSynergySO.Rows == null)
+            return null;
+
+        for (int i = 0; i < spiritSynergySO.Rows.Count; i++)
+        {
+            SynergyData data = spiritSynergySO.Rows[i];
+            if (data != null && data.ID == synergyId)
+                return data;
+        }
+
+        return null;
+    }
+
+
+    private int GetSpiritMinActiveCount()
+    {
+        if (spiritSynergySO == null)
+            return int.MaxValue;
+
+        const int spiritId = (int)SynergyManager.SynergyType.Spirit;
+        SynergyData spiritData = GetSpiritSynergyData(spiritId);
+
+        if (spiritData == null || spiritData.Levels == null || spiritData.Levels.Count == 0)
+            return int.MaxValue;
+
+        return spiritData.Levels[0].ActiveCount;
     }
 }
