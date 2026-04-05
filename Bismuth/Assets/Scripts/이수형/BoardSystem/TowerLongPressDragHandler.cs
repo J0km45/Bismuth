@@ -127,11 +127,11 @@ public class TowerLongPressDragHandler : MonoBehaviour
         pressedTime = Time.time;
         pressedScreenPos = screenPos;
 
-        if (!_isIntermissionActive)
-        {
-            DebugTool.Log($"점검 시간 진행 중 여부 : {_isIntermissionActive}", DebugType.Wave, this);
-            return false;
-        }
+        // if (!_isIntermissionActive)
+        // {
+        //     DebugTool.Log($"점검 시간 진행 중 여부 : {_isIntermissionActive}", DebugType.Wave, this);
+        //     return false;
+        // }
 
         DebugTool.Log($"타워({towerUnit.CurrentSlot.name}) 홀드 시작", DebugType.Unit, this);
 

@@ -56,10 +56,9 @@ public class PlayerUIController : MonoBehaviour
         int sellGold = SellUnit(payback, stat.Tier);
 
         _player.Gold += sellGold;
-        _summonManger?.DespawnUnit(towerUnit);
         
-        unit = null;
         _unitInfoPanelUI.gameObject.SetActive(false);
+        _summonManger?.DespawnUnit(towerUnit);
     }
 
     private int SellUnit(int payback, int tier)

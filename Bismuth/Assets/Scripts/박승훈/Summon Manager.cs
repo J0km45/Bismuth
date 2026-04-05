@@ -37,6 +37,8 @@ public class SummonManager : MonoBehaviour
 
     public void DespawnUnit(TowerUnit tower)
     {
+        DebugTool.Log($"{tower.stat.Id} 디스폰 시작 {Time.frameCount}", DebugType.Summon, this);
+        
         if (summonUnit == null)
         {
             DebugTool.Error("SummonUnit 참조가 없습니다.", DebugType.Summon, this);
@@ -49,6 +51,7 @@ public class SummonManager : MonoBehaviour
             DebugTool.Warnning("디스폰에 실패했습니다.", DebugType.Summon, this);
         }
         
+        DebugTool.Log($"{tower.stat.Id} 디스폰 완료 {Time.frameCount}", DebugType.Summon, this);
     }
     
     /// <summary>

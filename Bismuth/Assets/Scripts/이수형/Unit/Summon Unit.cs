@@ -466,7 +466,8 @@ public class SummonUnit : MonoBehaviour
                 this
             );
         }
-
+        
+        synergyManager.OnUnitRemoved?.Invoke(tower.stat);
         bool removed = RemoveOwnedTower(tower);
         if (!removed)
         {
@@ -476,7 +477,6 @@ public class SummonUnit : MonoBehaviour
                 this
             );
         }
-
         tower.SetDragVisual(false);
         tower.SetSelectionColliderEnabled(false);
         tower.ClearPlacedSlot();
@@ -489,7 +489,6 @@ public class SummonUnit : MonoBehaviour
             this
         );
         
-        synergyManager.OnUnitRemoved?.Invoke(tower.stat);
 
         Destroy(tower.gameObject);
         return true;
