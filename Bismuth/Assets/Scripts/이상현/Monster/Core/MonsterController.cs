@@ -126,22 +126,6 @@ public class MonsterController : MonoBehaviour
         Vector3 pos = transform.position + Vector3.up * 1.4f;
         DamageTextManager.Instance.ShowDamageText((int)damage, pos);
 
-        if (_currentHp <= 0f)
-        {
-            _hasDied = true;
-
-            if (_animationController != null)
-            {
-                _animationController.SetMoving(false);
-            }
-
-            Died?.Invoke(this);
-            gameObject.SetActive(false);
-            
-            Destroy(gameObject);
-            return true;
-        }
-
         if (hitEffect != null)
         {
             GameObject spawnedEffect = HitEffectPool.SpawnPooled(hitEffect, transform.position, Quaternion.identity);
@@ -159,6 +143,24 @@ public class MonsterController : MonoBehaviour
                 }
             }
         }
+
+        if (_currentHp <= 0f)
+        {
+            _hasDied = true;
+
+            if (_animationController != null)
+            {
+                _animationController.SetMoving(false);
+            }
+
+            Died?.Invoke(this);
+            gameObject.SetActive(false);
+            
+            Destroy(gameObject);
+            return true;
+        }
+
+        
         return false;
 
     }

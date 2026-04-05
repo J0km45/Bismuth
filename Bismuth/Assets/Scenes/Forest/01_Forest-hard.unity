@@ -736,6 +736,14 @@ PrefabInstance:
       propertyPath: synergyManager
       value: 
       objectReference: {fileID: 19215149}
+    - target: {fileID: 6611962460162946885, guid: 804878f11d5de6b438de0d4f1f6ac297, type: 3}
+      propertyPath: spiritSynergySO
+      value: 
+      objectReference: {fileID: 11400000, guid: ae19ff350cd21684392c987d6ab5e999, type: 2}
+    - target: {fileID: 6611962460162946885, guid: 804878f11d5de6b438de0d4f1f6ac297, type: 3}
+      propertyPath: _battleWaveRunner
+      value: 
+      objectReference: {fileID: 681759192}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -909,7 +917,7 @@ PrefabInstance:
       objectReference: {fileID: 19215150}
     - target: {fileID: 3695510818756753951, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument
-      value: 10051
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4322819893751391658, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
