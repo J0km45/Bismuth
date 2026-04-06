@@ -7513,7 +7513,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -10644,6 +10644,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 4671902234174367310}
     m_Modifications:
+    - target: {fileID: 783796603043669550, guid: e09a91c4f5b229648bafec4f373328f4, type: 3}
+      propertyPath: m_Size
+      value: 0.23333333
+      objectReference: {fileID: 0}
     - target: {fileID: 1409778748671384357, guid: e09a91c4f5b229648bafec4f373328f4, type: 3}
       propertyPath: m_AnchorMax.x
       value: 0
