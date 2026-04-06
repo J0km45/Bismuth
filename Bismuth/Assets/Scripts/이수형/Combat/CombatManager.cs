@@ -45,8 +45,9 @@ public class CombatManager : MonoBehaviour
     [Header("Elf Synergy")]
     [SerializeField] private BattleWaveRunner _battleWaveRunner;
 
-    [Header("Spirit Synergy")]
-    [SerializeField] private SynergySO spiritSynergySO;
+    [Header("Synergy SO")]
+    [SerializeField] private SynergySO synergySO;
+    public SynergySO SynergySO => synergySO;
     [SerializeField, Min(0.1f)] private float spiritCooldown = 10f;
     [SerializeField] private bool spiritSynergyLog = false;
 
@@ -85,6 +86,8 @@ public class CombatManager : MonoBehaviour
             soundManager = FindFirstObjectByType<SoundManager>();
         if (synergyManager == null && gameManager != null)
             synergyManager = gameManager.GetComponent<SynergyManager>();
+        if (_battleWaveRunner == null)
+            _battleWaveRunner = FindFirstObjectByType<BattleWaveRunner>();
     }
 
     private void OnEnable()
@@ -602,7 +605,7 @@ public class CombatManager : MonoBehaviour
 
 
         AttackEffectAnchor anchor = towerUnit.GetComponentInChildren<AttackEffectAnchor>();
-        if(anchor != null)
+        if (anchor != null)
         {
             DebugTool.Log(
                 $"공격 이펙트 앵커 발견 | anchor={anchor.name}, unit={towerUnit.name}, pos ={anchor.transform.position}",
@@ -926,7 +929,7 @@ public class CombatManager : MonoBehaviour
         duration = 0f;
         slowPercent = 0f;
 
-        if (spiritSynergySO == null || synergyManager == null)
+        if (synergySO == null || synergyManager == null)
             return false;
 
         const int spiritId = (int)SynergyManager.SynergyType.Spirit;
@@ -994,12 +997,12 @@ public class CombatManager : MonoBehaviour
 
     private SynergyData GetSpiritSynergyData(int synergyId)
     {
-        if (spiritSynergySO == null || spiritSynergySO.Rows == null)
+        if (synergySO == null || synergySO.Rows == null)
             return null;
 
-        for (int i = 0; i < spiritSynergySO.Rows.Count; i++)
+        for (int i = 0; i < synergySO.Rows.Count; i++)
         {
-            SynergyData data = spiritSynergySO.Rows[i];
+            SynergyData data = synergySO.Rows[i];
             if (data != null && data.ID == synergyId)
                 return data;
         }
@@ -1010,7 +1013,7 @@ public class CombatManager : MonoBehaviour
 
     private int GetSpiritMinActiveCount()
     {
-        if (spiritSynergySO == null)
+        if (synergySO == null)
             return int.MaxValue;
 
         const int spiritId = (int)SynergyManager.SynergyType.Spirit;
