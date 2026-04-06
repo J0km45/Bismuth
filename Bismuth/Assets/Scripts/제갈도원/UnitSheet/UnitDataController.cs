@@ -48,8 +48,19 @@ public class UnitDataController : MonoBehaviour
         // 0행: 헤더, 1행부터 데이터
         for (int i = 1; i < lines.Length; i++)
         {
+            if (string.IsNullOrWhiteSpace(lines[i]))
+                continue;
+            
             string[] cells = lines[i].Split(splitSymbol);
             UnitData unitData = UnitData.CreateFromSheetRow(cells);
+            
+            DebugTool.Log($"row={i}, cellCount={cells.Length}", DebugType.Data, this);
+            
+            if (unitData == null)
+            {
+                DebugTool.Warnning($"파싱 실패 row={i}, raw={lines[i]}", DebugType.Data, this);
+                continue;
+            }
             if (unitData != null)
             {
                 unitDatabaseByTier[unitData.Tier-1].AddUnit(unitData);

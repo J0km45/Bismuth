@@ -155,7 +155,7 @@ public class UnitData
 
     public static UnitData CreateFromSheetRow(string[] line)
     {
-        if (line == null || line.Length < 13) return null;
+        if (line == null || line.Length < 14) return null;
         if (string.IsNullOrWhiteSpace(line[0]) || !int.TryParse(line[0].Trim(), out _)) return null;
 
         var data = new UnitData();
