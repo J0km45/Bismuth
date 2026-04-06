@@ -108,7 +108,6 @@ public class AudioManager : MonoBehaviour
     public void SetSfxVolume(float value)
     {
         _sfxVolume = value;
-        _sfxSource.volume = SfxVolume;
     }
 
     public void SetUIVolume(float value)
