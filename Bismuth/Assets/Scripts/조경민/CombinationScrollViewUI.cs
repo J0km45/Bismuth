@@ -8,32 +8,37 @@ public class CombinationScrollViewUI : MonoBehaviour
     [SerializeField] private GameObject _trioPrefab; // 3개조합 프리팹
     [SerializeField] private CombineManager _combineManager;
     [SerializeField] private PlayerUIController _playerUIController;
+    [SerializeField] private SummonUnit _summonUnit;
 
     private List<GameObject> _combinations = new List<GameObject>();
 
     private void OnEnable()
     {
         _combineManager.OnCombineListChanged += Refresh;
+        _summonUnit.OnOwnedTowersChanged += Refresh;
         Refresh();
     }
 
     private void OnDisable()
     {
         _combineManager.OnCombineListChanged -= Refresh;
+        _summonUnit.OnOwnedTowersChanged -= Refresh;
     }
 
     public void Refresh()
     {
         ClearCombinations();
 
+        HashSet<int> ownedTowerIds = GetOwnedTowers();
+
         for (int i = 0; i < _combineManager.CombineList.Count; i++)
         {
             int[] recipe = _combineManager.CombineList[i];
-            InitCombination(recipe, i);
+            InitCombination(recipe, i, ownedTowerIds);
         }
     }
 
-    private void InitCombination(int[] recipe, int index)
+    private void InitCombination(int[] recipe, int index, HashSet<int> set)
     {
         int length = recipe.Length;
         int sourceCount = length - 2;
@@ -54,7 +59,7 @@ public class CombinationScrollViewUI : MonoBehaviour
             bool canCombine = recipe[length - 1] == 1; // 0이면 조합 불가, 1이면 조합 가능
 
             combi.Init(_playerUIController, index);
-            combi.SetData(sourceIds, resultId, canCombine);
+            combi.SetData(sourceIds, resultId, canCombine, set);
         }
 
         _combinations.Add(combination);
@@ -72,5 +77,15 @@ public class CombinationScrollViewUI : MonoBehaviour
         }
 
         _combinations.Clear();
+    }
+
+    private HashSet<int> GetOwnedTowers()
+    {
+        HashSet<int> ownedTowerIds = new HashSet<int>();
+        foreach (SummonUnit.SummonedTowerRecord record in _summonUnit.OwnedTowers)
+        {
+            ownedTowerIds.Add(record.Id);
+        }
+        return ownedTowerIds;
     }
 }
