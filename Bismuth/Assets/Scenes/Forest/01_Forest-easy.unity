@@ -134,7 +134,15 @@ PrefabInstance:
     - target: {fileID: 2799974427374469838, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
       propertyPath: _battleWaveRunner
       value: 
-      objectReference: {fileID: 681759192}
+      objectReference: {fileID: 7790937491263489776}
+    - target: {fileID: 3962914728387289638, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
+      propertyPath: _sfxController
+      value: 
+      objectReference: {fileID: 1410722885}
+    - target: {fileID: 3962914728387289638, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
+      propertyPath: _controlPanelUI
+      value: 
+      objectReference: {fileID: 1410722882}
     - target: {fileID: 3962914728387289638, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
       propertyPath: _unitInfoPanelUI
       value: 
@@ -150,7 +158,7 @@ PrefabInstance:
     - target: {fileID: 7012402871630413712, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
       propertyPath: battleWaveRunner
       value: 
-      objectReference: {fileID: 681759192}
+      objectReference: {fileID: 7790937491263489776}
     - target: {fileID: 7012402871630413712, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
       propertyPath: _combinationScrollView
       value: 
@@ -250,6 +258,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 574c64fe9cf686944b2b71f1098a0b81, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerUIController
+--- !u!114 &19215151 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8554172300313096461, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
+  m_PrefabInstance: {fileID: 19215146}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 19215147}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 941f1af0371aca84eb9a91411a86a501, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SummonUnit
 --- !u!1001 &73417179
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -318,94 +337,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8e1f2714c8dd4d468f38061e02d4342, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HomeBaseHealth
---- !u!1001 &681759191
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 2150406877398014422, guid: bbd88d75c44c9a04ab449a10fb07acdf, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 960
-      objectReference: {fileID: 0}
-    - target: {fileID: 2150406877398014422, guid: bbd88d75c44c9a04ab449a10fb07acdf, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 540
-      objectReference: {fileID: 0}
-    - target: {fileID: 2150406877398014422, guid: bbd88d75c44c9a04ab449a10fb07acdf, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2150406877398014422, guid: bbd88d75c44c9a04ab449a10fb07acdf, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 2150406877398014422, guid: bbd88d75c44c9a04ab449a10fb07acdf, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2150406877398014422, guid: bbd88d75c44c9a04ab449a10fb07acdf, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2150406877398014422, guid: bbd88d75c44c9a04ab449a10fb07acdf, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2150406877398014422, guid: bbd88d75c44c9a04ab449a10fb07acdf, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2150406877398014422, guid: bbd88d75c44c9a04ab449a10fb07acdf, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2150406877398014422, guid: bbd88d75c44c9a04ab449a10fb07acdf, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5516272245347468416, guid: bbd88d75c44c9a04ab449a10fb07acdf, type: 3}
-      propertyPath: _waypointPath
-      value: 
-      objectReference: {fileID: 5631946087719053491}
-    - target: {fileID: 5516272245347468416, guid: bbd88d75c44c9a04ab449a10fb07acdf, type: 3}
-      propertyPath: _homeBaseHealth
-      value: 
-      objectReference: {fileID: 73417180}
-    - target: {fileID: 6104780265433986886, guid: bbd88d75c44c9a04ab449a10fb07acdf, type: 3}
-      propertyPath: m_Name
-      value: BattleRuntime_Forest_Easy
-      objectReference: {fileID: 0}
-    - target: {fileID: 7790937491945183015, guid: bbd88d75c44c9a04ab449a10fb07acdf, type: 3}
-      propertyPath: _runOnStart
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7790937491945183015, guid: bbd88d75c44c9a04ab449a10fb07acdf, type: 3}
-      propertyPath: _homeBaseHealth
-      value: 
-      objectReference: {fileID: 73417180}
-    - target: {fileID: 7790937491945183015, guid: bbd88d75c44c9a04ab449a10fb07acdf, type: 3}
-      propertyPath: _mapBattleConfig
-      value: 
-      objectReference: {fileID: 11400000, guid: 7d3a7b841aa29ca4ab292ed4c2bfe8a4, type: 2}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: bbd88d75c44c9a04ab449a10fb07acdf, type: 3}
---- !u!114 &681759192 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 7790937491945183015, guid: bbd88d75c44c9a04ab449a10fb07acdf, type: 3}
-  m_PrefabInstance: {fileID: 681759191}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e5d87eb5c5680e0499a5e5a4c2fff8c3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BattleWaveRunner
 --- !u!1 &718410309
 GameObject:
   m_ObjectHideFlags: 0
@@ -966,6 +897,10 @@ PrefabInstance:
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4155649856601436619, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
+      propertyPath: _summonUnit
+      value: 
+      objectReference: {fileID: 19215151}
     - target: {fileID: 4322819893751391658, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
       value: 
@@ -1059,6 +994,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 19215149}
     - target: {fileID: 7437691279759536612, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
+      propertyPath: _summonUnit
+      value: 
+      objectReference: {fileID: 19215151}
+    - target: {fileID: 7437691279759536612, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
       propertyPath: _combineManager
       value: 
       objectReference: {fileID: 19215148}
@@ -1083,9 +1022,13 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8176491976207515799, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
+      propertyPath: _sfxController
+      value: 
+      objectReference: {fileID: 1410722885}
+    - target: {fileID: 8176491976207515799, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
       propertyPath: _battleWaveRunner
       value: 
-      objectReference: {fileID: 681759192}
+      objectReference: {fileID: 7790937491263489776}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1123,6 +1066,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 66acede2c9d1d364494e4b0c6ec3a6ca, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UnitInfoPanelUI
+--- !u!114 &1410722885 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8772846745754385423, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
+  m_PrefabInstance: {fileID: 1410722880}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe32b2f341d2b1f49ab27d797f9fdb23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UISFXController
 --- !u!1001 &1427678615
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1378,6 +1332,75 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: b1e56d8347e50a94d9be67e9d97cf965, type: 3}
+--- !u!1001 &2063986861106399746
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 573026355965117577, guid: 7ce5ca86eca9d3e469dcdb93ef4d77e3, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 960
+      objectReference: {fileID: 0}
+    - target: {fileID: 573026355965117577, guid: 7ce5ca86eca9d3e469dcdb93ef4d77e3, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 540
+      objectReference: {fileID: 0}
+    - target: {fileID: 573026355965117577, guid: 7ce5ca86eca9d3e469dcdb93ef4d77e3, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 573026355965117577, guid: 7ce5ca86eca9d3e469dcdb93ef4d77e3, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 573026355965117577, guid: 7ce5ca86eca9d3e469dcdb93ef4d77e3, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 573026355965117577, guid: 7ce5ca86eca9d3e469dcdb93ef4d77e3, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 573026355965117577, guid: 7ce5ca86eca9d3e469dcdb93ef4d77e3, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 573026355965117577, guid: 7ce5ca86eca9d3e469dcdb93ef4d77e3, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 573026355965117577, guid: 7ce5ca86eca9d3e469dcdb93ef4d77e3, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 573026355965117577, guid: 7ce5ca86eca9d3e469dcdb93ef4d77e3, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1846293693040195591, guid: 7ce5ca86eca9d3e469dcdb93ef4d77e3, type: 3}
+      propertyPath: _waypointPath
+      value: 
+      objectReference: {fileID: 5631946087719053491}
+    - target: {fileID: 1846293693040195591, guid: 7ce5ca86eca9d3e469dcdb93ef4d77e3, type: 3}
+      propertyPath: _homeBaseHealth
+      value: 
+      objectReference: {fileID: 73417180}
+    - target: {fileID: 2977326092286486489, guid: 7ce5ca86eca9d3e469dcdb93ef4d77e3, type: 3}
+      propertyPath: _homeBaseHealth
+      value: 
+      objectReference: {fileID: 73417180}
+    - target: {fileID: 8194628618457276151, guid: 7ce5ca86eca9d3e469dcdb93ef4d77e3, type: 3}
+      propertyPath: m_Name
+      value: BattleRuntime_Forest
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 7ce5ca86eca9d3e469dcdb93ef4d77e3, type: 3}
 --- !u!1001 &2078875950018241539
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1515,23 +1538,34 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f2631869768ea1e4593c94dd5ab6e7e1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WaypointPath
+--- !u!114 &7790937491263489776 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2977326092286486489, guid: 7ce5ca86eca9d3e469dcdb93ef4d77e3, type: 3}
+  m_PrefabInstance: {fileID: 2063986861106399746}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5d87eb5c5680e0499a5e5a4c2fff8c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BattleWaveRunner
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 718410312}
+  - {fileID: 1427678615}
+  - {fileID: 19215146}
   - {fileID: 1410722880}
+  - {fileID: 1322858320}
   - {fileID: 73417179}
   - {fileID: 1914512585}
-  - {fileID: 1322858320}
-  - {fileID: 1427678615}
   - {fileID: 2097968511}
   - {fileID: 871559281}
   - {fileID: 2078875950018241539}
   - {fileID: 1714171423}
-  - {fileID: 19215146}
   - {fileID: 1383924045}
-  - {fileID: 681759191}
+  - {fileID: 2063986861106399746}
   - {fileID: 4139966847292872829}
   - {fileID: 948715713}
   - {fileID: 1286257452}
+  - {fileID: 718410312}

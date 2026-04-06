@@ -6,15 +6,50 @@ public class AudioManager : MonoBehaviour
 {
     public static AudioManager Instance { get; private set; }
 
-    private float _masterVolume = 1f;  // 전체
-    private float _bgmVolume = 1f;     // 배경음악
-    private float _sfxVolume = 1f;     // 전투효과음
-    private float _uiVolume = 1f;      // UI 효과음
+    [SerializeField] private float _masterVolume = 0.5f;  // 전체
+    [SerializeField] private float _bgmVolume = 0.5f;     // 배경음악
+    [SerializeField] private float _sfxVolume = 0.5f;   // 특수 효과음
+    [SerializeField] private float _uiVolume = 0.5f;      // UI 효과음
+    
+    private AudioSource _bgmSource;
+    private AudioSource _sfxSource;
+    private AudioSource _uiSource;
 
-    public float MasterVolume => _masterVolume;
-    public float BgmVolume => _bgmVolume;
-    public float SfxVolume => _sfxVolume;
-    public float UIVolume => _uiVolume;
+    public float MasterVolume
+    {
+        get { return _masterVolume; }
+        set
+        {
+            _masterVolume = value;
+        }
+    }
+
+    public float BgmVolume
+    {
+        get { return _masterVolume * _bgmVolume; }
+        set
+        {
+            _bgmVolume = value;
+        }
+    }
+
+    public float SfxVolume
+    {
+        get { return _masterVolume * _sfxVolume; }
+        set
+        {
+            _sfxVolume = value;
+        }
+    }
+
+    public float UIVolume
+    {
+        get { return _masterVolume * _uiVolume; }
+        set
+        {
+            _uiVolume = value;
+        }
+    }
 
     private void Awake()
     {
@@ -29,40 +64,45 @@ public class AudioManager : MonoBehaviour
     }
 
     // BGM 재생
-    public void PlayBGM(AudioSource source, float volume = 1.0f, float pitch = 1.0f)
+    public void PlayBGM(AudioSource source, AudioClip clip)
     {
         if (source == null) return;
-        source.volume = volume * _bgmVolume * _masterVolume;
-        source.pitch = pitch;
+        _bgmSource = source;
+        source.volume = UIVolume;
+        source.clip = clip;
         source.Play();
     }
 
     // 전투 효과음 재생
-    public void PlaySFX(AudioSource source, float volume = 1.0f, float pitch = 1.0f)
+    public void PlaySFX(AudioSource source, AudioClip clip)
     {
         if (source == null) return;
-        source.volume = volume * _sfxVolume * _masterVolume;
-        source.pitch = pitch;
+        source.volume = UIVolume;
+        source.clip = clip;
         source.PlayOneShot(source.clip);
     }
 
     // UI 효과음 재생
-    public void PlayUI(AudioSource source, float volume = 1.0f, float pitch = 1.0f)
+    public void PlayUI(AudioSource source, AudioClip clip)
     {
         if (source == null) return;
-        source.volume = volume * _uiVolume * _masterVolume;
-        source.pitch = pitch;
+        _uiSource = source;
+        source.volume = UIVolume;
+        source.clip = clip;
         source.PlayOneShot(source.clip);
     }
 
     public void SetMasterVolume(float value)
     {
         _masterVolume = value;
+        _bgmSource.volume = BgmVolume;
+        _uiSource.volume = UIVolume;
     }
 
     public void SetBgmVolume(float value)
     {
         _bgmVolume = value;
+        _bgmSource.volume = BgmVolume;
     }
 
     public void SetSfxVolume(float value)
@@ -73,5 +113,6 @@ public class AudioManager : MonoBehaviour
     public void SetUIVolume(float value)
     {
         _uiVolume = value;
+        _uiSource.volume = UIVolume;
     }
 }

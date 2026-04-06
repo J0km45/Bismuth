@@ -52,7 +52,7 @@ public static class MonsterRuntimeValueCalculator
     {
         int growthWave = GetGrowthWave(monsterData.Category, waveNumber);
 
-        return monsterData.DefenseGrowth * growthWave * growthWave + monsterData.BaseDefense;
+        return monsterData.DefenseGrowth * growthWave + monsterData.BaseDefense;
     }
 
     /// <summary>

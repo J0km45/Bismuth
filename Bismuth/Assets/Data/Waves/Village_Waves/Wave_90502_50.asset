@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 571c83dcca643fc46bc417f57477dd83, type: 3}
+  m_Name: Wave_90502_50
+  m_EditorClassIdentifier: Assembly-CSharp::WaveDataSO
+  _waveNumber: 50
+  _difficultyModifierId: 90502
+  _clearReward: 2147483647
+  _spawnEntries:
+  - _monsterData: {fileID: 11400000, guid: 447480bab67bbd94893f119f43e86639, type: 2}
+    _count: 80
+    _spawnInterval: 1
+    _startDelay: 1.1
+  - _monsterData: {fileID: 11400000, guid: 0debd030b327f5d4bb5bc8abdd0d7306, type: 2}
+    _count: 80
+    _spawnInterval: 1
+    _startDelay: 1.6
+  - _monsterData: {fileID: 11400000, guid: fb7723111f662cf4aa135aea892001e0, type: 2}
+    _count: 40
+    _spawnInterval: 2
+    _startDelay: 2
+  - _monsterData: {fileID: 11400000, guid: 7d33915070a22d646bd45358c2fc6856, type: 2}
+    _count: 1
+    _spawnInterval: 0
+    _startDelay: 8.5
