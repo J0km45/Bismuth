@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -5,6 +6,7 @@ using Random = UnityEngine.Random;
 
 public class SummonUnit : MonoBehaviour
 {
+    public event Action OnOwnedTowersChanged;
     [System.Serializable]
     public class UnitPrefabEntry
     {
@@ -160,16 +162,13 @@ public class SummonUnit : MonoBehaviour
         DebugTool.Log("EnsureAttack까지 실행완료", DebugType.Summon, this);
         synergyManager?.OnUnitCreated?.Invoke(stat);
         unitCatalogManager.OnSummonUnit?.Invoke(stat);
-        combineManager.OnAddUnit?.Invoke(stat.Id);
 
         PrintStat(stat);
         DebugTool.Log("PrintStat까지 실행완료", DebugType.Summon, this);
 
-
-
         RegisterOwnedTower(data, createdTower, stat);
-
-
+        OnOwnedTowersChanged?.Invoke();
+        combineManager.OnAddUnit?.Invoke(stat.Id);
 
         DebugTool.Log(
             $"소환 성공 - {data.UnitName} / 티어 {data.Tier} / 슬롯 {emptySlot.slot.name}",
@@ -477,6 +476,10 @@ public class SummonUnit : MonoBehaviour
                 DebugType.Summon,
                 this
             );
+        }
+        else
+        {
+            OnOwnedTowersChanged?.Invoke();
         }
         tower.SetDragVisual(false);
         tower.SetSelectionColliderEnabled(false);

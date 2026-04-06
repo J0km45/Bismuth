@@ -13,6 +13,8 @@ public class CombinationPairUI : MonoBehaviour, ICombinationUI
     [SerializeField] private Image _sourceIcon2;
     [Header("━━━━ 조합 대상 이미지 ━━━━")]
     [SerializeField] private Image _resultIcon;
+    [Header("━━━━ 미보유 유닛 이미지 ━━━━")]
+    [SerializeField] private Sprite _unownedUnitSprite;
 
     private PlayerUIController _playerUIController;
     private int _index;
@@ -31,14 +33,26 @@ public class CombinationPairUI : MonoBehaviour, ICombinationUI
         _index = index;
     }
 
-    public void SetData(List<int> sourceIds, int resultId, bool canCombine)
+    public void SetData(List<int> sourceIds, int resultId, bool canCombine, HashSet<int> set)
     {
-        _sourceIcon1.sprite = GetIcon(sourceIds[0]);
-        _sourceIcon2.sprite = GetIcon(sourceIds[1]);
+        SetSourceIcon(_sourceIcon1, sourceIds[0], set);
+        SetSourceIcon(_sourceIcon2, sourceIds[1], set);
         _resultIcon.sprite = GetIcon(resultId);
 
         _backgroundImage.color = canCombine ? new Color(1f, 1f, 1f) : new Color(0.5f, 0.5f, 0.5f);
         _button.interactable = canCombine;
+    }
+
+    private void SetSourceIcon(Image image, int id , HashSet<int> set)
+    {
+        if (set.Contains(id))
+        {
+            image.sprite = GetIcon(id);
+        }
+        else
+        {
+            image.sprite = _unownedUnitSprite;
+        }
     }
 
     private Sprite GetIcon(int id)
