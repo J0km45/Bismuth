@@ -80,6 +80,16 @@ MonoBehaviour:
   - {fileID: 3675923906556253070, guid: 58c5fd00f62cde046b184ff327a26885, type: 3}
   - {fileID: 8458780379357402113, guid: 791a7855ec5a65d47829aaf15bcb24ad, type: 3}
   - {fileID: 7537168331460102276, guid: e32f029ba710b5647bf41db86aa9b7cf, type: 3}
+  attackEffectPrefabs:
+  - {fileID: 2718671010890094430, guid: 48c07c9ee7b75d946b01f858eb26447d, type: 3}
+  - {fileID: 8950668615059217712, guid: 08e48ee2e6efb11488f55930784b125b, type: 3}
+  - {fileID: 1205457217609065094, guid: 83b5687d3085e764da0e9911d7f51c48, type: 3}
+  - {fileID: 208737256618151220, guid: 038ef2d39d11af14bad0723b1eb601be, type: 3}
+  - {fileID: 4014204912008877870, guid: 8833cd0f97462b4439eec37edac69689, type: 3}
+  - {fileID: 1743388225502532391, guid: e287bbb50cb42f0408562a71a5d22527, type: 3}
+  - {fileID: 2212806859104026499, guid: fc5c94552436b7e4d8c388140c08ffba, type: 3}
+  - {fileID: 2463743467615979755, guid: 48e0c29e58996aa428fa031fe0b6e606, type: 3}
+  attackEffectLog: 0
   projectilePrefabs_tier1:
   - {fileID: 770589786702870981, guid: 4adb55d7b5759dc41b173ec89ae89722, type: 3}
   - {fileID: 3410265359561794623, guid: 9fe2d09110454d64c824cb39634a888a, type: 3}
@@ -114,6 +124,7 @@ MonoBehaviour:
   projectileMaxLifetime: 3
   projectilePool: {fileID: 0}
   projectileLog: 0
+  soundManager: {fileID: 0}
   monsterLayerMask:
     serializedVersion: 2
     m_Bits: 32768

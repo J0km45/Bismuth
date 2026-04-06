@@ -18,6 +18,9 @@ public class UnitAutoAttack : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool attackLog = true;
 
+    [Header("Flip")]
+    [SerializeField] private bool enableFlip = true;
+
     [Header("Skill")]
     [SerializeField] private SkillCast skillCast;
 
@@ -152,6 +155,11 @@ public class UnitAutoAttack : MonoBehaviour
         nextAttackReadyTime = Time.time + attackInterval;
         nextWizardBonusReadyTime = Time.time + WizardBonusCooldownSeconds;
 
+        // 좌우반전 초기화 (기본 오른쪽)
+        Vector3 resetScale = transform.localScale;
+        resetScale.x = Mathf.Abs(resetScale.x);
+        transform.localScale = resetScale;
+
         if (anim != null)
             anim.ResetAnimatorSpeed();
 
@@ -223,6 +231,47 @@ public class UnitAutoAttack : MonoBehaviour
                 DebugType.Unit,
                 this
             );
+        }
+
+        FlipTowardsTarget();
+    }
+
+    private void FlipTowardsTarget()
+    {
+
+        if (!enableFlip)
+            return;
+
+        if (currentTarget == null)
+            return;
+
+        float directionX = currentTarget.transform.position.x - transform.position.x;
+
+        if (Mathf.Approximately(directionX, 0f))
+            return;
+
+        DebugTool.Log(
+            $"FlipTowardsTarget 진행 | directionX={directionX:F2}",
+            DebugType.Unit,
+            this
+        );
+
+        Vector3 scale = transform.localScale;
+        float desiredSignX = directionX > 0f ? -1f : 1f;
+
+        if (Mathf.Sign(scale.x) != desiredSignX)
+        {
+            scale.x = Mathf.Abs(scale.x) * desiredSignX;
+            transform.localScale = scale;
+
+            if (attackLog)
+            {
+                DebugTool.Log(
+                    $"좌우반전 | direction={(desiredSignX > 0f ? "오른쪽" : "왼쪽")}, target={currentTarget.name}",
+                    DebugType.Unit,
+                    this
+                );
+            }
         }
     }
 
@@ -395,6 +444,12 @@ public class UnitAutoAttack : MonoBehaviour
 
             UpdateArcherAttackProgressAfterSuccessfulHit();
             UpdateFurryAttackProgressAfterSuccessfulHit();
+
+            // 4티어 공격 이펙트
+            if (unitStat != null && unitStat.Tier >= 4 && towerUnit != null)
+            {
+                CombatManager.Instance.SpawnAttackEffect(towerUnit, unitStat);
+            }
         }
 
         if (attackLog)
@@ -749,12 +804,7 @@ public class UnitAutoAttack : MonoBehaviour
         DebugTool.Warnning("SynergyDataController 참조가 없어 궁수 최대 체력 비례 시너지를 적용하지 않습니다.", DebugType.Synergy, this);
     }
 
-    // ─────────────────────────────── 수인 시너지 ───────────────────────────────
 
-    /// <summary>
-    /// 이번 일반공격이 수인 추가타를 유발하는 3번째 타격인지 사전 판별한다.
-    /// StartAttack에서 애니메이션 부스트 여부를 결정하는 데 사용한다.
-    /// </summary>
     private bool WillTriggerFurryExtraAttack()
     {
         if (unitStat == null)
@@ -770,9 +820,7 @@ public class UnitAutoAttack : MonoBehaviour
         return extraCount > 0;
     }
 
-    /// <summary>
-    /// 히트 성공 후 수인 카운터를 갱신하고, 조건 충족 시 추가타를 큐에 등록한다.
-    /// </summary>
+
     private void UpdateFurryAttackProgressAfterSuccessfulHit()
     {
         if (unitStat == null)

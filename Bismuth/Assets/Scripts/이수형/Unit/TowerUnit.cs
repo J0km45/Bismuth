@@ -10,6 +10,9 @@ public class TowerUnit : MonoBehaviour
     [SerializeField] private SpriteRenderer spriteRenderer;
     [SerializeField] private Collider2D selectionCollider;
 
+    [Header("Attack Effect (Tier4)")]
+    [SerializeField] private Vector2 attackEffectOffset = new Vector2(0f, 0f);
+
     [Header("Drag Visual")]
     [SerializeField][Range(0.1f, 1f)] private float dragAlpha = 0.65f;
     [SerializeField] private int dragSortingOrderBoost = 50;
@@ -20,6 +23,7 @@ public class TowerUnit : MonoBehaviour
     public string TowerId => towerId;
     public PlacementSlot CurrentSlot { get; private set; }
     public Collider2D SelectionCollider => selectionCollider;
+    public Vector2 AttackEffectOffset => attackEffectOffset;
 
     public UnitStat stat;
 
