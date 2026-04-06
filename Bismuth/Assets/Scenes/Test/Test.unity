@@ -891,6 +891,10 @@ PrefabInstance:
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_IntArgument
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4155649856601436619, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
+      propertyPath: _summonUnit
+      value: 
+      objectReference: {fileID: 4138993132534094892}
     - target: {fileID: 4322819893751391658, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
       value: 
@@ -1874,6 +1878,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1800732796}
     - target: {fileID: 3962914728387289638, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
+      propertyPath: _controlPanelUI
+      value: 
+      objectReference: {fileID: 870984245}
+    - target: {fileID: 3962914728387289638, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
       propertyPath: _unitInfoPanelUI
       value: 
       objectReference: {fileID: 1436887457}
@@ -1950,6 +1958,17 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
+--- !u!114 &4138993132534094892 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8554172300313096461, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
+  m_PrefabInstance: {fileID: 4138993132534094891}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 553961979}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 941f1af0371aca84eb9a91411a86a501, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SummonUnit
 --- !u!1 &4653524684604934350
 GameObject:
   m_ObjectHideFlags: 0
