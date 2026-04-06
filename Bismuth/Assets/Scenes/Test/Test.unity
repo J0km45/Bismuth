@@ -578,6 +578,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 413846428}
     m_Modifications:
     - target: {fileID: 850044951817306836, guid: 26ea7bfad7f320949a19c70198015f15, type: 3}
+      propertyPath: _outputFolderPath
+      value: Assets/Data/Monsters
+      objectReference: {fileID: 0}
+    - target: {fileID: 850044951817306836, guid: 26ea7bfad7f320949a19c70198015f15, type: 3}
       propertyPath: _monsterSheetRowProvider
       value: 
       objectReference: {fileID: 639690648}
@@ -1056,12 +1060,16 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2328805542505970140, guid: 67fe7b0a9dcbd8e45946b71bf6d9b61b, type: 3}
       propertyPath: _outputFolderPath
-      value: "Assets/Data/\uC774\uC0C1\uD604/SO/_Forest_Waves"
+      value: Assets/Data/Waves/_Forest_Waves
       objectReference: {fileID: 0}
     - target: {fileID: 2328805542505970140, guid: 67fe7b0a9dcbd8e45946b71bf6d9b61b, type: 3}
       propertyPath: _waveSheetRowProvider
       value: 
       objectReference: {fileID: 1971056130}
+    - target: {fileID: 2328805542505970140, guid: 67fe7b0a9dcbd8e45946b71bf6d9b61b, type: 3}
+      propertyPath: _monsterDataFolderPath
+      value: Assets/Data/Monsters
+      objectReference: {fileID: 0}
     - target: {fileID: 6613514916780993425, guid: 67fe7b0a9dcbd8e45946b71bf6d9b61b, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
