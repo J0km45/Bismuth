@@ -12,6 +12,7 @@ public class PlayerUIController : MonoBehaviour
     [SerializeField] private UnitEnhanceSO _unitEnhanceSO;
     [SerializeField] private UnitInfoPanelUI _unitInfoPanelUI;
     [SerializeField] private ControlPanelUI _controlPanelUI;
+    [SerializeField] private SFXController _sfxController;
 
 
     private readonly int MAX_PLAYER_LEVEL = 5;
@@ -42,7 +43,6 @@ public class PlayerUIController : MonoBehaviour
             DebugTool.Log("TowerUnit 컴포넌트를 찾을 수 없습니다.", DebugType.Game, this);
             return;
         }
-        
         
         UnitStat stat = unit.GetComponent<UnitStat>();
         
@@ -83,7 +83,7 @@ public class PlayerUIController : MonoBehaviour
         if (!_combineManger.CombineUnit(index))
             return;
                 
-        
+        _sfxController.OnMerge();
         _player.Gold -= COMBINE_GOLD;
         _unitInfoPanelUI.gameObject.SetActive(false);
     }
@@ -147,6 +147,7 @@ public class PlayerUIController : MonoBehaviour
         DebugTool.Log($"유닛 강화 성공! [유닛 레벨 : {unitLevel} | 소모 골드 : {gold}\n" +
                       $"이전 공격력 : {beforeAttackPower}, 추가 공격력 : {upgradeAttackPower}, 현재 공격력 : {stat.CurrentAttackPower}", DebugType.Unit, this);
 
+        _sfxController.OnEnforce();
         _unitInfoPanelUI.RefreshStats();
     }
     
@@ -163,6 +164,7 @@ public class PlayerUIController : MonoBehaviour
         if (level == MAX_PLAYER_LEVEL)
         {
             DebugTool.Log("이미 최대 레벨 입니다.", DebugType.Game, this);
+            _sfxController.OnUIFailure();
             return;
         }
         
@@ -174,6 +176,7 @@ public class PlayerUIController : MonoBehaviour
         {
             _player.Gold -= gold;
             _player.Level++;
+            _sfxController.OnEnforceGatcha();
         }
         
         DebugTool.Log($"골드 : {gold}, 레벨 : {level}", DebugType.Game, this);
@@ -211,12 +214,16 @@ public class PlayerUIController : MonoBehaviour
         }
 
         if(_summonManger.SummonRandomUnit())
+        {
             _player.Gold -= SUMMON_GOLD;
+            _sfxController.OnDrawSuccess();
+        }
     }
 
     private void NotEnoughGold()
     {
         DebugTool.Log("골드가 부족합니다.", DebugType.Game, this);
+        _sfxController.OnUIFailure();
         _controlPanelUI.ShowWarningText();
     }
 

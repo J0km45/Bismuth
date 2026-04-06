@@ -30,7 +30,7 @@ public static class SoundLoader
     {
         string key = NormalizeKey(rawFromSheet);
 
-        AudioClip[] clipsInFolder = Resources.LoadAll<AudioClip>($"Sounds/{key}");
+        AudioClip[] clipsInFolder = Resources.LoadAll<AudioClip>($"Audio/Units/{key}");
         if (clipsInFolder.Length > 0)
             return clipsInFolder;
 
@@ -55,7 +55,7 @@ public static class SoundLoader
         _byKey = new Dictionary<string, AudioClip>(StringComparer.OrdinalIgnoreCase);
 
        
-        AudioClip[] clips = Resources.LoadAll<AudioClip>("Sounds");
+        AudioClip[] clips = Resources.LoadAll<AudioClip>("Audio/Units");
 
         // 불러온 클립이 없으면 종료
         if (clips == null)

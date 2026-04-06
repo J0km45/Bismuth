@@ -3,13 +3,18 @@ using UnityEngine;
 public class SoundManager : MonoBehaviour
 {
     [Header("재생")]
-    [SerializeField] [Range(0f, 1f)] private float sfxVolume = 1f;
+    [SerializeField] private float sfxVolume;
 
     private AudioSource _audioSource;
 
     private void Awake()
     {
         AudioSource();
+    }
+
+    private void Update()
+    {
+        sfxVolume = AudioManager.Instance.SfxVolume;
     }
 
     private void AudioSource()
