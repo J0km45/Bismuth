@@ -11,8 +11,9 @@ public class PlayerUIController : MonoBehaviour
     [SerializeField] private CombineManager _combineManger;
     [SerializeField] private UnitEnhanceSO _unitEnhanceSO;
     [SerializeField] private UnitInfoPanelUI _unitInfoPanelUI;
-    
-    
+    [SerializeField] private ControlPanelUI _controlPanelUI;
+
+
     private readonly int MAX_PLAYER_LEVEL = 5;
     private readonly int MAX_UNIT_LEVEL = 20;
     private readonly int COMBINE_GOLD = 50;
@@ -214,7 +215,10 @@ public class PlayerUIController : MonoBehaviour
     }
 
     private void NotEnoughGold()
-        => DebugTool.Log("골드가 부족합니다.", DebugType.Game, this);
+    {
+        DebugTool.Log("골드가 부족합니다.", DebugType.Game, this);
+        _controlPanelUI.ShowWarningText();
+    }
 
     public int GetUpgradeGold(int level)
     {
