@@ -1,115 +1,156 @@
 using System.IO;
 using System.Runtime.CompilerServices;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 /// <summary>
 /// 디버그 타입에 따라 로그를 필터링하고 색상 및 출처 정보를 함께 출력하는 공용 유틸 클래스이다.
-/// 일반적인 로그 출력
-///  - Log(..)
-/// 중요한 경고, 치명적이진 않은 상황 로그 출력
-///  - Warn(..)
-/// 데이터 누락, null 참조, 치명적인 상황 로그 출력
-///  - Error(..)
 /// </summary>
 public static class DebugTool
 {
-    private static bool[] DebugTypeSelect = new bool[System.Enum.GetValues(typeof(DebugType)).Length];
+    private static readonly bool[] DebugTypeSelect = new bool[System.Enum.GetValues(typeof(DebugType)).Length];
+    private static bool _debugAllOn;
 
-    private static bool _debugAllOn = false;
+    // ----------------------------
+    // Public API
+    // ----------------------------
 
-    // 기본 로그 출력
-    public static void Log(string text, DebugType type, Object context = null,
+    public static void Log(
+        string text,
+        DebugType type,
+        Object context = null,
         [CallerMemberName] string memberName = "",
         [CallerFilePath] string filePath = "",
         [CallerLineNumber] int lineNumber = 0)
     {
-        // 디버그 타입과 전체 디버그 On이 false 면 리턴
-        if (!_debugAllOn)
-            return;
-        if (!DebugTypeSelect[(int)type])
+        if (!CanPrint(type))
             return;
 
-        // 타입에 따른 글자색 선택
-        string color = GetColor(type);
-        // 오브젝트 출처의 null 체크 null 이면 "None" 아니면 오브젝트 이름 출력
-        // string ctxSource = context != null ? context.name : "None";
-        //
-        // Debug.Log($"<color={color}>[{type}] {text}</color>\n" +
-        //           $"<color=#daa520>출처 : [{ctxSource}]</color>", context);
+        Print(LogType.Log, text, type, context, memberName, filePath, lineNumber);
     }
-    public static void Log(string text, DebugType type, object source = null,
+
+    public static void Warning(
+        string text,
+        DebugType type,
+        Object context = null,
         [CallerMemberName] string memberName = "",
         [CallerFilePath] string filePath = "",
         [CallerLineNumber] int lineNumber = 0)
     {
-        // 디버그 타입과 전체 디버그 On이 false 면 리턴
-        if (!_debugAllOn)
-            return;
-        if (!DebugTypeSelect[(int)type])
+        if (!CanPrint(type))
             return;
 
-        // 타입에 따른 글자색 선택
-        string color = GetColor(type);
-        // 오브젝트 출처의 null 체크 null 이면 "None" 아니면 오브젝트 이름 출력
-        string fileName = Path.GetFileNameWithoutExtension(filePath);
-        string sourceName = source?.GetType().Name ?? fileName;
-
-        if (memberName == ".ctor")
-            memberName = "생성자";
-        
-        Debug.Log($"<color={color}>[{type}] {text}</color>\n" +
-                  $"<color=#daa520>출처 : [{sourceName}.{memberName} : {lineNumber}]</color>");
-    }
-    
-    public static void Warnning(string text, DebugType type, Object context = null)
-    {
-        if (!_debugAllOn)
-            return;
-        if (!DebugTypeSelect[(int)type])
-            return;
-
-        string color = GetColor(type);
-        string ctxSource = context != null ? context.name : "None";
-        
-        Debug.LogWarning($"<color={color}>[{type}] {text}</color>\n" +
-                  $"<color=#daa520>출처 : [{ctxSource}]</color>", context);
-    }
-    
-    public static void Error(string text, DebugType type, Object context = null)
-    {
-        if (!_debugAllOn)
-            return;
-        if (!DebugTypeSelect[(int)type])
-            return;
-        
-        string color = GetColor(type);
-        string ctxSource = context != null ? context.name : "None";
-        
-        Debug.LogError($"<color={color}>[{type}] {text}</color>\n" +
-                  $"<color=#daa520>출처 : [{ctxSource}]</color>", context);
+        Print(LogType.Warning, text, type, context, memberName, filePath, lineNumber);
     }
 
-    public static void MissingComponent(string text = null)
+    // 기존 코드 호환용
+    public static void Warnning(
+        string text,
+        DebugType type,
+        Object context = null,
+        [CallerMemberName] string memberName = "",
+        [CallerFilePath] string filePath = "",
+        [CallerLineNumber] int lineNumber = 0)
     {
-        if (text == null)
-        {
-            Warnning($"컴포넌트를 찾을 수 없습니다.", DebugType.Missing);
+        Warning(text, type, context, memberName, filePath, lineNumber);
+    }
+
+    public static void Error(
+        string text,
+        DebugType type,
+        Object context = null,
+        [CallerMemberName] string memberName = "",
+        [CallerFilePath] string filePath = "",
+        [CallerLineNumber] int lineNumber = 0)
+    {
+        if (!CanPrint(type))
             return;
-        }
-        Warnning($"{text}을(를) 찾을 수 없습니다.", DebugType.Missing);
+
+        Print(LogType.Error, text, type, context, memberName, filePath, lineNumber);
+    }
+
+    public static void MissingComponent(
+        string text = null,
+        Object context = null,
+        [CallerMemberName] string memberName = "",
+        [CallerFilePath] string filePath = "",
+        [CallerLineNumber] int lineNumber = 0)
+    {
+        string message = string.IsNullOrEmpty(text)
+            ? "컴포넌트를 찾을 수 없습니다."
+            : $"{text}을(를) 찾을 수 없습니다.";
+
+        Warning(message, DebugType.Missing, context, memberName, filePath, lineNumber);
     }
 
     public static void DebugPrintAll(bool value)
     {
+        _debugAllOn = value;
+
         for (int i = 0; i < DebugTypeSelect.Length; i++)
             DebugTypeSelect[i] = value;
-        _debugAllOn = value;
-        Log($"모든 디버그 : {value}", DebugType.Game, null);
+
+        if (value)
+        {
+            Debug.Log("<color=#ffffff>[DebugTool] 모든 디버그 출력 활성화</color>");
+        }
+        else
+        {
+            Debug.Log("<color=#ffffff>[DebugTool] 모든 디버그 출력 비활성화</color>");
+        }
     }
 
     public static void DebugSelect(DebugType type, bool value)
     {
         DebugTypeSelect[(int)type] = value;
+    }
+
+    // ----------------------------
+    // Internal
+    // ----------------------------
+
+    private static bool CanPrint(DebugType type)
+    {
+        if (!_debugAllOn)
+            return false;
+
+        return DebugTypeSelect[(int)type];
+    }
+
+    private static void Print(
+        LogType logType,
+        string text,
+        DebugType type,
+        Object context,
+        string memberName,
+        string filePath,
+        int lineNumber)
+    {
+        string color = GetColor(type);
+        string fileName = Path.GetFileNameWithoutExtension(filePath);
+        string sourceName = context != null ? context.name : fileName;
+
+        if (memberName == ".ctor")
+            memberName = "생성자";
+
+        string message =
+            $"<color={color}>[{type}] {text}</color>\n" +
+            $"<color=#daa520>출처 : [{sourceName}.{memberName} : {lineNumber}]</color>";
+
+        switch (logType)
+        {
+            case LogType.Warning:
+                Debug.LogWarning(message, context);
+                break;
+
+            case LogType.Error:
+                Debug.LogError(message, context);
+                break;
+
+            default:
+                Debug.Log(message, context);
+                break;
+        }
     }
 
     private static string GetColor(DebugType type)
@@ -134,6 +175,13 @@ public static class DebugTool
             default: return "#ffffff";
         }
     }
+
+    private enum LogType
+    {
+        Log,
+        Warning,
+        Error
+    }
 }
 
 public enum DebugType
@@ -147,7 +195,7 @@ public enum DebugType
     Board = 6,
     Enemy = 7,
     UI = 8,
-    Data = 9, 
+    Data = 9,
     Merge = 10,
     Reforge = 11,
     Catalog = 12,
