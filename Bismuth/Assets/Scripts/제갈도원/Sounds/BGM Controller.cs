@@ -45,6 +45,12 @@ public class BGMController : MonoBehaviour
     {
         currentScene = SceneManager.GetActiveScene().buildIndex;
 
+        if (currentScene > 10)
+        {
+            AudioManager.Instance.PlayBGM(_audioSource, _sfxso.BGMList[(int)BGMType.Forest]);
+            return;
+        }
+
         BGMType nextType;
 
         switch (currentScene)
