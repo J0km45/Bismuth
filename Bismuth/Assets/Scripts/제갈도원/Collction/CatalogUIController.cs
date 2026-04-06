@@ -25,6 +25,7 @@ public class CatalogUIController : MonoBehaviour
     [SerializeField] private Image _illustration;                // 상세 패널 이미지
     [SerializeField] private TextMeshProUGUI _unitNameText;      // 상세 패널 이름
     [SerializeField] private TextMeshProUGUI _descriptionText;   // 상세 패널 설명
+    [SerializeField] private TextMeshProUGUI _backText;
 
     private int _currentSpread; // 현재 펼쳐진 양면 페이지 인덱스
     private Coroutine _spreadRoutine;    // 페이지 갱신 코루틴
@@ -46,19 +47,27 @@ public class CatalogUIController : MonoBehaviour
     {
         LocalizationManager.Instance.OnLocalizationLoaded += UpdatePageTitles;
         LocalizationManager.Instance.OnLocalizationLoaded += RefreshDetail;
+        LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
         UpdatePageTitles();
+        RefreshText();
     }
 
     private void OnDisable()
     {
         LocalizationManager.Instance.OnLocalizationLoaded -= UpdatePageTitles;
         LocalizationManager.Instance.OnLocalizationLoaded -= RefreshDetail;
+        LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
     }
 
     private void RefreshDetail()
     {
         if (_currentUnitData != null)
             RefreshUnitDetailText(_currentUnitData);
+    }
+
+    private void RefreshText()
+    {
+        _backText.text = LocalizationManager.Instance.Get("BACK");
     }
 
     private void Start()
