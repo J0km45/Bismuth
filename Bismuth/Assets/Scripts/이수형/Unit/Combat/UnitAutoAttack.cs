@@ -155,7 +155,7 @@ public class UnitAutoAttack : MonoBehaviour
         nextAttackReadyTime = Time.time + attackInterval;
         nextWizardBonusReadyTime = Time.time + WizardBonusCooldownSeconds;
 
-        // 좌우반전 초기화 (기본 오른쪽)
+
         Vector3 resetScale = transform.localScale;
         resetScale.x = Mathf.Abs(resetScale.x);
         transform.localScale = resetScale;
@@ -328,6 +328,7 @@ public class UnitAutoAttack : MonoBehaviour
         int animIndex = isSkillAttack ? 1 : attackAnimationIndex;
 
         AttackPlaybackData playback = anim.PlayAttackAnimation(animIndex, effectiveAttackSpeed);
+        FlipTowardsTarget();
 
         if (!playback.Success)
         {

@@ -597,10 +597,10 @@ public class CombatManager : MonoBehaviour
         if (prefab == null)
             return;
 
-        // 유닛의 현재 좌우반전 상태 확인
+
         float facingSign = Mathf.Sign(towerUnit.transform.localScale.x);
 
-        // AttackEffectAnchor 마커가 있으면 해당 위치 사용, 없으면 오프셋 사용
+
         AttackEffectAnchor anchor = towerUnit.GetComponentInChildren<AttackEffectAnchor>();
         if(anchor != null)
         {
@@ -627,12 +627,12 @@ public class CombatManager : MonoBehaviour
 
         if (effect != null)
         {
-            // 이펙트도 유닛의 좌우반전을 따라감
+
             Vector3 effectScale = effect.transform.localScale;
             effectScale.x = Mathf.Abs(effectScale.x) * facingSign;
             effect.transform.localScale = effectScale;
 
-            // 앵커가 있으면 이펙트가 계속 따라가도록 설정
+
             if (anchor != null)
             {
                 HitEffectSpawner spawner = effect.GetComponent<HitEffectSpawner>();
