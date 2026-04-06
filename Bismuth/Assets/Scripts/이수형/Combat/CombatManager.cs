@@ -13,6 +13,10 @@ public class CombatManager : MonoBehaviour
     [Header("Hit Effect")]
     [SerializeField] private List<GameObject> hitEffectPrefabs = new List<GameObject>();
 
+    [Header("Attack Effect (Tier4)")]
+    [SerializeField] private List<GameObject> attackEffectPrefabs = new List<GameObject>();
+    [SerializeField] private bool attackEffectLog = false;
+
     [Header("Projectile")]
     [SerializeField] private List<GameObject> projectilePrefabs_tier1 = new List<GameObject>();
     [SerializeField] private List<GameObject> projectilePrefabs_tier2 = new List<GameObject>();
@@ -566,6 +570,61 @@ public class CombatManager : MonoBehaviour
         return hitEffectPrefabs[effectIndex];
     }
 
+    private GameObject GetAttackEffect(UnitStat unitStat)
+    {
+        if (unitStat == null)
+            return null;
+
+        if (unitStat.Tier < 4)
+            return null;
+
+        if (unitStat.Id == null)
+            return null;
+
+        int effectIndex = unitStat.Id - 10044;
+        if (effectIndex < 0 || effectIndex >= attackEffectPrefabs.Count)
+            return null;
+
+        return attackEffectPrefabs[effectIndex];
+    }
+
+    public void SpawnAttackEffect(TowerUnit towerUnit, UnitStat unitStat)
+    {
+        if (towerUnit == null || unitStat == null)
+            return;
+
+        GameObject prefab = GetAttackEffect(unitStat);
+        if (prefab == null)
+            return;
+
+        // 유닛의 현재 좌우반전 상태 확인
+        float facingSign = Mathf.Sign(towerUnit.transform.localScale.x);
+
+        // 오프셋을 좌우반전에 맞게 적용
+        Vector2 offset = towerUnit.AttackEffectOffset;
+        Vector3 spawnPos = towerUnit.transform.position
+            + new Vector3(offset.x * facingSign, offset.y, 0f);
+
+        GameObject effect = HitEffectPool.SpawnPooled(prefab, spawnPos, Quaternion.identity);
+
+        if (effect != null)
+        {
+            // 이펙트도 유닛의 좌우반전을 따라감
+            Vector3 effectScale = effect.transform.localScale;
+            effectScale.x = Mathf.Abs(effectScale.x) * facingSign;
+            effect.transform.localScale = effectScale;
+        }
+
+        if (attackEffectLog)
+        {
+            DebugTool.Log(
+                $"공격 이펙트 생성 | unit={unitStat.Name}, prefab={prefab.name}, facing={(facingSign > 0f ? "오른쪽" : "왼쪽")}, pos={spawnPos}",
+                DebugType.Unit,
+                this
+            );
+        }
+    }
+
     private GameObject GetProjectilePrefab(UnitStat unitStat)
     {
         if (unitStat == null)
@@ -593,7 +652,7 @@ public class CombatManager : MonoBehaviour
             }
             else
             {
-                int synergyIndex = unitStat.Id - 10032;
+                int synergyIndex = unitStat.Id - 10031;
                 if (synergyIndex >= 0 && synergyIndex < sourceList.Count)
                     return sourceList[synergyIndex];
             }
@@ -852,7 +911,7 @@ public class CombatManager : MonoBehaviour
 
         int activeCount = synergyManager.GetSynergyLevel(spiritId);
 
-        // 활성 단계에 맞는 레벨 데이터 찾기 (가장 높은 충족 단계)
+
         SynergyLevelData matchedLevel = null;
         for (int i = 0; i < spiritData.Levels.Count; i++)
         {
