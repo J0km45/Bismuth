@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class TitleSceneUI : MonoBehaviour
 {
@@ -14,6 +15,16 @@ public class TitleSceneUI : MonoBehaviour
     [Header("━━━━ 패널 ━━━━")]
     [Tooltip("환경 설정 팝업")]
     [SerializeField] private GameObject _settingsPopup;
+
+    [Header("━━━━ 이미지 ━━━━")]
+    [Tooltip("캐릭터 이미지")]
+    [SerializeField] private Image _characterImage;
+    [SerializeField] private Sprite[] _characterSprites;
+
+    private void Awake()
+    {
+        _characterImage.sprite = _characterSprites[Random.Range(0, _characterSprites.Length)];
+    }
 
     private void Start()
     {

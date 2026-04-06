@@ -1,3 +1,4 @@
+using System.Collections;
 using TMPro;
 using UnityEngine;
 
@@ -20,6 +21,9 @@ public class ControlPanelUI : MonoBehaviour
     [SerializeField] private TMP_Text _upgradeText;
     [Tooltip("업그레이드 소모 비용")]
     [SerializeField] private TMP_Text _upgradeGoldText;
+    [Header("━━━━ 경고 문구 ━━━━")]
+    [SerializeField] private TMP_Text _warningText;
+    [SerializeField] private float _duration;
 
     [Header("━━━━ 패널 ━━━━")]
     [Tooltip("합성소")]
@@ -27,6 +31,7 @@ public class ControlPanelUI : MonoBehaviour
 
     private PlayerDataManager _playerData;
     private PlayerUIController _playerUIController;
+    private Coroutine _coroutine;
 
     private bool _isCombinationSVOpened => _combinationScrollView.activeSelf;
     private float _elapsedTime = 0f; // 누적 시간 저장용
@@ -111,6 +116,35 @@ public class ControlPanelUI : MonoBehaviour
         {
             _upgradeGoldText.text = $"{gold}";
         }
+    }
+
+    public void ShowWarningText()
+    {
+        if (_coroutine != null)
+        {
+            StopCoroutine(_coroutine);
+        }
+
+        _coroutine = StartCoroutine(ShowWarningCoroutine(LocalizationManager.Instance.Get("NO_GOLD")));
+    }
+
+    private IEnumerator ShowWarningCoroutine(string message)
+    {
+        _warningText.gameObject.SetActive(true);
+        _warningText.text = message;
+        Color color = _warningText.color;
+        float time = 0f;
+
+        while(time < _duration)
+        {
+            time += Time.unscaledDeltaTime;
+            float t = time / _duration;
+            color.a = Mathf.Lerp(1f, 0f, t);
+            _warningText.color = color;
+
+            yield return null;
+        }
+        _warningText.gameObject.SetActive(false);
     }
 
     public void OnClickCombination()
