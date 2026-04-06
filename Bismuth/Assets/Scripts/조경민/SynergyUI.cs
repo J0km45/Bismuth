@@ -92,11 +92,12 @@ public class SynergyUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
         // 1단계도 못 채운 경우
         if (currentLevel == null)
         {
-            return "---";
+            return $"({GetSynergyCount(null)})\n---";
         }
 
         string key = $"{_data.SynergyName}_DESC";
-        return LocalizationManager.Instance.Get(key, currentLevel.EffectValues.Cast<object>().ToArray());
+        string desc = LocalizationManager.Instance.Get(key, currentLevel.EffectValues.Cast<object>().ToArray());
+        return $"({GetSynergyCount(currentLevel)})\n{desc}";
     }
 
     public string GetSynergyName()
@@ -104,6 +105,31 @@ public class SynergyUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
         if (_data == null) return "";
 
         return LocalizationManager.Instance.Get(_data.SynergyName);
+    }
+
+    private string GetSynergyCount(SynergyLevelData currentLevel)
+    {
+        string synergyCount = "";
+
+        for (int i = 0; i < _data.Levels.Count; i++)
+        {
+            SynergyLevelData level = _data.Levels[i];
+            if(level == currentLevel)
+            {
+                synergyCount += $"<color=red>{level.ActiveCount}</color>";
+            }
+            else
+            {
+                synergyCount += $"<color=grey>{level.ActiveCount}</color>";
+            }
+            
+            if (i < _data.Levels.Count - 1)
+            {
+                synergyCount += " > ";
+            }
+        }
+
+        return synergyCount;
     }
 
     public void OnPointerEnter(PointerEventData eventData)
