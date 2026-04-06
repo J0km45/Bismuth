@@ -16,6 +16,8 @@ public class HomeBaseHealth : MonoBehaviour
     [Tooltip("현재 체력")]
     [SerializeField, Min(0)] private int _currentHp;
     
+    [SerializeField] private BaseHPBar _baseHPBar;
+    
     private bool _hasDied;
     
     public int BaseMaxHp => _baseMaxHp;
@@ -26,9 +28,17 @@ public class HomeBaseHealth : MonoBehaviour
     public event Action<HomeBaseHealth> Damaged;
     public event Action<HomeBaseHealth> Died;
     
+    
     private void Awake()
     {
+        _baseHPBar = GetComponent<BaseHPBar>();
+        
         ResetToBaseHealth();
+    }
+
+    private void Start()
+    {
+        _baseHPBar.Initialize(MaxHp, CurrentHp);
     }
 
     private void OnValidate()
@@ -54,6 +64,9 @@ public class HomeBaseHealth : MonoBehaviour
         
         _currentHp = Mathf.Max(0, _currentHp - damage);
         Damaged?.Invoke(this);
+        
+        _baseHPBar.SetHp(CurrentHp);
+        _baseHPBar.Refresh();
 
         if (_currentHp > 0 || _hasDied)
             return;
