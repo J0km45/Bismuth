@@ -54,8 +54,6 @@ public class UnitDataController : MonoBehaviour
             string[] cells = lines[i].Split(splitSymbol);
             UnitData unitData = UnitData.CreateFromSheetRow(cells);
             
-            DebugTool.Log($"row={i}, cellCount={cells.Length}", DebugType.Data, this);
-            
             if (unitData == null)
             {
                 DebugTool.Warnning($"파싱 실패 row={i}, raw={lines[i]}", DebugType.Data, this);

@@ -48,7 +48,7 @@ public class ControlPanelUI : MonoBehaviour
         }
     }
 
-    private void OnEnable()
+    private void Start()
     {
         LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
         RefreshText();

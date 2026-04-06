@@ -168,6 +168,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1410722882}
     - target: {fileID: 8554172300313096461, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
+      propertyPath: boardLog
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8554172300313096461, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
       propertyPath: boardSystem
       value: 
       objectReference: {fileID: 1914512586}
@@ -617,6 +621,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 125510194641839064, guid: 804878f11d5de6b438de0d4f1f6ac297, type: 3}
+      propertyPath: synergyLog
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 125510194641839064, guid: 804878f11d5de6b438de0d4f1f6ac297, type: 3}
       propertyPath: synergyManager
       value: 
       objectReference: {fileID: 19215149}
@@ -673,13 +681,29 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1286257453}
     - target: {fileID: 6611962460162946885, guid: 804878f11d5de6b438de0d4f1f6ac297, type: 3}
+      propertyPath: projectileLog
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6611962460162946885, guid: 804878f11d5de6b438de0d4f1f6ac297, type: 3}
       propertyPath: synergyManager
       value: 
       objectReference: {fileID: 19215149}
     - target: {fileID: 6611962460162946885, guid: 804878f11d5de6b438de0d4f1f6ac297, type: 3}
+      propertyPath: attackEffectLog
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6611962460162946885, guid: 804878f11d5de6b438de0d4f1f6ac297, type: 3}
+      propertyPath: spiritSynergyLog
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6611962460162946885, guid: 804878f11d5de6b438de0d4f1f6ac297, type: 3}
       propertyPath: _battleWaveRunner
       value: 
       objectReference: {fileID: 7790937491263489776}
+    - target: {fileID: 6611962460162946885, guid: 804878f11d5de6b438de0d4f1f6ac297, type: 3}
+      propertyPath: wizardFollowUpLog
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6611962460162946885, guid: 804878f11d5de6b438de0d4f1f6ac297, type: 3}
       propertyPath: 'hitEffectPrefabs.Array.data[5]'
       value: 
@@ -1209,7 +1233,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 219398841401376091, guid: d18713278c47e5449b9da2b2d82e727c, type: 3}
       propertyPath: _log
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 219398841401376091, guid: d18713278c47e5449b9da2b2d82e727c, type: 3}
       propertyPath: placedTowerRoot
@@ -1462,63 +1486,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 84090b1dbd1a8da428a2a5d640d754b1, type: 3}
---- !u!1001 &4139966847292872829
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 2063353882664401013, guid: 07d3a055eeb7c224aa4bc79729e5da8c, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0.95011
-      objectReference: {fileID: 0}
-    - target: {fileID: 2063353882664401013, guid: 07d3a055eeb7c224aa4bc79729e5da8c, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: -4.9856
-      objectReference: {fileID: 0}
-    - target: {fileID: 2063353882664401013, guid: 07d3a055eeb7c224aa4bc79729e5da8c, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2063353882664401013, guid: 07d3a055eeb7c224aa4bc79729e5da8c, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 2063353882664401013, guid: 07d3a055eeb7c224aa4bc79729e5da8c, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2063353882664401013, guid: 07d3a055eeb7c224aa4bc79729e5da8c, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2063353882664401013, guid: 07d3a055eeb7c224aa4bc79729e5da8c, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2063353882664401013, guid: 07d3a055eeb7c224aa4bc79729e5da8c, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2063353882664401013, guid: 07d3a055eeb7c224aa4bc79729e5da8c, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2063353882664401013, guid: 07d3a055eeb7c224aa4bc79729e5da8c, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8638255639201603428, guid: 07d3a055eeb7c224aa4bc79729e5da8c, type: 3}
-      propertyPath: m_Name
-      value: SoGenrator_Forest
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 07d3a055eeb7c224aa4bc79729e5da8c, type: 3}
 --- !u!114 &5631946087719053491 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 6223045267252730228, guid: 84090b1dbd1a8da428a2a5d640d754b1, type: 3}
@@ -1557,7 +1524,6 @@ SceneRoots:
   - {fileID: 1714171423}
   - {fileID: 1383924045}
   - {fileID: 2063986861106399746}
-  - {fileID: 4139966847292872829}
   - {fileID: 948715713}
   - {fileID: 1286257452}
   - {fileID: 718410312}

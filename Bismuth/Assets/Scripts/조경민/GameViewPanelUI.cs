@@ -79,8 +79,8 @@ public class GameViewPanelUI : MonoBehaviour
     private void Start()
     {
         RefreshWaveText();
-        SetBattleUIActive(true);
-        SetPreparationUIActive(false);
+        // SetBattleUIActive(true);
+        // SetPreparationUIActive(false);
     }
 
     private void OnDisable()
