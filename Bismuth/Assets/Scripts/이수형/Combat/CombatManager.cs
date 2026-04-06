@@ -600,10 +600,28 @@ public class CombatManager : MonoBehaviour
         // 유닛의 현재 좌우반전 상태 확인
         float facingSign = Mathf.Sign(towerUnit.transform.localScale.x);
 
-        // 오프셋을 좌우반전에 맞게 적용
-        Vector2 offset = towerUnit.AttackEffectOffset;
-        Vector3 spawnPos = towerUnit.transform.position
-            + new Vector3(offset.x * facingSign, offset.y, 0f);
+        // AttackEffectAnchor 마커가 있으면 해당 위치 사용, 없으면 오프셋 사용
+        AttackEffectAnchor anchor = towerUnit.GetComponentInChildren<AttackEffectAnchor>();
+        if(anchor != null)
+        {
+            DebugTool.Log(
+                $"공격 이펙트 앵커 발견 | anchor={anchor.name}, unit={towerUnit.name}, pos ={anchor.transform.position}",
+                DebugType.Unit,
+                this
+            );
+        }
+        Vector3 spawnPos;
+        Vector3 offsetGun = new Vector3(0.6f, 0.0f, 0.0f);
+        if (anchor != null)
+        {
+            spawnPos = anchor.transform.position + offsetGun;
+        }
+        else
+        {
+            Vector2 offset = towerUnit.AttackEffectOffset;
+            spawnPos = towerUnit.transform.position
+                + new Vector3(offset.x * facingSign, offset.y, 0f);
+        }
 
         GameObject effect = HitEffectPool.SpawnPooled(prefab, spawnPos, Quaternion.identity);
 
@@ -613,12 +631,20 @@ public class CombatManager : MonoBehaviour
             Vector3 effectScale = effect.transform.localScale;
             effectScale.x = Mathf.Abs(effectScale.x) * facingSign;
             effect.transform.localScale = effectScale;
+
+            // 앵커가 있으면 이펙트가 계속 따라가도록 설정
+            if (anchor != null)
+            {
+                HitEffectSpawner spawner = effect.GetComponent<HitEffectSpawner>();
+                if (spawner != null)
+                    spawner.ConfigureFollowTarget(anchor.transform, offsetGun);
+            }
         }
 
         if (attackEffectLog)
         {
             DebugTool.Log(
-                $"공격 이펙트 생성 | unit={unitStat.Name}, prefab={prefab.name}, facing={(facingSign > 0f ? "오른쪽" : "왼쪽")}, pos={spawnPos}",
+                $"공격 이펙트 생성 | unit={unitStat.Name}, prefab={prefab.name}, facing={(facingSign > 0f ? "오른쪽" : "왼쪽")}, anchor={(anchor != null ? anchor.name : "None")}, pos={spawnPos}",
                 DebugType.Unit,
                 this
             );
