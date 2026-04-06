@@ -86,6 +86,8 @@ public class CombatManager : MonoBehaviour
             soundManager = FindFirstObjectByType<SoundManager>();
         if (synergyManager == null && gameManager != null)
             synergyManager = gameManager.GetComponent<SynergyManager>();
+        if (_battleWaveRunner == null)
+            _battleWaveRunner = FindFirstObjectByType<BattleWaveRunner>();
     }
 
     private void OnEnable()
