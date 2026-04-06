@@ -64,6 +64,11 @@ public class SynergyManager : MonoBehaviour
             // 딕셔너리에 같은 시너지 ID가 있을 경우 해당 유닛이 이미 추가되었는 지 중복 판단
             else
             {
+                // 한 유닛에 같은 시너지가 있을 경우
+                if (i > 1 && stat.SynergIDs[i] == stat.SynergIDs[i - 1])
+                {
+                    synergiesDict[stat.SynergIDs[i]].Add(stat.Id);
+                }
                 // 이미 있을 경우 넘기기
                 if (synergiesDict[stat.SynergIDs[i]].Contains(stat.Id))
                     break;
