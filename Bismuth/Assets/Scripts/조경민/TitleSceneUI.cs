@@ -61,4 +61,9 @@ public class TitleSceneUI : MonoBehaviour
     {
         GameSceneManager.Instance.GameQuit();
     }
+
+    public void OnClickOpenURL(string url)
+    {
+        Application.OpenURL(url);
+    }
 }

@@ -19,6 +19,8 @@ public class CatalogUIController : MonoBehaviour
     [SerializeField] private TextMeshProUGUI _rightPageTitle;  // 오른쪽 페이지 번호 텍스트
     [SerializeField] private GameObject _howToPlayPanel;
     [SerializeField] private GameObject _mapScrollView;
+    [SerializeField] private GameObject _prevButton;
+    [SerializeField] private GameObject _nextButton;
 
     [Header("━━━━ 상세 패널 ━━━━")]
     [SerializeField] private GameObject _detailPanel;            // 상세 정보 패널
@@ -246,6 +248,8 @@ public class CatalogUIController : MonoBehaviour
     {
         _currentUnitData = unitData;
 
+        _prevButton.SetActive(false);
+        _nextButton.SetActive(false);
         _detailPanel.SetActive(true);
         _illustration.sprite = unitData.Illustration;
         RefreshUnitDetailText(unitData);
@@ -259,6 +263,8 @@ public class CatalogUIController : MonoBehaviour
 
     public void CloseUnitDetail()
     {
+        _prevButton.SetActive(true);
+        _nextButton.SetActive(true);
         _detailPanel.SetActive(false);
     }
 }
