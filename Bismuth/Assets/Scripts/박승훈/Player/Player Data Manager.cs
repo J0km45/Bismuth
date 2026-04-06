@@ -25,7 +25,7 @@ public class PlayerDataManager : MonoBehaviour
     
     private void Awake()
     {
-        PlayerStatInit();
+        Debug.Log($"[TRACE] Awake : {name}", this);
     }
     
     public int Level
@@ -39,6 +39,28 @@ public class PlayerDataManager : MonoBehaviour
         }
     }
 
+    private void OnEnable()
+    {
+        Debug.Log($"[TRACE] OnEnable : {name}", this);
+    }
+
+    private void Start()
+    {
+        PlayerStatInit();
+        
+        Debug.Log($"[TRACE] Start : {name}", this);
+    }
+
+    private void OnDisable()
+    {
+        string parentName = transform.parent != null ? transform.parent.name : "None";
+
+        Debug.Log(
+            $"[TRACE] OnDisable : {name} | parent={parentName} | enabled={enabled} | activeSelf={gameObject.activeSelf} | activeInHierarchy={gameObject.activeInHierarchy}\n" +
+            $"{System.Environment.StackTrace}",
+            this);
+    }
+    
     public int Gold
     {
         get => _gold;
