@@ -4,7 +4,9 @@ using UnityEngine.UI;
 
 public class GameViewPanelUI : MonoBehaviour
 {
+    [Header("━━━━ 참조 ━━━━")]
     [SerializeField] private BattleWaveRunner _battleWaveRunner;
+    [SerializeField] private SFXController _sfxController;
 
     [Header("━━━━ 정비 UI ━━━━")]
     [SerializeField] private GameObject _skipButton;
@@ -166,6 +168,8 @@ public class GameViewPanelUI : MonoBehaviour
     {
         SetPreparationUIActive(false);
 
+        _sfxController.OnGameVictory();
+        
         _gameclearPopupUI.gameObject.SetActive(true);
         MapBattleConfigSO config = _battleWaveRunner.MapBattleConfig;
         _gameclearPopupUI.ShowResult(config.MapName, config.DifficultyName);
@@ -174,6 +178,8 @@ public class GameViewPanelUI : MonoBehaviour
     // 배틀 실패 때 정비시간 텍스트, 스킵 버튼 비활성화
     private void BattleFailed()
     {
+        _sfxController.OnGameOver();
+        
         SetPreparationUIActive(false);
 
         _gameoverPopupUI.gameObject.SetActive(true);

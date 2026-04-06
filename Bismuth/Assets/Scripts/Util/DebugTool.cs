@@ -32,10 +32,10 @@ public static class DebugTool
         // 타입에 따른 글자색 선택
         string color = GetColor(type);
         // 오브젝트 출처의 null 체크 null 이면 "None" 아니면 오브젝트 이름 출력
-        string ctxSource = context != null ? context.name : "None";
-        
-        Debug.Log($"<color={color}>[{type}] {text}</color>\n" +
-                  $"<color=#daa520>출처 : [{ctxSource}]</color>", context);
+        // string ctxSource = context != null ? context.name : "None";
+        //
+        // Debug.Log($"<color={color}>[{type}] {text}</color>\n" +
+        //           $"<color=#daa520>출처 : [{ctxSource}]</color>", context);
     }
     public static void Log(string text, DebugType type, object source = null,
         [CallerMemberName] string memberName = "",
