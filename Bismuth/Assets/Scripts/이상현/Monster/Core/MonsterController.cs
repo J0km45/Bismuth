@@ -37,6 +37,9 @@ public class MonsterController : MonoBehaviour
 
     [Tooltip("처치 보상")]
     [SerializeField, Min(0)] private int _killReward;
+
+    [Tooltip("몬스터 타입")]
+    [SerializeField] private MonsterCategory _monsterCategory;
     
     private bool _isInitialized;
     private bool _hasDied;
@@ -52,6 +55,7 @@ public class MonsterController : MonoBehaviour
     public int DamageToBase => _damageToBase;
     public int KillReward => _killReward;
     public float BaseDefense => _baseDefense;
+    public MonsterCategory Category => _monsterCategory;
 
     private void Reset()
     {
@@ -104,6 +108,7 @@ public class MonsterController : MonoBehaviour
         _damageToBase = runtimeValues.DamageToBase;
         _killReward = runtimeValues.KillReward;
         _baseDefense = runtimeValues.Defense;
+        _monsterCategory = MonsterData.Category;
 
         _hasDied = false;
         _hasReachedBase = false;
@@ -194,4 +199,5 @@ public struct MonsterRuntimeValues
     public int KillReward;
     public float MoveSpeed;
     public float Defense;
+    public MonsterCategory Category;
 }

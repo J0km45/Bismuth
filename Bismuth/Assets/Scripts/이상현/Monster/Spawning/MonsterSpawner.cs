@@ -239,9 +239,21 @@ public class MonsterSpawner : MonoBehaviour
         
         DebugTool.Log("[몬스터 정보]\n" +
                       $"체력 : {runtimeValues.CurrentHp}\n" +
-                      $"방어력 : {runtimeValues.Defense}" +
-                      $"처치 보상 : {runtimeValues.KillReward}", DebugType.Enemy, this);
-        
+                      $"방어력 : {runtimeValues.Defense}\n" +
+                      $"처치 보상 : {runtimeValues.KillReward}\n" +
+                      $"몬스터 타입 : {runtimeValues.Category.ToString()}", DebugType.Enemy, this);
+
+        if (monsterController.Category == MonsterCategory.Boss)
+        {
+            BGMController.Instance.PlayBossBGM();
+            BGMController.Instance.IsPlayingNormalBGM = false;
+            
+        }
+        else if (monsterController.Category == MonsterCategory.Normal)
+        {
+            BGMController.Instance.PlayNormalBGM();
+            BGMController.Instance.IsPlayingNormalBGM = true;
+        }
         MonsterSpawned?.Invoke(monsterController);
     }
     
@@ -261,7 +273,8 @@ public class MonsterSpawner : MonoBehaviour
                 DamageToBase = monsterData.BaseDamageToBase,
                 KillReward = MonsterRuntimeValueCalculator.CalculateKillReward(monsterData),
                 MoveSpeed = monsterData.MoveSpeed,
-                Defense = MonsterRuntimeValueCalculator.CalculateDefense(monsterData, _waveData.WaveNumber)
+                Defense = MonsterRuntimeValueCalculator.CalculateDefense(monsterData, _waveData.WaveNumber),
+                Category = monsterData.Category
             };
         }
 
