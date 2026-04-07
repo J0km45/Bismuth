@@ -67,9 +67,9 @@ public class TimeScaleController : MonoBehaviour
     }
 
     // 속도 조절(배속 버튼)
-    public void ToggleSpeed(float fastSpeed)
+    public void ChangeSpeed(float fastSpeed)
     {
-        _currentSpeed = _currentSpeed == 1f ? fastSpeed : 1f;
+        _currentSpeed = fastSpeed;
         SetTimeScale();
     }
 }

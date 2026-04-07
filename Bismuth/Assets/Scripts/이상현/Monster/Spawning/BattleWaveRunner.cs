@@ -405,7 +405,11 @@ public class BattleWaveRunner : MonoBehaviour
     {
         while (_isIntermissionActive && _intermissionRemainingTime > 0f)
         {
-            _intermissionRemainingTime = Mathf.Max(0f, _intermissionRemainingTime - Time.deltaTime);
+            if (Time.timeScale > 0f)
+            {
+                _intermissionRemainingTime = Mathf.Max(0f, _intermissionRemainingTime - Time.unscaledDeltaTime);
+            }
+            
             IntermissionTimeChanged?.Invoke(_intermissionRemainingTime);
             yield return null;
         }

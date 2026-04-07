@@ -1551,7 +1551,8 @@ RectTransform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 2200071038914480071}
   m_Father: {fileID: 7034476997768463337}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
@@ -1587,7 +1588,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -1996117451, guid: 9647ce8cf65f5ff498b406128db94c11, type: 3}
+  m_Sprite: {fileID: 108620758, guid: 9647ce8cf65f5ff498b406128db94c11, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -8189,15 +8190,21 @@ MonoBehaviour:
   _pauseButtonObject: {fileID: 3860200582907674000}
   _waveText: {fileID: 4979365682827266635}
   _preparationTimeText: {fileID: 4555381745691916283}
+  _extraSpeedText: {fileID: 7948656179814014943}
   _fastButtonImage: {fileID: 4202305190971553093}
   _pauseButtonImage: {fileID: 185151976738065931}
   _pausePopup: {fileID: 5393392711962995630}
   _pausePanel: {fileID: 4037922770257792572}
-  _fastSpeed: 2
+  _fastSpeed:
+  - 1
+  - 2
+  - 3
+  - 4
+  currentSpeed: 1
   _pauseSprite: {fileID: 1035602917, guid: 9647ce8cf65f5ff498b406128db94c11, type: 3}
-  _playSprite: {fileID: 1482021244, guid: 9647ce8cf65f5ff498b406128db94c11, type: 3}
-  _baseSpeedSprite: {fileID: -1996117451, guid: 9647ce8cf65f5ff498b406128db94c11, type: 3}
-  _extraSpeedSprite: {fileID: 50458473, guid: 9647ce8cf65f5ff498b406128db94c11, type: 3}
+  _playSprite: {fileID: -1996117451, guid: 9647ce8cf65f5ff498b406128db94c11, type: 3}
+  _baseSpeedSprite: {fileID: 108620758, guid: 9647ce8cf65f5ff498b406128db94c11, type: 3}
+  _extraSpeedSprite: {fileID: 1610774224, guid: 9647ce8cf65f5ff498b406128db94c11, type: 3}
   _gameclearPopupUI: {fileID: 4155649856601436619}
   _gameoverPopupUI: {fileID: 5706796549229366821}
 --- !u!1 &6396359160852036808
