@@ -33,12 +33,9 @@ public class UnitAutoAttack : MonoBehaviour
     private const float WizardBonusCooldownSeconds = 5f;
     private const float FurryTriggerAnimSpeedBoost = 1.3f;
 
-    [Header("Synergy")]
-    [SerializeField] private SynergyDataController synergyDataController;
+    private SynergySO synergySO => CombatManager.Instance != null ? CombatManager.Instance.SynergySO : null;
 
-    private bool warnedMissingGunnerSynergyDataController = false;
-    private bool warnedMissingWizardSynergyDataController = false;
-    private bool warnedMissingArcherSynergyDataController = false;
+    private bool warnedMissingSynergySO = false;
 
 
     private TowerUnit towerUnit;
@@ -763,15 +760,13 @@ public class UnitAutoAttack : MonoBehaviour
         if (CombatManager.Instance == null)
             return 0f;
 
-        TryResolveSynergyDataController();
-
-        if (synergyDataController == null)
+        if (synergySO == null)
         {
-            WarnMissingArcherSynergyDataController();
+            WarnMissingSynergySO("Archer", ref warnedMissingSynergySO);
             return 0f;
         }
 
-        SynergyData archerData = synergyDataController.GetById(ArcherSynergyId);
+        SynergyData archerData = GetSynergyDataById(ArcherSynergyId);
         if (archerData == null || archerData.Levels == null || archerData.Levels.Count == 0)
             return 0f;
 
@@ -796,13 +791,28 @@ public class UnitAutoAttack : MonoBehaviour
         return bonusPercent;
     }
 
-    private void WarnMissingArcherSynergyDataController()
+    private SynergyData GetSynergyDataById(int synergyId)
     {
-        if (warnedMissingArcherSynergyDataController)
+        if (synergySO == null || synergySO.Rows == null)
+            return null;
+
+        for (int i = 0; i < synergySO.Rows.Count; i++)
+        {
+            SynergyData data = synergySO.Rows[i];
+            if (data != null && data.ID == synergyId)
+                return data;
+        }
+
+        return null;
+    }
+
+    private void WarnMissingSynergySO(string synergyName, ref bool warned)
+    {
+        if (warned)
             return;
 
-        warnedMissingArcherSynergyDataController = true;
-        DebugTool.Warnning("SynergyDataController 참조가 없어 궁수 최대 체력 비례 시너지를 적용하지 않습니다.", DebugType.Synergy, this);
+        warned = true;
+        DebugTool.Warnning($"SynergySO 참조가 없어 {synergyName} 시너지를 적용하지 않습니다.", DebugType.Synergy, this);
     }
 
 
@@ -885,12 +895,10 @@ public class UnitAutoAttack : MonoBehaviour
         if (CombatManager.Instance == null)
             return 0;
 
-        TryResolveSynergyDataController();
-
-        if (synergyDataController == null)
+        if (synergySO == null)
             return 0;
 
-        SynergyData furryData = synergyDataController.GetById(FurrySynergyId);
+        SynergyData furryData = GetSynergyDataById(FurrySynergyId);
         if (furryData == null || furryData.Levels == null || furryData.Levels.Count == 0)
             return 0;
 
@@ -926,15 +934,13 @@ public class UnitAutoAttack : MonoBehaviour
         if (CombatManager.Instance == null)
             return 0f;
 
-        TryResolveSynergyDataController();
-
-        if (synergyDataController == null)
+        if (synergySO == null)
         {
-            WarnMissingWizardSynergyDataController();
+            WarnMissingSynergySO("Wizard", ref warnedMissingSynergySO);
             return 0f;
         }
 
-        SynergyData wizardData = synergyDataController.GetById(WizardSynergyId);
+        SynergyData wizardData = GetSynergyDataById(WizardSynergyId);
         if (wizardData == null || wizardData.Levels == null || wizardData.Levels.Count == 0)
             return 0f;
 
@@ -979,15 +985,13 @@ public class UnitAutoAttack : MonoBehaviour
         if (CombatManager.Instance == null)
             return 0f;
 
-        TryResolveSynergyDataController();
-
-        if (synergyDataController == null)
+        if (synergySO == null)
         {
-            WarnMissingGunnerSynergyDataController();
+            WarnMissingSynergySO("Gunner", ref warnedMissingSynergySO);
             return 0f;
         }
 
-        SynergyData gunnerData = synergyDataController.GetById(GunnerSynergyId);
+        SynergyData gunnerData = GetSynergyDataById(GunnerSynergyId);
         if (gunnerData == null || gunnerData.Levels == null || gunnerData.Levels.Count == 0)
             return 0f;
 
@@ -1036,30 +1040,5 @@ public class UnitAutoAttack : MonoBehaviour
         return false;
     }
 
-    private void TryResolveSynergyDataController()
-    {
-        if (synergyDataController != null)
-            return;
 
-        synergyDataController = FindAnyObjectByType<SynergyDataController>();
-
-    }
-
-    private void WarnMissingGunnerSynergyDataController()
-    {
-        if (warnedMissingGunnerSynergyDataController)
-            return;
-
-        warnedMissingGunnerSynergyDataController = true;
-        DebugTool.Warnning("SynergyDataController 참조가 없어 거너 공속 시너지를 적용하지 않습니다.", DebugType.Synergy, this);
-    }
-
-    private void WarnMissingWizardSynergyDataController()
-    {
-        if (warnedMissingWizardSynergyDataController)
-            return;
-
-        warnedMissingWizardSynergyDataController = true;
-        DebugTool.Warnning("SynergyDataController 참조가 없어 마법사 추가 대미지 시너지를 적용하지 않습니다.", DebugType.Synergy, this);
-    }
 }
