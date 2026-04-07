@@ -103,6 +103,23 @@ public class UnitData
     public string UnitName => unitName;
     public Sprite Icon => icon;
     public Sprite Illustration => illustration;
+
+    
+    // 도감 슬롯용 썸네일. SO에 아이콘이 비어 있으면 일러스트, 그다음 Resources 경로 순으로 보완합니다.
+    // 아이콘 -> 일러스트 -> 스프라이트 -> 일러스트
+    // 도감 아이콘이 안 불러와짐 일단 하드코딩
+ 
+    public Sprite GetCatalogThumbnail()
+    {
+        if (icon != null)
+            return icon;
+        if (illustration != null)
+            return illustration;
+        Sprite fromSprites = Resources.Load<Sprite>($"Units/Sprites/{id}");
+        if (fromSprites != null)
+            return fromSprites;
+        return Resources.Load<Sprite>($"Units/Illustrations/{id}");
+    }
     public float AttackPower => attackPower;
     public float AttackSpeed => attackSpeed;
     public float CriticalChance => criticalChance;
