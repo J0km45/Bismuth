@@ -231,10 +231,16 @@ public class MonsterSpawner : MonoBehaviour
         }
 
         MonsterRuntimeValues runtimeValues = BuildRuntimeValues(entry.MonsterData);
-
+        
+        
         monsterController.Initialize(_waypointPath, runtimeValues);
         monsterController.ReachedBase += HandleMonsterReachedBase;
         monsterController.Died += HandleMonsterDied;
+        
+        DebugTool.Log("[몬스터 정보]\n" +
+                      $"체력 : {runtimeValues.CurrentHp}\n" +
+                      $"방어력 : {runtimeValues.Defense}" +
+                      $"처치 보상 : {runtimeValues.KillReward}", DebugType.Enemy, this);
         
         MonsterSpawned?.Invoke(monsterController);
     }
