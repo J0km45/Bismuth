@@ -17,16 +17,27 @@ public class CatalogSerializer
     {
         if (unitCatalogSO == null) return;
 
-        // SO 수정 x
-        // 직접 저장하지 않고 저장 전용 데이터 클래스로 변환
-        CatalogSaveData saveData = CatalogSaveData.FromCatalogSO(unitCatalogSO);
+        try
+        {
+            // SO 수정 x
+            // 직접 저장하지 않고 저장 전용 데이터 클래스로 변환
+            CatalogSaveData saveData = CatalogSaveData.FromCatalogSO(unitCatalogSO);
 
-        // Json 은 문자열임
-        string json = JsonUtility.ToJson(saveData, true);
+            // Json 은 문자열임
+            string json = JsonUtility.ToJson(saveData, true);
 
-        // 이걸 이제 실제 파일에 저장
-        File.WriteAllText(SavePath, json);
-        Debug.Log($"도감 저장 완료\n경로 : {SavePath}");
+            string directoryPath = Path.GetDirectoryName(SavePath);
+            if (!string.IsNullOrEmpty(directoryPath) && !Directory.Exists(directoryPath))
+                Directory.CreateDirectory(directoryPath);
+
+            // 이걸 이제 실제 파일에 저장
+            File.WriteAllText(SavePath, json);
+            Debug.Log($"도감 저장 완료\n경로 : {SavePath}");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"도감 저장 실패: {e.Message}\n경로 : {SavePath}");
+        }
     }
 
     // 저장을 했으면 읽어야 함
@@ -47,13 +58,26 @@ public class CatalogSerializer
         }
 
 
-        // 문자열 가져오기
-        string json = File.ReadAllText(SavePath);
+        try
+        {
+            // 문자열 가져오기
+            string json = File.ReadAllText(SavePath);
 
-        // Json 문자열 -> 저장용 데이터 클래스로 변환
-        CatalogSaveData saveData = JsonUtility.FromJson<CatalogSaveData>(json);
-        ApplyCatalogSO(saveData, unitCatalogSO);
-        Debug.Log("도감 로드 완료");
+            // Json 문자열 -> 저장용 데이터 클래스로 변환
+            CatalogSaveData saveData = JsonUtility.FromJson<CatalogSaveData>(json);
+            if (saveData == null)
+            {
+                Debug.LogWarning($"도감 로드 실패: JSON 파싱 결과가 null 입니다.\n경로 : {SavePath}");
+                return;
+            }
+
+            ApplyCatalogSO(saveData, unitCatalogSO);
+            Debug.Log("도감 로드 완료");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"도감 로드 실패: {e.Message}\n경로 : {SavePath}");
+        }
     }
 
     // 저장 파일 있는지 확인

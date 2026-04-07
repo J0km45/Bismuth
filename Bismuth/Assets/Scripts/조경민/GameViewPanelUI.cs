@@ -20,6 +20,8 @@ public class GameViewPanelUI : MonoBehaviour
     [SerializeField] private TMP_Text _waveText;
     [Tooltip("정비 시간 00:00")]
     [SerializeField] private TMP_Text _preparationTimeText;
+    [Tooltip("배속")]
+    [SerializeField] private TMP_Text _extraSpeedText;
 
     [Header("━━━━ 버튼(이미지) ━━━━")]
     [Tooltip("배속 버튼")]
@@ -35,7 +37,9 @@ public class GameViewPanelUI : MonoBehaviour
 
     [Header("━━━━ 설정 ━━━━")]
     [Tooltip("배속할 속도")]
-    [SerializeField] private float _fastSpeed = 2f;
+    [SerializeField] private float[] _fastSpeed = new float[4] { 1f, 2f, 3f, 4f };
+    [Tooltip("현재 속도")]
+    [SerializeField] private float currentSpeed = 1f;
     [Tooltip("일시정지 이미지")]
     [SerializeField] private Sprite _pauseSprite;
     [Tooltip("재생 이미지")]
@@ -79,8 +83,8 @@ public class GameViewPanelUI : MonoBehaviour
     private void Start()
     {
         RefreshWaveText();
-        SetBattleUIActive(true);
-        SetPreparationUIActive(false);
+        // SetBattleUIActive(true);
+        // SetPreparationUIActive(false);
     }
 
     private void OnDisable()
@@ -106,9 +110,25 @@ public class GameViewPanelUI : MonoBehaviour
     // 배속 버튼
     public void OnClickFast()
     {
-        _isFast = !_isFast;
+        switch (currentSpeed)
+        {
+            case 1f :
+                currentSpeed = _fastSpeed[1];
+                _isFast = true;
+                break;
+            case 2f :
+                currentSpeed = _fastSpeed[2];
+                break;
+            case 3f :
+                currentSpeed = _fastSpeed[3];
+                break;
+            case 4f :
+                currentSpeed = _fastSpeed[0];
+                _isFast = false;
+                break;
+        }
         UpdateFastButton();
-        TimeScaleController.Instance.ToggleSpeed(_fastSpeed);
+        TimeScaleController.Instance.ChangeSpeed(currentSpeed);
     }
 
     // 일시정지 버튼
@@ -148,6 +168,7 @@ public class GameViewPanelUI : MonoBehaviour
         SetBattleUIActive(false);
         SetPreparationUIActive(true);
         UpdatePreparationTimeText(duration);
+        TimeScaleController.Instance.ChangeSpeed(1f);
     }
 
     // 정비시간 텍스트, 스킵 버튼 활성화 / 시간 갱신
@@ -161,6 +182,7 @@ public class GameViewPanelUI : MonoBehaviour
     {
         SetPreparationUIActive(false);
         SetBattleUIActive(true);
+        TimeScaleController.Instance.ChangeSpeed(currentSpeed);
     }
 
     // 배틀 완료 때 정비시간 텍스트, 스킵 버튼 비활성화
@@ -214,6 +236,8 @@ public class GameViewPanelUI : MonoBehaviour
     private void UpdateFastButton()
     {
         _fastButtonImage.sprite = _isFast ? _extraSpeedSprite : _baseSpeedSprite;
+        _extraSpeedText.color = _isFast ? new Color(0.7672f, 0.6573f,0.5718f) : new Color(0.207f, 0.1281f, 0.0815f);
+        _extraSpeedText.text = $"X{currentSpeed}";
     }
 
     // 일시정지 버튼 이미지 조정

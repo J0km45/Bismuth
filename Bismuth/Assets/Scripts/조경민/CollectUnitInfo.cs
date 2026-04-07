@@ -7,6 +7,9 @@ public class CollectUnitInfo : MonoBehaviour
     [SerializeField] private PlayerUIController playerUIController;
     [SerializeField] private Button upgradeButton;
     [SerializeField] private Button sellButton;
+
+    public PlayerUIController PlayerUIController => playerUIController;
+
     public void CollectInfo(GameObject unit)
     {
         selectedUnit = unit;
