@@ -338,7 +338,7 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 8772846745754385423}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: SFXController, Assembly-CSharp
         m_MethodName: OnClickMenu
         m_Mode: 1
@@ -1730,7 +1730,7 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 8772846745754385423}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: SFXController, Assembly-CSharp
         m_MethodName: OnClickMenu
         m_Mode: 1
@@ -2101,8 +2101,6 @@ GameObject:
   - component: {fileID: 553538836466420824}
   - component: {fileID: 5428384088822243974}
   - component: {fileID: 1547353132148705154}
-  - component: {fileID: 8772846745754385423}
-  - component: {fileID: 7280757062822704006}
   m_Layer: 5
   m_Name: CombatCanvas
   m_TagString: Untagged
@@ -2212,117 +2210,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PauseInputHandler
   _pausePopup: {fileID: 5393392711962995630}
   _settingsPopup: {fileID: 6764492167120870995}
---- !u!114 &8772846745754385423
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1370426514789499714}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe32b2f341d2b1f49ab27d797f9fdb23, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::UISFXController
-  _sfxso: {fileID: 11400000, guid: 006fe0361b28d764c83beef2cc64eb20, type: 2}
-  _source: {fileID: 0}
---- !u!82 &7280757062822704006
-AudioSource:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1370426514789499714}
-  m_Enabled: 1
-  serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 0}
-  m_Resource: {fileID: 0}
-  m_PlayOnAwake: 0
-  m_Volume: 1
-  m_Pitch: 1
-  Loop: 0
-  Mute: 0
-  Spatialize: 0
-  SpatializePostEffects: 0
-  Priority: 128
-  DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
-  Pan2D: 0
-  rolloffMode: 0
-  BypassEffects: 0
-  BypassListenerEffects: 0
-  BypassReverbZones: 0
-  rolloffCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  panLevelCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  spreadCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  reverbZoneMixCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
 --- !u!1 &1474772091775732811
 GameObject:
   m_ObjectHideFlags: 0
@@ -2456,7 +2343,7 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 8772846745754385423}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: SFXController, Assembly-CSharp
         m_MethodName: OnClickMenu
         m_Mode: 1
@@ -3013,7 +2900,7 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 8772846745754385423}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: SFXController, Assembly-CSharp
         m_MethodName: OnClickMenu
         m_Mode: 1
@@ -5348,7 +5235,7 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 8772846745754385423}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: SFXController, Assembly-CSharp
         m_MethodName: OnClickMenu
         m_Mode: 1
@@ -5831,7 +5718,7 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 8772846745754385423}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: SFXController, Assembly-CSharp
         m_MethodName: OnClickMenu
         m_Mode: 1
@@ -7217,7 +7104,7 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 8772846745754385423}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: SFXController, Assembly-CSharp
         m_MethodName: OnClickMenu
         m_Mode: 1
@@ -8260,7 +8147,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameViewPanelUI
   _battleWaveRunner: {fileID: 0}
-  _sfxController: {fileID: 8772846745754385423}
   _skipButton: {fileID: 8873186065585677711}
   _fastButtonObject: {fileID: 1232542151581782272}
   _pauseButtonObject: {fileID: 3860200582907674000}
@@ -8882,19 +8768,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 9079202621336424682}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 8772846745754385423}
-        m_TargetAssemblyTypeName: SFXController, Assembly-CSharp
-        m_MethodName: OnUnitSell
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!1 &7272143426488519785
 GameObject:
   m_ObjectHideFlags: 0
@@ -9442,7 +9316,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7371931740057641824}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -10486,7 +10360,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: PlayerUIController, Assembly-CSharp
-        m_MethodName: OnPlayerLevelUpgrade
+        m_MethodName: PlayerLevelUpgrade
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -11239,7 +11113,7 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 8772846745754385423}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: SFXController, Assembly-CSharp
         m_MethodName: OnClickMenu
         m_Mode: 1
@@ -11401,8 +11275,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
-  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
+    rgba: 4278323990
+  m_fontColor: {r: 0.088050246, g: 0.042394746, b: 0.00913728, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -11549,10 +11423,6 @@ PrefabInstance:
       propertyPath: m_AnchorMax.y
       value: 1
       objectReference: {fileID: 0}
-    - target: {fileID: 3290302186794054826, guid: c804dac6ac4c76d4aad0f7181960139e, type: 3}
-      propertyPath: _sfxController
-      value: 
-      objectReference: {fileID: 8772846745754385423}
     - target: {fileID: 3319438049159278340, guid: c804dac6ac4c76d4aad0f7181960139e, type: 3}
       propertyPath: m_fontAsset
       value: 

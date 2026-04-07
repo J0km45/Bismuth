@@ -1,6 +1,7 @@
 using System.Collections;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class ControlPanelUI : MonoBehaviour
 {
@@ -35,6 +36,8 @@ public class ControlPanelUI : MonoBehaviour
 
     private bool _isCombinationSVOpened => _combinationScrollView.activeSelf;
     private float _elapsedTime = 0f; // 누적 시간 저장용
+    
+    private PlayerAction _playerAction;
 
     private void Awake()
     {
@@ -46,6 +49,18 @@ public class ControlPanelUI : MonoBehaviour
         {
             _playerUIController = FindAnyObjectByType<PlayerUIController>();
         }
+
+        if (_playerAction == null)
+        {
+            _playerAction = new PlayerAction();
+        }
+    }
+
+    private void OnEnable()
+    {
+        _playerAction.Enable();
+
+        _playerAction.UI.Combination.performed += OnClickCombination;
     }
 
     private void Start()
@@ -58,6 +73,10 @@ public class ControlPanelUI : MonoBehaviour
 
     private void OnDisable()
     {
+        _playerAction.UI.Combination.performed -= OnClickCombination;
+        
+        _playerAction.Disable();
+        
         LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
     }
 
@@ -145,6 +164,12 @@ public class ControlPanelUI : MonoBehaviour
             yield return null;
         }
         _warningText.gameObject.SetActive(false);
+    }
+
+    public void OnClickCombination(InputAction.CallbackContext ctx)
+    {
+        if(ctx.performed)
+            OnClickCombination();
     }
 
     public void OnClickCombination()

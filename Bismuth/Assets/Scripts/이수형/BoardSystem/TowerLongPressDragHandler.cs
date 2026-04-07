@@ -9,7 +9,6 @@ public class TowerLongPressDragHandler : MonoBehaviour
     [SerializeField] private BoardSystem boardSystem;
     [SerializeField] private Camera worldCamera;
     [SerializeField] private CellHighlight cellHighlight;
-    [SerializeField] private SFXController sfxController;
 
     [Header("Long Press")]
     [SerializeField] private float holdDuration = 0.5f;
@@ -49,9 +48,6 @@ public class TowerLongPressDragHandler : MonoBehaviour
 
         if (_battleWaveRunner == null)
             _battleWaveRunner = FindAnyObjectByType<BattleWaveRunner>();
-
-        if (sfxController == null) 
-            sfxController = FindObjectOfType<SFXController>();
     }
 
     private void OnEnable()
@@ -73,12 +69,12 @@ public class TowerLongPressDragHandler : MonoBehaviour
             towerUnit.SetDragVisual(false);
             towerUnit.SetSelectionColliderEnabled(true);
             towerUnit.SnapToCurrentSlot();
-            sfxController.OnBatchFail();
+            SFXController.Instance.OnBatchFail();
             DebugTool.Log("웨이브 시작으로 드래그 강제 취소 - 원위치 복귀", DebugType.Wave, this);
         }
         else
         {
-            sfxController.OnBatchFail();
+            SFXController.Instance.OnBatchFail();
             DebugTool.Log("웨이브 시작으로 홀드 강제 취소", DebugType.Wave, this);
         }
 
@@ -251,7 +247,7 @@ public class TowerLongPressDragHandler : MonoBehaviour
             if (!success || relocateResult == BoardSystem.RelocateResult.Invalid)
             {
                 towerUnit.SnapToCurrentSlot();
-                sfxController.OnBatchFail();
+                SFXController.Instance.OnBatchFail();
                 
                 DebugTool.Log("드롭 실패 - 유효하지 않은 위치라 원위치 복귀", DebugType.Board, this);
             }

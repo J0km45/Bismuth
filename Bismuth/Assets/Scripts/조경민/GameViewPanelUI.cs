@@ -6,7 +6,6 @@ public class GameViewPanelUI : MonoBehaviour
 {
     [Header("━━━━ 참조 ━━━━")]
     [SerializeField] private BattleWaveRunner _battleWaveRunner;
-    [SerializeField] private SFXController _sfxController;
 
     [Header("━━━━ 정비 UI ━━━━")]
     [SerializeField] private GameObject _skipButton;
@@ -103,6 +102,7 @@ public class GameViewPanelUI : MonoBehaviour
     // Esc 버튼
     public void OnClickEsc()
     {
+        SFXController.Instance.OnClickMenu();
         _pausePopup.SetActive(true);
         TimeScaleController.Instance.SetPausePopup(true);
     }
@@ -128,6 +128,7 @@ public class GameViewPanelUI : MonoBehaviour
                 break;
         }
         UpdateFastButton();
+        SFXController.Instance.OnClickMenu();
         TimeScaleController.Instance.ChangeSpeed(currentSpeed);
     }
 
@@ -136,6 +137,7 @@ public class GameViewPanelUI : MonoBehaviour
     {
         _pausePanel.SetActive(!_isPausePanelOpened);
         UpdatePauseButton();
+        SFXController.Instance.OnClickMenu();
         TimeScaleController.Instance.SetPausePanel(_isPausePanelOpened);
     }
 
@@ -144,6 +146,7 @@ public class GameViewPanelUI : MonoBehaviour
     {
         if (_battleWaveRunner.IsWaitingForNextWaveStart == false) return;
 
+        SFXController.Instance.OnClickMenu();
         _battleWaveRunner.StartNextWave();
     }
 
@@ -190,7 +193,7 @@ public class GameViewPanelUI : MonoBehaviour
     {
         SetPreparationUIActive(false);
 
-        _sfxController.OnGameVictory();
+        SFXController.Instance.OnGameVictory();
         
         _gameclearPopupUI.gameObject.SetActive(true);
         MapBattleConfigSO config = _battleWaveRunner.MapBattleConfig;
@@ -200,7 +203,7 @@ public class GameViewPanelUI : MonoBehaviour
     // 배틀 실패 때 정비시간 텍스트, 스킵 버튼 비활성화
     private void BattleFailed()
     {
-        _sfxController.OnGameOver();
+        SFXController.Instance.OnGameOver();
         
         SetPreparationUIActive(false);
 

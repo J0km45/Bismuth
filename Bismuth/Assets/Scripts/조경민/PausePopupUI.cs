@@ -38,6 +38,7 @@ public class PausePopupUI : MonoBehaviour
     // 게임 재개 버튼
     public void OnClickResume()
     {
+        SFXController.Instance.OnClickMenu();
         _settingsPopup.SetActive(false);
         gameObject.SetActive(false);
         TimeScaleController.Instance.SetPausePopup(false);
@@ -46,6 +47,7 @@ public class PausePopupUI : MonoBehaviour
     // 환경 설정 버튼
     public void OnClickSettings()
     {
+        SFXController.Instance.OnClickMenu();
         _settingsPopup.SetActive(true);
         TimeScaleController.Instance.SetSettingsPopup(true);
     }
@@ -53,6 +55,7 @@ public class PausePopupUI : MonoBehaviour
     // 로비복귀 버튼
     public void OnClickLobby()
     {
+        SFXController.Instance.OnClickMenu();
         GameSceneManager.Instance.ChangeScene(1);
     }
 }

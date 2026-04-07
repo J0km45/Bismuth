@@ -78,7 +78,7 @@ public class UnitPointerInputRouter : MonoBehaviour
             );
         }
         unitInfoPanel.transform.SetAsLastSibling();
-        unitInfoPanel.SetActive(true);
+        unitInfoPanel?.SetActive(true);
         if (_combinationScrollView.activeSelf)
             _combinationScrollView.SetActive(false);
 
