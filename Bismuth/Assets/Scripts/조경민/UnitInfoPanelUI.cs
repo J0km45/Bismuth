@@ -19,6 +19,10 @@ public class UnitInfoPanelUI : MonoBehaviour
     [SerializeField] private TMP_Text _sellText;
     [Tooltip("설명")]
     [SerializeField] private TMP_Text _descriptionText;
+    [Tooltip("업그레이드 소모 비용")]
+    [SerializeField] private TMP_Text _upgradeGoldText;
+    [Tooltip("판매 획득 비용")]
+    [SerializeField] private TMP_Text _sellGoldText;
 
     [Header("━━━━ 시너지 ━━━━")]
     [SerializeField] private Transform _tagGroup;
@@ -104,6 +108,20 @@ public class UnitInfoPanelUI : MonoBehaviour
         _statText.text =
             $"{LocalizationManager.Instance.Get("ATTACK_POWER")} : {_unitStat.CurrentAttackPower}" +
             $"\n{LocalizationManager.Instance.Get("ATTACK_SPEED")} : {_unitStat.AttackSpeed}";
+
+        PlayerUIController controller = _collectUnitInfo.PlayerUIController;
+        if (_unitStat.Level >= controller.MaxUnitLevel)
+        {
+            _upgradeGoldText.text = "MAX";
+        }
+        else
+        {
+            int upgradeGold = controller.CalculateUpgradeGold(_unitStat.Level, _unitStat.Tier);
+            _upgradeGoldText.text = $"{upgradeGold}";
+        }
+        
+        int sellGold = controller.GetSellGold(_unitStat);
+        _sellGoldText.text = $"{sellGold}";
     }
 
     private void Clear()
@@ -113,6 +131,8 @@ public class UnitInfoPanelUI : MonoBehaviour
         _tierText.text = "";
         _statText.text = "";
         _descriptionText.text = "";
+        _upgradeGoldText.text = "";
+        _sellGoldText.text = "";
 
         ClearSynergyTags();
     }

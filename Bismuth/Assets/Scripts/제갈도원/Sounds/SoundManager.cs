@@ -25,6 +25,7 @@ public class SoundManager : MonoBehaviour
         _audioSource = GetComponent<AudioSource>();
         if (_audioSource == null)
             _audioSource = gameObject.AddComponent<AudioSource>();
+        AudioManager.Instance.UiSource = _audioSource;
         _audioSource.playOnAwake = false;
         _audioSource.spatialBlend = 0f;
     }
