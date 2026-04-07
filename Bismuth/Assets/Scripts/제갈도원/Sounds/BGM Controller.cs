@@ -9,7 +9,10 @@ public class BGMController : MonoBehaviour
     [SerializeField] private AudioSource _audioSource;
     [SerializeField] private SFXSO _sfxso;
     
-    [SerializeField] private int currentScene = -1;
+    [SerializeField] private int _currentScene = -1;
+
+    [SerializeField] private bool _isPlayingNormalBGM = false;
+    public bool IsPlayingNormalBGM {get {return _isPlayingNormalBGM;} set {_isPlayingNormalBGM = value;}}
 
     private BGMType _currentBGMType = (BGMType)(-1);
     
@@ -38,22 +41,16 @@ public class BGMController : MonoBehaviour
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        StartBGM();
+        PlayStartBGM();
     }
 
-    private void StartBGM()
+    private void PlayStartBGM()
     {
-        currentScene = SceneManager.GetActiveScene().buildIndex;
-
-        if (currentScene > 10)
-        {
-            AudioManager.Instance.PlayBGM(_audioSource, _sfxso.BGMList[(int)BGMType.Forest]);
-            return;
-        }
+        _currentScene = SceneManager.GetActiveScene().buildIndex;
 
         BGMType nextType;
 
-        switch (currentScene)
+        switch (_currentScene)
         {
             case 0:
             case 1:
@@ -79,17 +76,28 @@ public class BGMController : MonoBehaviour
                 break;
 
             default:
-                return;
+                nextType = BGMType.Forest;
+                break;
         }
 
         if (_currentBGMType == nextType)
             return;
-
+        
+        DebugTool.Log($"_currentScene: {_currentScene}\n" +
+                      $"{_currentBGMType.ToString()}\n" +
+                      $"{nextType.ToString()}", DebugType.Game, this);
+        
         _currentBGMType = nextType;
-        AudioManager.Instance.PlayBGM(_audioSource, _sfxso.BGMList[(int)nextType]);
+        AudioManager.Instance.PlayBGM(_audioSource, _sfxso.BGMList[(int)_currentBGMType]);
     }
 
-    public void BossBGM()
+    public void PlayNormalBGM()
+    {
+        if(!_isPlayingNormalBGM)
+            AudioManager.Instance.PlayBGM(_audioSource, _sfxso.BGMList[(int)_currentBGMType]);
+    }
+
+    public void PlayBossBGM()
     {
         AudioManager.Instance.PlayBGM(_audioSource, _sfxso.BGMList[(int)BGMType.Boss]);
     }
