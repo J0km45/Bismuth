@@ -14,6 +14,10 @@ public class AudioManager : MonoBehaviour
     private AudioSource _bgmSource;
     private AudioSource _sfxSource;
     private AudioSource _uiSource;
+    
+    public AudioSource BgmSource { get { return _bgmSource; } set {_bgmSource = value; } }
+    public AudioSource SfxSource { get { return _sfxSource; } set {_sfxSource = value; } }
+    public AudioSource UiSource { get { return _uiSource; } set {_uiSource = value; } }
 
     public float MasterVolume
     {
@@ -26,7 +30,7 @@ public class AudioManager : MonoBehaviour
 
     public float BgmVolume
     {
-        get { return _masterVolume * _bgmVolume; }
+        get { return _bgmVolume; }
         set
         {
             _bgmVolume = value;
@@ -35,7 +39,7 @@ public class AudioManager : MonoBehaviour
 
     public float SfxVolume
     {
-        get { return _masterVolume * _sfxVolume; }
+        get { return _sfxVolume; }
         set
         {
             _sfxVolume = value;
@@ -44,7 +48,7 @@ public class AudioManager : MonoBehaviour
 
     public float UIVolume
     {
-        get { return _masterVolume * _uiVolume; }
+        get { return _uiVolume; }
         set
         {
             _uiVolume = value;
@@ -68,7 +72,7 @@ public class AudioManager : MonoBehaviour
     {
         if (source == null) return;
         _bgmSource = source;
-        source.volume = UIVolume;
+        source.volume = UIVolume *_masterVolume;
         source.clip = clip;
         source.Play();
     }
@@ -77,7 +81,7 @@ public class AudioManager : MonoBehaviour
     public void PlaySFX(AudioSource source, AudioClip clip)
     {
         if (source == null) return;
-        source.volume = UIVolume;
+        source.volume = UIVolume *_masterVolume;
         source.clip = clip;
         source.PlayOneShot(source.clip);
     }
@@ -87,7 +91,7 @@ public class AudioManager : MonoBehaviour
     {
         if (source == null) return;
         _uiSource = source;
-        source.volume = UIVolume;
+        source.volume = UIVolume *_masterVolume;
         source.clip = clip;
         source.PlayOneShot(source.clip);
     }
@@ -95,24 +99,28 @@ public class AudioManager : MonoBehaviour
     public void SetMasterVolume(float value)
     {
         _masterVolume = value;
-        _bgmSource.volume = BgmVolume;
-        _uiSource.volume = UIVolume;
+        _bgmSource.volume = BgmVolume *_masterVolume;
+        _uiSource.volume = UIVolume * _masterVolume;
+        if(_sfxSource != null)
+            _sfxSource.volume = SfxVolume * _masterVolume;
     }
 
     public void SetBgmVolume(float value)
     {
         _bgmVolume = value;
-        _bgmSource.volume = BgmVolume;
+        _bgmSource.volume = BgmVolume * _masterVolume;
     }
 
     public void SetSfxVolume(float value)
     {
         _sfxVolume = value;
+        if(_sfxSource != null)
+            _sfxSource.volume = SfxVolume * _masterVolume;
     }
 
     public void SetUIVolume(float value)
     {
         _uiVolume = value;
-        _uiSource.volume = UIVolume;
+        _uiSource.volume = UIVolume * _masterVolume;
     }
 }
