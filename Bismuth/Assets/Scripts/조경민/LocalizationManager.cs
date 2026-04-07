@@ -77,5 +77,6 @@ public class LocalizationManager : MonoBehaviour
 public enum Language
 {
     Korean,
-    English
+    English,
+    Japanese
 }
