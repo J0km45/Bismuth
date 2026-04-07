@@ -22,6 +22,8 @@ public class PlayerUIController : MonoBehaviour
     private readonly int[] SELL_GOLD_BY_TIER = { 20, 40, 50, 200 };
     private readonly int[] PLAYER_UPGRADE_GOLD = { 110, 220, 330, 440, 550 };
 
+    public int MaxUnitLevel => MAX_UNIT_LEVEL;
+
     private void Awake()
         => Init();
 
@@ -29,24 +31,24 @@ public class PlayerUIController : MonoBehaviour
     public void OnUnitSell(GameObject unit)
     {
         DebugTool.Log("유닛 판매 버튼", DebugType.Unit, this);
-        
+
         if (unit == null)
         {
             DebugTool.Log("유닛이 없습니다.", DebugType.Game, this);
             return;
         }
-        
+
         TowerUnit towerUnit = unit.GetComponent<TowerUnit>();
-        
+
         if (towerUnit == null)
         {
             DebugTool.Log("TowerUnit 컴포넌트를 찾을 수 없습니다.", DebugType.Game, this);
             return;
         }
-        
+
         UnitStat stat = unit.GetComponent<UnitStat>();
-        
-        if(stat == null)
+
+        if (stat == null)
         {
             DebugTool.Log("UnitStat 컴포넌트를 찾을 수 없습니다.", DebugType.Game, this);
             return;
@@ -57,14 +59,14 @@ public class PlayerUIController : MonoBehaviour
         int sellGold = SellUnit(payback, stat.Tier);
 
         _player.Gold += sellGold;
-        
+
         _unitInfoPanelUI.gameObject.SetActive(false);
         _summonManger?.DespawnUnit(towerUnit);
     }
 
     private int SellUnit(int payback, int tier)
-        => SELL_GOLD_BY_TIER[tier-1] + payback;
-    
+        => SELL_GOLD_BY_TIER[tier - 1] + payback;
+
     // 유닛 합성 시 호출
     public void OnUnitCombine(int index)
     {
@@ -82,25 +84,25 @@ public class PlayerUIController : MonoBehaviour
 
         if (!_combineManger.CombineUnit(index))
             return;
-                
+
         _sfxController.OnMerge();
         _player.Gold -= COMBINE_GOLD;
         _unitInfoPanelUI.gameObject.SetActive(false);
     }
-    
+
     // 유닛 업그레이드 시 호출
     public void OnUnitUpgrade(GameObject unit)
     {
         DebugTool.Log("유닛 업그레이드 버튼", DebugType.Unit, this);
-        
+
         if (unit == null)
         {
             DebugTool.Log("게임 오브젝트를 찾을 수 없습니다.", DebugType.Unit, this);
             return;
         }
-        
+
         UnitStat stat = unit.GetComponent<UnitStat>();
-        
+
         int unitID = stat.Id;
         int unitTier = stat.Tier;
         int unitLevel = stat.Level;
@@ -108,35 +110,19 @@ public class PlayerUIController : MonoBehaviour
         if (unitLevel == MAX_UNIT_LEVEL)
         {
             DebugTool.Log($"유닛 레벨 {unitLevel} : 이미 최고 레벨 입니다.", DebugType.Unit, this);
+            _sfxController.OnUIFailure();
+            _controlPanelUI.ShowWarningText(LocalizationManager.Instance.Get("MAX_LEVEL"));
             return;
         }
 
-        int gold; 
-        switch (unitTier)
-        {
-            case 1:
-                gold = unitLevel * 3 + 15;
-                break;
-            case 2:
-                gold = unitLevel * 5 + 30;
-                break;
-            case 3:
-                gold = unitLevel * 10 + 50;
-                break;
-            case 4:
-                gold = unitLevel * 20 + 100;
-                break;
-            default:
-                gold = 10000;
-                break;
-        }
+        int gold = CalculateUpgradeGold(unitLevel, unitTier);
 
         if (_player.Gold < gold)
         {
             NotEnoughGold();
             return;
         }
-        
+
         float UpgradeRatio = _unitEnhanceSO.UnitEnhanceDatas[unitID - 10001].EnhanceValue;
 
         _player.Gold -= gold;
@@ -150,7 +136,24 @@ public class PlayerUIController : MonoBehaviour
         _sfxController.OnEnforce();
         _unitInfoPanelUI.RefreshStats();
     }
-    
+
+    public int CalculateUpgradeGold(int unitLevel, int unitTier)
+    {
+        switch (unitTier)
+        {
+            case 1: 
+                return unitLevel * 3 + 15;
+            case 2: 
+                return unitLevel * 5 + 30;
+            case 3: 
+                return unitLevel * 10 + 50;
+            case 4: 
+                return unitLevel * 20 + 100;
+            default: 
+                return 10000;
+        }
+    }
+
     // 플레이어 레벨 업그레이드 시 호출
     public void OnPlayerLevelUpgrade()
     {
@@ -165,11 +168,12 @@ public class PlayerUIController : MonoBehaviour
         {
             DebugTool.Log("이미 최대 레벨 입니다.", DebugType.Game, this);
             _sfxController.OnUIFailure();
+            _controlPanelUI.ShowWarningText(LocalizationManager.Instance.Get("MAX_LEVEL"));
             return;
         }
-        
+
         int gold = PLAYER_UPGRADE_GOLD[level];
-        
+
         if (_player.Gold < gold)
             NotEnoughGold();
         else
@@ -178,14 +182,14 @@ public class PlayerUIController : MonoBehaviour
             _player.Level++;
             _sfxController.OnEnforceGatcha();
         }
-        
+
         DebugTool.Log($"골드 : {gold}, 레벨 : {level}", DebugType.Game, this);
     }
-    
+
     // 유닛 소환 시 호출
     public void OnSummonUnit(int id)
     {
-        if(id > 0)
+        if (id > 0)
         {
             int index = id - 10001;
             if (index < 0)
@@ -201,19 +205,19 @@ public class PlayerUIController : MonoBehaviour
                 DebugTool.Log("존재하지 않는 유닛입니다.", DebugType.Unit, this);
                 return;
             }
-            
+
             _summonManger.SummonCombineUnit(data);
             return;
         }
 
-        
+
         if (_player.Gold < SUMMON_GOLD)
         {
             NotEnoughGold();
             return;
         }
 
-        if(_summonManger.SummonRandomUnit())
+        if (_summonManger.SummonRandomUnit())
         {
             _player.Gold -= SUMMON_GOLD;
             _sfxController.OnDrawSuccess();
@@ -224,7 +228,7 @@ public class PlayerUIController : MonoBehaviour
     {
         DebugTool.Log("골드가 부족합니다.", DebugType.Game, this);
         _sfxController.OnUIFailure();
-        _controlPanelUI.ShowWarningText();
+        _controlPanelUI.ShowWarningText(LocalizationManager.Instance.Get("NO_GOLD"));
     }
 
     public int GetUpgradeGold(int level)
@@ -233,6 +237,10 @@ public class PlayerUIController : MonoBehaviour
 
         return PLAYER_UPGRADE_GOLD[level];
     }
+
+    public int GetSellGold(UnitStat stat)
+        => SellUnit(stat.Level * 10, stat.Tier);
+
 
     private void Init()
     {
