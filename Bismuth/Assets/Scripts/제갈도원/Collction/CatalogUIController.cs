@@ -89,7 +89,7 @@ public class CatalogUIController : MonoBehaviour
         if (isOpening)
         {
             _encyclopediaPopup.SetActive(true);
-            RefreshSummonedState();   
+            RefreshSummonedState();
         }
         else
         {
@@ -202,7 +202,7 @@ public class CatalogUIController : MonoBehaviour
 
             if (slotUI == null)
             {
-                DebugTool.Log("Slot UI Null", DebugType.Catalog,this);
+                DebugTool.Log("Slot UI Null", DebugType.Catalog, this);
                 return;
             }
 
