@@ -85,6 +85,7 @@ public class HomeBaseHealth : MonoBehaviour
     public void InitializeBaseHealth(int maxHp)
     {
         _maxHp = Mathf.Max(1, maxHp);
+        _baseHPBar.SetMaxHp(_maxHp);
         _currentHp = _maxHp;
         _hasDied = false;
     }

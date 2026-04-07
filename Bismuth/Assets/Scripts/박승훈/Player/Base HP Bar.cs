@@ -20,10 +20,10 @@ public class BaseHPBar : MonoBehaviour
         Refresh();
     }
 
-    public void SetHp(int currentHp, int maxHp)
+    public void SetMaxHp(int maxHp)
     {
         _maxHp = Mathf.Max(1, maxHp);
-        _currentHp = Mathf.Clamp(currentHp, 0, _maxHp);
+        _currentHp = _maxHp;
 
         Refresh();
     }
