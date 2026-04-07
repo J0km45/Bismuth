@@ -436,63 +436,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f2631869768ea1e4593c94dd5ab6e7e1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WaypointPath
---- !u!1001 &865054588
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 6031619182692809268, guid: 0fa2150b2d126484e8fc9a63d3f81ffb, type: 3}
-      propertyPath: m_Name
-      value: SFXManager
-      objectReference: {fileID: 0}
-    - target: {fileID: 6033438160813505312, guid: 0fa2150b2d126484e8fc9a63d3f81ffb, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 960
-      objectReference: {fileID: 0}
-    - target: {fileID: 6033438160813505312, guid: 0fa2150b2d126484e8fc9a63d3f81ffb, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 540
-      objectReference: {fileID: 0}
-    - target: {fileID: 6033438160813505312, guid: 0fa2150b2d126484e8fc9a63d3f81ffb, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6033438160813505312, guid: 0fa2150b2d126484e8fc9a63d3f81ffb, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 6033438160813505312, guid: 0fa2150b2d126484e8fc9a63d3f81ffb, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6033438160813505312, guid: 0fa2150b2d126484e8fc9a63d3f81ffb, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6033438160813505312, guid: 0fa2150b2d126484e8fc9a63d3f81ffb, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6033438160813505312, guid: 0fa2150b2d126484e8fc9a63d3f81ffb, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6033438160813505312, guid: 0fa2150b2d126484e8fc9a63d3f81ffb, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6033438160813505312, guid: 0fa2150b2d126484e8fc9a63d3f81ffb, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 0fa2150b2d126484e8fc9a63d3f81ffb, type: 3}
 --- !u!1001 &905496069
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1202,7 +1145,7 @@ PrefabInstance:
     - target: {fileID: 8176491976207515799, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
       propertyPath: _sfxController
       value: 
-      objectReference: {fileID: 1618653243}
+      objectReference: {fileID: 0}
     - target: {fileID: 8176491976207515799, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
       propertyPath: _battleWaveRunner
       value: 
@@ -1217,17 +1160,6 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 8939785613328792470, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
   m_PrefabInstance: {fileID: 1618653241}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &1618653243 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 8772846745754385423, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
-  m_PrefabInstance: {fileID: 1618653241}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe32b2f341d2b1f49ab27d797f9fdb23, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::UISFXController
 --- !u!114 &1618653244 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 7057132061256350531, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
@@ -1353,7 +1285,7 @@ PrefabInstance:
     - target: {fileID: 3962914728387289638, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
       propertyPath: _sfxController
       value: 
-      objectReference: {fileID: 1618653243}
+      objectReference: {fileID: 0}
     - target: {fileID: 3962914728387289638, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
       propertyPath: _controlPanelUI
       value: 
@@ -1564,4 +1496,3 @@ SceneRoots:
   - {fileID: 1422244238}
   - {fileID: 905496069}
   - {fileID: 839140639}
-  - {fileID: 865054588}
