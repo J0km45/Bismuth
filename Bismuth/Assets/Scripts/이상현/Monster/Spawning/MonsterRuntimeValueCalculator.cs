@@ -38,8 +38,8 @@ public static class MonsterRuntimeValueCalculator
         int growthWave = GetGrowthWave(monsterData.Category, waveNumber);
 
         float finalHp =
-            (monsterData.HpGrowth * growthWave + monsterData.BaseHp)
-            * difficultyModifier.EnemyHpMultiplier;
+            (monsterData.BaseHp + (monsterData.BaseHp * (monsterData.HpGrowth * (growthWave / 100f)))) *
+            difficultyModifier.EnemyHpMultiplier;
 
         return Mathf.RoundToInt(finalHp);
     }
