@@ -118,14 +118,14 @@ public class ControlPanelUI : MonoBehaviour
         }
     }
 
-    public void ShowWarningText()
+    public void ShowWarningText(string text)
     {
         if (_coroutine != null)
         {
             StopCoroutine(_coroutine);
         }
 
-        _coroutine = StartCoroutine(ShowWarningCoroutine(LocalizationManager.Instance.Get("NO_GOLD")));
+        _coroutine = StartCoroutine(ShowWarningCoroutine(text));
     }
 
     private IEnumerator ShowWarningCoroutine(string message)
