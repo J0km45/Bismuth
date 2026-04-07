@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5713511866806354577}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: 50003_2Tier_Projectile
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -43,6 +43,18 @@ PrefabInstance:
     - target: {fileID: 389319671035635158, guid: d934a88ce29548f43a502fd91436c2f0, type: 3}
       propertyPath: m_Name
       value: pj1_fireball_small_green
+      objectReference: {fileID: 0}
+    - target: {fileID: 389319671035635158, guid: d934a88ce29548f43a502fd91436c2f0, type: 3}
+      propertyPath: m_Layer
+      value: 16
+      objectReference: {fileID: 0}
+    - target: {fileID: 2543473381746898773, guid: d934a88ce29548f43a502fd91436c2f0, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2543473381746898773, guid: d934a88ce29548f43a502fd91436c2f0, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -493074105
       objectReference: {fileID: 0}
     - target: {fileID: 6086928766758678531, guid: d934a88ce29548f43a502fd91436c2f0, type: 3}
       propertyPath: m_LocalScale.y

@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1317591551898888026}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: 10041_Projectile
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -41,9 +41,21 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1317591551898888026}
     m_Modifications:
+    - target: {fileID: 2706708230142250925, guid: 71fcc3f5094ceb647b695694fce37417, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2706708230142250925, guid: 71fcc3f5094ceb647b695694fce37417, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -493074105
+      objectReference: {fileID: 0}
     - target: {fileID: 3165987260122829598, guid: 71fcc3f5094ceb647b695694fce37417, type: 3}
       propertyPath: m_Name
       value: pj1_rock_small_blue
+      objectReference: {fileID: 0}
+    - target: {fileID: 3165987260122829598, guid: 71fcc3f5094ceb647b695694fce37417, type: 3}
+      propertyPath: m_Layer
+      value: 16
       objectReference: {fileID: 0}
     - target: {fileID: 3789125455538730540, guid: 71fcc3f5094ceb647b695694fce37417, type: 3}
       propertyPath: m_LocalScale.x
@@ -111,6 +123,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1317591551898888026}
     m_Modifications:
+    - target: {fileID: 2292020678253928118, guid: 27894cba08363204e9aebf1ff5dbc363, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2292020678253928118, guid: 27894cba08363204e9aebf1ff5dbc363, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -493074105
+      objectReference: {fileID: 0}
     - target: {fileID: 7849928426567779904, guid: 27894cba08363204e9aebf1ff5dbc363, type: 3}
       propertyPath: m_LocalScale.x
       value: 1.2
@@ -162,6 +182,10 @@ PrefabInstance:
     - target: {fileID: 8320600877988638487, guid: 27894cba08363204e9aebf1ff5dbc363, type: 3}
       propertyPath: m_Name
       value: pj1_energy_small_blue
+      objectReference: {fileID: 0}
+    - target: {fileID: 8320600877988638487, guid: 27894cba08363204e9aebf1ff5dbc363, type: 3}
+      propertyPath: m_Layer
+      value: 16
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 510354942746519943}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: 50004_2Tier_Projectile
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -88,9 +88,21 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7529957185256325407, guid: 91215a30935b71947af16a2895466494, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 7529957185256325407, guid: 91215a30935b71947af16a2895466494, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -493074105
+      objectReference: {fileID: 0}
     - target: {fileID: 8936835185540415027, guid: 91215a30935b71947af16a2895466494, type: 3}
       propertyPath: m_Name
       value: pj1_laser_small_yellow
+      objectReference: {fileID: 0}
+    - target: {fileID: 8936835185540415027, guid: 91215a30935b71947af16a2895466494, type: 3}
+      propertyPath: m_Layer
+      value: 16
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
