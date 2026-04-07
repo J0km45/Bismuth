@@ -2,11 +2,22 @@ using UnityEngine;
 
 public class SFXController : MonoBehaviour
 {
+    public static SFXController Instance { get; private set; }
+    
     [SerializeField] private SFXSO _sfxso;
     [SerializeField] private AudioSource _source;
 
     private void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(this.gameObject);
+            return;
+        }
+
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+        
         _source = GetComponent<AudioSource>();
     }
     // 보스 시작

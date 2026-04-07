@@ -3,7 +3,7 @@ using UnityEngine.InputSystem;
 
 public class PauseInputHandler : MonoBehaviour
 {
-    public TestAction Input { get; private set; }
+    public PlayerAction Input { get; private set; }
 
     [Tooltip("일시정지 팝업")]
     [SerializeField] private GameObject _pausePopup;
@@ -18,7 +18,7 @@ public class PauseInputHandler : MonoBehaviour
     {
         if (Input == null)
         {
-            Input = new TestAction();
+            Input = new PlayerAction();
         }
     }
 
@@ -26,13 +26,14 @@ public class PauseInputHandler : MonoBehaviour
     {
         Input.Enable();
 
-        Input.UI.Esc.performed += OnEsc;
+        Input.UI.Settings.performed += OnEsc;
+        Input.UI.Pause.performed += TogglePausePopup;
     }
 
     private void OnDisable()
     {
-        Input.UI.Esc.performed -= OnEsc;
-
+        Input.UI.Settings.performed -= OnEsc;
+        Input.UI.Pause.performed -= TogglePausePopup;
         Input.Disable();
     }
 
@@ -40,6 +41,7 @@ public class PauseInputHandler : MonoBehaviour
     {
         if (_settingsPopup.activeSelf)
         {
+            SFXController.Instance.OnClickMenu();
             _settingsPopup.SetActive(false);
             TimeScaleController.Instance.SetSettingsPopup(false);
             return;
@@ -47,8 +49,14 @@ public class PauseInputHandler : MonoBehaviour
         TogglePausePopup();
     }
 
+    public void TogglePausePopup(InputAction.CallbackContext context)
+    {
+        TogglePausePopup();
+    }
+
     public void TogglePausePopup()
     {
+        SFXController.Instance.OnClickMenu();
         _pausePopup.SetActive(!_pausePopup.activeSelf);
         TimeScaleController.Instance.SetPausePopup(_pausePopup.activeSelf);
     }

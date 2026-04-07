@@ -3,9 +3,6 @@ using UnityEngine;
 
 public class SettingsPopupUI : MonoBehaviour
 {
-    [Header("━━━━ 참조━━━━")]
-    [SerializeField] private SFXController _sfxController;
-    
     [Header("━━━━ 텍스트 ━━━━")]
     [Tooltip("Screen")]
     [SerializeField] private TMP_Text _displayText;
@@ -21,11 +18,6 @@ public class SettingsPopupUI : MonoBehaviour
     [SerializeField] private GameObject _controlPanel;
     [SerializeField] private GameObject _volumePanel;
     [SerializeField] private GameObject _languagePanel;
-
-    private void Awake()
-    {
-        _sfxController = GetComponentInParent<SFXController>();
-    }
 
     private void Start()
     {
@@ -49,31 +41,31 @@ public class SettingsPopupUI : MonoBehaviour
 
     public void OnClickShowDisplay()
     {
-        _sfxController.OnClickMenu();
+        SFXController.Instance.OnClickMenu();
         ShowPanel(_displayPanel);
     }
 
     public void OnClickShowControl()
     {
-        _sfxController.OnClickMenu();
+        SFXController.Instance.OnClickMenu();
         ShowPanel(_controlPanel);
     }
 
     public void OnClickShowVolume()
     {
-        _sfxController.OnClickMenu();
+        SFXController.Instance.OnClickMenu();
         ShowPanel(_volumePanel);
     }
 
     public void OnClickShowLanguage()
     {
-        _sfxController.OnClickMenu();
+        SFXController.Instance.OnClickMenu();
         ShowPanel(_languagePanel);
     }
 
     public void OnClickClosePopup()
     {
-        _sfxController.OnClickMenu();
+        SFXController.Instance.OnClickMenu();
         gameObject.SetActive(false);
         TimeScaleController.Instance.SetSettingsPopup(false);
     }
