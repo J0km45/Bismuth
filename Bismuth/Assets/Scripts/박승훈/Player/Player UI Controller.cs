@@ -76,7 +76,7 @@ public class PlayerUIController : MonoBehaviour
             return;
         }
 
-        int payback = stat.Level * 10;
+        int payback = (stat.Level - 1) * 10;
 
         int sellGold = SellUnit(payback, stat.Tier);
 
