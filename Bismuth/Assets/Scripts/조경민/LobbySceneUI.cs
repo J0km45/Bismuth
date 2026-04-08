@@ -96,18 +96,21 @@ public class LobbySceneUI : MonoBehaviour
     // 환경 설정 버튼
     public void OnClickSettings()
     {
+        SFXController.Instance.OnClickMenu();
         _settingsPopup.SetActive(true);
     }
 
     // 메인 버튼
     public void OnClickMain()
     {
+        SFXController.Instance.OnClickMenu();
         GameSceneManager.Instance.LoadTitle();
     }
 
     // 전투 버튼 - 클릭하면 맵 선택 스크롤뷰 나옴
     public void OnClickCombat()
     {
+        SFXController.Instance.OnClickMenu();
         _howToPlayPanel.SetActive(false);
         _encyclopdiaPanel.SetActive(false);
         
@@ -132,6 +135,7 @@ public class LobbySceneUI : MonoBehaviour
     // 게임 방법 버튼
     public void OnClickHowToPlay()
     {
+        SFXController.Instance.OnClickMenu();
         _difficultyPanel.SetActive(false);
         _settingsPopup.SetActive(false);
         _mapScrollView.SetActive(false);
@@ -145,6 +149,7 @@ public class LobbySceneUI : MonoBehaviour
     // 맵 선택
     public void OnClickMap(int index)
     {
+        SFXController.Instance.OnClickMenu();
         _currentMapIndex = index;
         _mapImage.sprite = _mapSprites[index];
 
@@ -157,6 +162,7 @@ public class LobbySceneUI : MonoBehaviour
     // 뒤로가기 - 난이도 선택에서 맵 선택으로
     public void OnClickBack()
     {
+        SFXController.Instance.OnClickMenu();
         _currentMapIndex = -1;
         SetDifficulty(Difficulty.None);
         _difficultyPanel.SetActive(false);
@@ -165,21 +171,25 @@ public class LobbySceneUI : MonoBehaviour
 
     public void OnClickStart()
     {
+        SFXController.Instance.OnClickMenu();
         GameSceneManager.Instance.ChangeScene(GetSceneIndex());
     }
 
     public void OnClickEasy()
     {
+        SFXController.Instance.OnClickMenu();
         SetDifficulty(Difficulty.Easy);
     }
 
     public void OnClickNormal()
     {
+        SFXController.Instance.OnClickMenu();
         SetDifficulty(Difficulty.Normal);
     }
 
     public void OnClickHard()
     {
+        SFXController.Instance.OnClickMenu();
         SetDifficulty(Difficulty.Hard);
     }
 
