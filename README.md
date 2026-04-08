@@ -1,4 +1,4 @@
-# Team Bismuth(10조)
+# Team Bismuth
 
 
 ![대표 인게임 메인 화면](./READMEImage/InGameScene.png)
