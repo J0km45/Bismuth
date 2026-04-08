@@ -141,7 +141,7 @@ public class GameViewPanelUI : MonoBehaviour
 
     public void OnClickPause(InputAction.CallbackContext ctx)
     {
-        if (ctx.performed)
+        if (ctx.performed && !_battleWaveRunner.IsIntermissionActive)
         {
             OnClickPause();
         }
