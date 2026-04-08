@@ -61,6 +61,8 @@ public class ControlPanelUI : MonoBehaviour
         _playerAction.Enable();
 
         _playerAction.UI.Combination.performed += OnClickCombination;
+        _playerData.OnLevelChanged += RefreshLevel;
+        _playerData.OnLevelChanged += RefreshUpgradeGold;
     }
 
     private void Start()
@@ -78,6 +80,8 @@ public class ControlPanelUI : MonoBehaviour
         _playerAction.Disable();
         
         LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
+        _playerData.OnLevelChanged -= RefreshLevel;
+        _playerData.OnLevelChanged -= RefreshUpgradeGold;
     }
 
     private void RefreshText()
