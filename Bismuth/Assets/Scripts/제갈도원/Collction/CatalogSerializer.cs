@@ -30,8 +30,11 @@ public class CatalogSerializer
             if (!string.IsNullOrEmpty(directoryPath) && !Directory.Exists(directoryPath))
                 Directory.CreateDirectory(directoryPath);
 
-            // 이걸 이제 실제 파일에 저장
-            File.WriteAllText(SavePath, json);
+            string tempPath = SavePath + ".tmp";
+            File.WriteAllText(tempPath, json);
+            if (File.Exists(SavePath))
+                File.Delete(SavePath);
+            File.Move(tempPath, SavePath);
             Debug.Log($"도감 저장 완료\n경로 : {SavePath}");
         }
         catch (System.Exception e)
@@ -70,6 +73,9 @@ public class CatalogSerializer
                 Debug.LogWarning($"도감 로드 실패: JSON 파싱 결과가 null 입니다.\n경로 : {SavePath}");
                 return;
             }
+
+            if (saveData.entries == null)
+                saveData.entries = new System.Collections.Generic.List<CatalogEntry>();
 
             ApplyCatalogSO(saveData, unitCatalogSO);
             Debug.Log("도감 로드 완료");
