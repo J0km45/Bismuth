@@ -128,6 +128,13 @@ public class CatalogUIController : MonoBehaviour
         // 현재 양면 페이지 인덱스를 범위 안에서 보정
         _currentSpread = Mathf.Clamp(spreadIndex, 0, MaxSpread - 1);
 
+        // 비활성 오브젝트에서는 코루틴 시작 불가 -> 열릴 때 RefreshSummonedState로 갱신
+        if (!gameObject.activeInHierarchy)
+        {
+            _spreadRoutine = null;
+            return;
+        }
+
         // 이미 페이지 갱신 중이면 중지 후 다시 시작
         if (_spreadRoutine != null)
             StopCoroutine(_spreadRoutine);

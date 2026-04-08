@@ -52,7 +52,8 @@ public class CatalogSaveLoader : MonoBehaviour
                      FindObjectsInactive.Include,
                      FindObjectsSortMode.None))
         {
-            if (ui != null)
+            // 비활성 오브젝트에서는 StartCoroutine 불가. 팝업을 열 때 OpenCatalog가 RefreshSummonedState 호출.
+            if (ui != null && ui.gameObject.activeInHierarchy)
                 ui.RefreshSummonedState();
         }
     }
