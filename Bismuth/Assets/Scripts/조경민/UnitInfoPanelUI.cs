@@ -98,6 +98,8 @@ public class UnitInfoPanelUI : MonoBehaviour
     {
         _nameText.text = LocalizationManager.Instance.Get(_unitStat.Name);
         _tierText.text = $"{_unitStat.Tier} {LocalizationManager.Instance.Get("TIER")}";
+        _upgradeText.text = LocalizationManager.Instance.Get("LEVEL_UP");
+        _sellText.text = LocalizationManager.Instance.Get("SELL");
         _descriptionText.text = "---";
     }
 

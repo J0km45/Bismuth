@@ -281,12 +281,13 @@ MonoBehaviour:
   _mover: {fileID: 1820241255249734716}
   _animationController: {fileID: 0}
   _deactivateDelay: 0.2
-  _monsterData: {fileID: 11400000, guid: 0d01032f076cc104cb3b4ba3874a6b71, type: 2}
+  _monsterData: {fileID: 11400000, guid: 8f87d2aae1dea58408201fc2e39f7eba, type: 2}
   _maxHp: 0
   _currentHp: 0
   _baseDefense: 0
   _damageToBase: 0
   _killReward: 0
+  _monsterCategory: 0
 --- !u!1 &724052277873542788
 GameObject:
   m_ObjectHideFlags: 0
@@ -1893,7 +1894,7 @@ SortingGroup:
   m_GameObject: {fileID: 3451388032923073433}
   m_Enabled: 1
   m_SortingLayerID: -1696772001
-  m_SortingLayer: 4
+  m_SortingLayer: 3
   m_SortingOrder: 5
   m_SortAtRoot: 0
   m_Sort3DAs2D: 0

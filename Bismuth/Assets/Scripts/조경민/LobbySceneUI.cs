@@ -45,7 +45,7 @@ public class LobbySceneUI : MonoBehaviour
     [SerializeField] private Image _mapImage;
     [SerializeField] private Sprite[] _mapSprites;
     [SerializeField] private Image _howtoImage;
-    [Tooltip("한국어 - 0 / 영어 - 1")]
+    [Tooltip("한국어 - 0 / 영어 - 1 / 일본어 - 2")]
     [SerializeField] private Sprite[] _howtoSprites;
 
 

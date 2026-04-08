@@ -104,6 +104,11 @@ public class CombatManager : MonoBehaviour
             synergyManager.OnSynergyChanged += HandleSynergyChangedForSpirit;
     }
 
+    private void Start()
+    {
+        DebugTool.DebugSelect(DebugType.Unit, false);
+    }
+
     private void OnDisable()
     {
         if (_battleWaveRunner != null)
