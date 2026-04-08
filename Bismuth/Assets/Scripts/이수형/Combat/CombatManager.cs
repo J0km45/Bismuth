@@ -58,6 +58,21 @@ public class CombatManager : MonoBehaviour
     private readonly List<MonsterMover> _slowedMonsters = new();
     private bool _isSpiritActive;
 
+    [Header("Orc Synergy")]
+    [SerializeField, Min(0.1f)] private float orcCooldown = 10f;
+    [SerializeField] private bool orcSynergyLog = false;
+
+    private Coroutine _orcRoutine;
+    private readonly List<SpriteColorTint> _orcTintedUnits = new();
+    private bool _isOrcActive;
+    private bool _isOrcBuffActive;
+    private bool _isWaveActive;
+    private float _orcBuffPercent;
+    private static readonly Color OrcBuffTintColor = new Color(1f, 0.5f, 0.5f, 1f);
+
+    public bool IsOrcBuffActive => _isOrcBuffActive;
+    public float OrcBuffPercent => _orcBuffPercent;
+
     private Collider2D[] aoeOverlapResults;
 
     private void Awake()
@@ -91,17 +106,23 @@ public class CombatManager : MonoBehaviour
             synergyManager = gameManager.GetComponent<SynergyManager>();
         if (_battleWaveRunner == null)
             _battleWaveRunner = FindFirstObjectByType<BattleWaveRunner>();
-        if(playerDataManager == null)
+        if (playerDataManager == null)
             playerDataManager = FindFirstObjectByType<PlayerDataManager>();
     }
 
     private void OnEnable()
     {
         if (_battleWaveRunner != null)
+        {
             _battleWaveRunner.WaveStarted += OnWaveStarted;
+            _battleWaveRunner.WaveCleared += OnWaveCleared;
+        }
 
         if (synergyManager != null)
             synergyManager.OnSynergyChanged += HandleSynergyChangedForSpirit;
+
+        if (synergyManager != null)
+            synergyManager.OnSynergyChanged += HandleSynergyChangedForOrc;
     }
 
     private void Start()
@@ -112,7 +133,13 @@ public class CombatManager : MonoBehaviour
     private void OnDisable()
     {
         if (_battleWaveRunner != null)
+        {
             _battleWaveRunner.WaveStarted -= OnWaveStarted;
+            _battleWaveRunner.WaveCleared -= OnWaveCleared;
+        }
+
+        if (synergyManager != null)
+            synergyManager.OnSynergyChanged -= HandleSynergyChangedForOrc;
     }
 
     private void OnValidate()
@@ -496,7 +523,7 @@ public class CombatManager : MonoBehaviour
 
             if (HasSynergyTag(unitStat, (int)SynergyManager.SynergyType.Elf))
             {
-                if(unitStat.ElfWaveKillCount < 10)
+                if (unitStat.ElfWaveKillCount < 10)
                     unitStat.ElfWaveKillCount++;
                 DebugTool.Log(
                     $"엘프 웨이브 킬 적립 | source={sourceName}, elfKill={unitStat.ElfWaveKillCount}",
@@ -526,7 +553,7 @@ public class CombatManager : MonoBehaviour
 
 
         int activeCount = synergyManager.GetSynergyLevel((int)SynergyManager.SynergyType.Human);
-        
+
         Debug.Log(
             $"인간 시너지 레벨 조회 | activeCount={activeCount}"
         );
@@ -906,6 +933,34 @@ public class CombatManager : MonoBehaviour
     private void OnWaveStarted(WaveDataSO waveData)
     {
         ResetAllElfWaveKillCounts();
+
+        _isWaveActive = true;
+
+  
+        if (_isOrcActive && _orcRoutine == null)
+        {
+            _orcRoutine = StartCoroutine(OrcSynergyRoutine());
+
+            if (orcSynergyLog)
+                DebugTool.Log("오크 시너지 버프 사이클 시작 | 웨이브 시작", DebugType.Synergy, this);
+        }
+    }
+
+    private void OnWaveCleared(WaveDataSO waveData)
+    {
+        _isWaveActive = false;
+
+
+        if (_orcRoutine != null)
+        {
+            StopCoroutine(_orcRoutine);
+            _orcRoutine = null;
+        }
+
+        RemoveOrcBuff();
+
+        if (orcSynergyLog)
+            DebugTool.Log("오크 시너지 버프 해제 및 쿨타임 초기화 | 웨이브 클리어", DebugType.Synergy, this);
     }
 
     private void ResetAllElfWaveKillCounts()
@@ -1111,5 +1166,189 @@ public class CombatManager : MonoBehaviour
             return int.MaxValue;
 
         return spiritData.Levels[0].ActiveCount;
+    }
+
+
+
+    private void HandleSynergyChangedForOrc(Dictionary<int, List<int>> synergiesDict)
+    {
+        const int orcId = (int)SynergyManager.SynergyType.Orc;
+
+        bool shouldBeActive = synergiesDict.ContainsKey(orcId)
+                              && synergiesDict[orcId].Count >= GetOrcMinActiveCount();
+
+        if (shouldBeActive && !_isOrcActive)
+        {
+            StartOrcSynergy();
+        }
+        else if (!shouldBeActive && _isOrcActive)
+        {
+            StopOrcSynergy();
+        }
+    }
+
+    private void StartOrcSynergy()
+    {
+        if (_isOrcActive)
+            return;
+
+        _isOrcActive = true;
+
+
+        if (_isWaveActive)
+        {
+            _orcRoutine = StartCoroutine(OrcSynergyRoutine());
+            DebugTool.Log("오크 시너지 활성화 | 버프 사이클 즉시 시작", DebugType.Synergy, this);
+        }
+        else
+        {
+            DebugTool.Log("오크 시너지 활성화 | 정비시간이므로 웨이브 시작 시 발동 예정", DebugType.Synergy, this);
+        }
+    }
+
+    private void StopOrcSynergy()
+    {
+        if (!_isOrcActive)
+            return;
+
+        _isOrcActive = false;
+
+        if (_orcRoutine != null)
+        {
+            StopCoroutine(_orcRoutine);
+            _orcRoutine = null;
+        }
+
+        RemoveOrcBuff();
+
+        DebugTool.Log("오크 시너지 비활성화 | 버프 해제 및 사이클 중단", DebugType.Synergy, this);
+    }
+
+    private IEnumerator OrcSynergyRoutine()
+    {
+        while (_isOrcActive && _isWaveActive)
+        {
+            if (!TryGetOrcEffectValues(out float duration, out float attackPercent))
+            {
+                if (orcSynergyLog)
+                    DebugTool.Log("오크 시너지 효과값 조회 실패 | 다음 쿨다운 대기", DebugType.Synergy, this);
+
+                yield return new WaitForSeconds(orcCooldown);
+                continue;
+            }
+
+
+            ApplyOrcBuff(attackPercent);
+
+            if (orcSynergyLog)
+                DebugTool.Log(
+                    $"오크 시너지 발동 | attackBonus={attackPercent:F1}%, duration={duration:F1}s",
+                    DebugType.Synergy, this);
+
+            yield return new WaitForSeconds(duration);
+
+
+            RemoveOrcBuff();
+
+            if (orcSynergyLog)
+                DebugTool.Log("오크 시너지 버프 해제 | 쿨다운 재시작", DebugType.Synergy, this);
+
+            yield return new WaitForSeconds(orcCooldown);
+
+            if (!_isOrcActive || !_isWaveActive)
+                yield break;
+        }
+    }
+
+    private bool TryGetOrcEffectValues(out float duration, out float attackPercent)
+    {
+        duration = 0f;
+        attackPercent = 0f;
+
+        if (synergySO == null || synergyManager == null)
+            return false;
+
+        const int orcId = (int)SynergyManager.SynergyType.Orc;
+
+        SynergyData orcData = GetSynergyData(orcId);
+        if (orcData == null || orcData.Levels == null || orcData.Levels.Count == 0)
+            return false;
+
+        int activeCount = synergyManager.GetSynergyLevel(orcId);
+
+        SynergyLevelData matchedLevel = null;
+        for (int i = 0; i < orcData.Levels.Count; i++)
+        {
+            SynergyLevelData level = orcData.Levels[i];
+            if (level == null)
+                continue;
+
+            if (activeCount < level.ActiveCount)
+                continue;
+
+            matchedLevel = level;
+        }
+
+        if (matchedLevel == null || matchedLevel.EffectValues == null || matchedLevel.EffectValues.Count == 0)
+            return false;
+
+        attackPercent = matchedLevel.EffectValues[0];
+        duration = 5f;
+        return true;
+    }
+
+    private void ApplyOrcBuff(float attackPercent)
+    {
+        _orcBuffPercent = attackPercent;
+        _isOrcBuffActive = true;
+        _orcTintedUnits.Clear();
+
+        const int orcId = (int)SynergyManager.SynergyType.Orc;
+        UnitStat[] allUnits = FindObjectsByType<UnitStat>(FindObjectsSortMode.None);
+
+        for (int i = 0; i < allUnits.Length; i++)
+        {
+            if (!HasSynergyTag(allUnits[i], orcId))
+                continue;
+
+            SpriteColorTint tint = new SpriteColorTint(allUnits[i].gameObject);
+            tint.Apply(OrcBuffTintColor);
+            _orcTintedUnits.Add(tint);
+        }
+
+        if (orcSynergyLog)
+            DebugTool.Log(
+                $"오크 버프 적용 | percent={attackPercent:F1}%, tintedUnits={_orcTintedUnits.Count}",
+                DebugType.Synergy, this);
+    }
+
+    private void RemoveOrcBuff()
+    {
+        _isOrcBuffActive = false;
+        _orcBuffPercent = 0f;
+
+        for (int i = 0; i < _orcTintedUnits.Count; i++)
+        {
+            _orcTintedUnits[i]?.Remove();
+        }
+
+        _orcTintedUnits.Clear();
+
+        if (orcSynergyLog)
+            DebugTool.Log("오크 버프 해제 | 틴트 제거 완료", DebugType.Synergy, this);
+    }
+
+    private int GetOrcMinActiveCount()
+    {
+        if (synergySO == null)
+            return int.MaxValue;
+
+        const int orcId = (int)SynergyManager.SynergyType.Orc;
+        SynergyData orcData = GetSynergyData(orcId);
+
+        if (orcData == null || orcData.Levels == null || orcData.Levels.Count == 0)
+            return int.MaxValue;
+
+        return orcData.Levels[0].ActiveCount;
     }
 }
