@@ -7,6 +7,7 @@ public class DamageCalculator : MonoBehaviour
     private const int ArcherSynergyId = (int)SynergyManager.SynergyType.Archer;
     private const int FighterSynergyId = (int)SynergyManager.SynergyType.Fighter;
     private const int ElfSynergyId = (int)SynergyManager.SynergyType.Elf;
+    private const int OrcSynergyId = (int)SynergyManager.SynergyType.Orc;
 
     [Header("Synergy")]
     [SerializeField] private SynergySO synergySO;
@@ -28,9 +29,10 @@ public class DamageCalculator : MonoBehaviour
 
     public int CalculateNormalDamage(UnitStat attackerStat, float damageDealt, float defense, float crit)
     {
-        float warriorMultiplier = 1 + GetWarriorAttackMultiplier(attackerStat) * 0.01f;
-        float elfMultiplier = 1 + GetElfAttackMultiplier(attackerStat) * 0.01f;
-        float calculatedDamage = damageDealt * warriorMultiplier * elfMultiplier * (1f + crit) * (100f / (defense + 100f));
+        float warriorMultiplier = GetWarriorAttackMultiplier(attackerStat) * 0.01f;
+        float elfMultiplier = GetElfAttackMultiplier(attackerStat) * 0.01f;
+        float orcMultiplier = GetOrcAttackMultiplier(attackerStat) * 0.01f;
+        float calculatedDamage = damageDealt * (warriorMultiplier + elfMultiplier + orcMultiplier + 1f) * (1f + crit) * (100f / (defense + 100f));
 
         if (Random.value < calculatedDamage - (int)calculatedDamage)
             return (int)calculatedDamage + 1;
@@ -262,6 +264,28 @@ public class DamageCalculator : MonoBehaviour
         }
 
         return totalBonus;
+    }
+
+    private float GetOrcAttackMultiplier(UnitStat attackerStat)
+    {
+        if (!HasSynergyTag(attackerStat, OrcSynergyId))
+            return 0f;
+
+        if (CombatManager.Instance == null || !CombatManager.Instance.IsOrcBuffActive)
+            return 0f;
+
+        float bonus = CombatManager.Instance.OrcBuffPercent;
+
+        if (synergyLog && bonus > 0f)
+        {
+            DebugTool.Log(
+                $"오크 공격력 배율 적용 | unit={attackerStat.Name}, bonus={bonus:F2}",
+                DebugType.Synergy,
+                this
+            );
+        }
+
+        return bonus;
     }
 
     private void TryResolveSynergyManager()
