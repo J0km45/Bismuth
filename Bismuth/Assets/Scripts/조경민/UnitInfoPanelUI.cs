@@ -11,14 +11,14 @@ public class UnitInfoPanelUI : MonoBehaviour
     [SerializeField] private TMP_Text _levelText;
     [Tooltip("단계")]
     [SerializeField] private TMP_Text _tierText;
-    [Tooltip("스탯")]
-    [SerializeField] private TMP_Text _statText;
+    [Tooltip("타겟팅 방법")]
+    [SerializeField] private TMP_Text _attackTypeText;
     [Tooltip("강화")]
     [SerializeField] private TMP_Text _upgradeText;
     [Tooltip("판매")]
     [SerializeField] private TMP_Text _sellText;
-    [Tooltip("설명")]
-    [SerializeField] private TMP_Text _descriptionText;
+    [Tooltip("스탯")]
+    [SerializeField] private TMP_Text _statText;
     [Tooltip("업그레이드 소모 비용")]
     [SerializeField] private TMP_Text _upgradeGoldText;
     [Tooltip("판매 획득 비용")]
@@ -100,16 +100,43 @@ public class UnitInfoPanelUI : MonoBehaviour
         _tierText.text = $"{_unitStat.Tier} {LocalizationManager.Instance.Get("TIER")}";
         _upgradeText.text = LocalizationManager.Instance.Get("LEVEL_UP");
         _sellText.text = LocalizationManager.Instance.Get("SELL");
-        _descriptionText.text = "---";
+        _attackTypeText.text = $"[ {GetAttackType()} ]";
+    }
+
+    private string GetAttackType()
+    {
+        if (_unitStat.attackTypes == UnitData.AttackTypes.Targeting)
+        {
+            switch (_unitStat.AttackTargetCount)
+            {
+                case 1:  // 단일 타겟
+                    return LocalizationManager.Instance.Get("SINGLE_TARGET");
+
+                case 2:  // 2중 타겟
+                    return LocalizationManager.Instance.Get("DOUBLE_TARGET");
+
+                case 3:  // 3중 타겟
+                    return LocalizationManager.Instance.Get("TRIPLE_TARGET");
+
+                default:
+                    return LocalizationManager.Instance.Get("WIDE_RANGE_ATTACK");
+            }
+        }
+        else if (_unitStat.attackTypes == UnitData.AttackTypes.AOE)
+        {
+            return LocalizationManager.Instance.Get("WIDE_RANGE_ATTACK");
+        }
+
+        return "";
     }
 
     public void RefreshStats()
     {
         _levelText.text = $"Lv {_unitStat.Level}";
 
-        _statText.text =
-            $"{LocalizationManager.Instance.Get("ATTACK_POWER")} : {_unitStat.CurrentAttackPower}" +
-            $"\n{LocalizationManager.Instance.Get("ATTACK_SPEED")} : {_unitStat.AttackSpeed}";
+        _statText.text = $"{LocalizationManager.Instance.Get("ATTACK_POWER")} : {_unitStat.CurrentAttackPower}" + 
+            $"\n{LocalizationManager.Instance.Get("ATTACK_SPEED")} : {_unitStat.AttackSpeed}" + 
+            $"\n{LocalizationManager.Instance.Get("RANGE")} : {_unitStat.Range}";
 
         PlayerUIController controller = _collectUnitInfo.PlayerUIController;
         if (_unitStat.Level >= controller.MaxUnitLevel)
@@ -121,7 +148,7 @@ public class UnitInfoPanelUI : MonoBehaviour
             int upgradeGold = controller.CalculateUpgradeGold(_unitStat.Level, _unitStat.Tier);
             _upgradeGoldText.text = $"{upgradeGold}";
         }
-        
+
         int sellGold = controller.GetSellGold(_unitStat);
         _sellGoldText.text = $"{sellGold}";
     }
@@ -131,8 +158,8 @@ public class UnitInfoPanelUI : MonoBehaviour
         _nameText.text = "";
         _levelText.text = "";
         _tierText.text = "";
+        _attackTypeText.text = "";
         _statText.text = "";
-        _descriptionText.text = "";
         _upgradeGoldText.text = "";
         _sellGoldText.text = "";
 
