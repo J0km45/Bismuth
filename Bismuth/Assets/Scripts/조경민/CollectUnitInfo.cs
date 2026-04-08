@@ -1,14 +1,40 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 public class CollectUnitInfo : MonoBehaviour
 {
     public GameObject selectedUnit;
+    
     [SerializeField] private PlayerUIController playerUIController;
     [SerializeField] private Button upgradeButton;
     [SerializeField] private Button sellButton;
+    
+    private PlayerAction playerAction;
 
     public PlayerUIController PlayerUIController => playerUIController;
+    
+    private void OnEnable()
+    {
+        upgradeButton.onClick.AddListener(OnUpgrade);
+        sellButton.onClick.AddListener(OnSell);
+
+        if (playerAction == null)
+        {
+            playerAction = playerUIController.PlayerAction;
+        }
+        playerAction.UI.UnitUpgrade.performed += OnUpgrade;
+        playerAction.UI.UnitSell.performed += OnSell;
+    }
+
+    private void OnDisable()
+    {
+        upgradeButton.onClick.RemoveListener(OnUpgrade);
+        sellButton.onClick.RemoveListener(OnSell);
+        
+        playerAction.UI.UnitUpgrade.performed -= OnUpgrade;
+        playerAction.UI.UnitSell.performed -= OnSell;
+    }
 
     public void CollectInfo(GameObject unit)
     {
@@ -17,17 +43,18 @@ public class CollectUnitInfo : MonoBehaviour
         DebugTool.Log($"Unit Id: {unitStat.Id}, Unit AttackPower: {unitStat.CurrentAttackPower}, Unit AttackSpeed: {unitStat.AttackSpeed} ",DebugType.UI,this);
     }
 
-    private void OnEnable()
+    private void OnUpgrade(InputAction.CallbackContext ctx)
     {
-        upgradeButton.onClick.AddListener(OnUpgrade);
-        sellButton.onClick.AddListener(OnSell);
+        if(ctx.performed && selectedUnit != null)
+            OnUpgrade();
     }
 
-    private void OnDisable()
+    private void OnSell(InputAction.CallbackContext ctx)
     {
-        upgradeButton.onClick.RemoveListener(OnUpgrade);
-        sellButton.onClick.RemoveListener(OnSell);
+        if(ctx.performed && selectedUnit != null)
+            OnSell();
     }
+    
 
     private void OnUpgrade()
         => playerUIController.OnUnitUpgrade(selectedUnit);

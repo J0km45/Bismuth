@@ -1,20 +1,24 @@
+using System;
 using System.Diagnostics;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.InputSystem;
 using Debug = UnityEngine.Debug;
 
 public class PlayerUIController : MonoBehaviour
 {
+    [Header("--- 참조 ---")]
     [SerializeField] private PlayerDataManager _player;
     [SerializeField] private SummonManager _summonManger;
     [SerializeField] private CombineManager _combineManger;
     [SerializeField] private UnitEnhanceSO _unitEnhanceSO;
     [SerializeField] private UnitInfoPanelUI _unitInfoPanelUI;
     [SerializeField] private ControlPanelUI _controlPanelUI;
-    [SerializeField] private SFXController _sfxController;
 
-
+    private PlayerAction _playerAction;
+    public PlayerAction PlayerAction => _playerAction;
+    
     private readonly int MAX_PLAYER_LEVEL = 5;
     private readonly int MAX_UNIT_LEVEL = 20;
     private readonly int COMBINE_GOLD = 50;
@@ -24,8 +28,26 @@ public class PlayerUIController : MonoBehaviour
 
     public int MaxUnitLevel => MAX_UNIT_LEVEL;
 
+    private int SelectedId = 0;
+
     private void Awake()
         => Init();
+
+    private void OnEnable()
+    {
+        _playerAction.Enable();
+        
+        _playerAction.UI.Spawn.performed += OnSummonUnit;
+        _playerAction.UI.PlayerLevelUp.started += OnPlayerLevelUpgrade;
+    }
+
+    private void OnDisable()
+    {
+        _playerAction.UI.Spawn.performed -= OnSummonUnit;
+        _playerAction.UI.PlayerLevelUp.started -= OnPlayerLevelUpgrade;
+        
+        _playerAction.Disable();
+    }
 
     // 유닛 판매 시 호출
     public void OnUnitSell(GameObject unit)
@@ -60,6 +82,7 @@ public class PlayerUIController : MonoBehaviour
 
         _player.Gold += sellGold;
 
+        SFXController.Instance.OnUnitSell();
         _unitInfoPanelUI.gameObject.SetActive(false);
         _summonManger?.DespawnUnit(towerUnit);
     }
@@ -85,7 +108,7 @@ public class PlayerUIController : MonoBehaviour
         if (!_combineManger.CombineUnit(index))
             return;
 
-        _sfxController.OnMerge();
+        SFXController.Instance.OnMerge();
         _player.Gold -= COMBINE_GOLD;
         _unitInfoPanelUI.gameObject.SetActive(false);
     }
@@ -110,7 +133,7 @@ public class PlayerUIController : MonoBehaviour
         if (unitLevel == MAX_UNIT_LEVEL)
         {
             DebugTool.Log($"유닛 레벨 {unitLevel} : 이미 최고 레벨 입니다.", DebugType.Unit, this);
-            _sfxController.OnUIFailure();
+            SFXController.Instance.OnUIFailure();
             _controlPanelUI.ShowWarningText(LocalizationManager.Instance.Get("MAX_LEVEL"));
             return;
         }
@@ -133,7 +156,7 @@ public class PlayerUIController : MonoBehaviour
         DebugTool.Log($"유닛 강화 성공! [유닛 레벨 : {unitLevel} | 소모 골드 : {gold}\n" +
                       $"이전 공격력 : {beforeAttackPower}, 추가 공격력 : {upgradeAttackPower}, 현재 공격력 : {stat.CurrentAttackPower}", DebugType.Unit, this);
 
-        _sfxController.OnEnforce();
+        SFXController.Instance.OnEnforce();
         _unitInfoPanelUI.RefreshStats();
     }
 
@@ -154,8 +177,16 @@ public class PlayerUIController : MonoBehaviour
         }
     }
 
+    public void OnPlayerLevelUpgrade(InputAction.CallbackContext ctx)
+    {
+        if (ctx.started)
+        {
+            PlayerLevelUpgrade();
+        }
+    }
+
     // 플레이어 레벨 업그레이드 시 호출
-    public void OnPlayerLevelUpgrade()
+    public void PlayerLevelUpgrade()
     {
         int level = _player.Level;
         CompareGoldLevel(level);
@@ -167,7 +198,7 @@ public class PlayerUIController : MonoBehaviour
         if (level == MAX_PLAYER_LEVEL)
         {
             DebugTool.Log("이미 최대 레벨 입니다.", DebugType.Game, this);
-            _sfxController.OnUIFailure();
+            SFXController.Instance.OnUIFailure();
             _controlPanelUI.ShowWarningText(LocalizationManager.Instance.Get("MAX_LEVEL"));
             return;
         }
@@ -180,18 +211,28 @@ public class PlayerUIController : MonoBehaviour
         {
             _player.Gold -= gold;
             _player.Level++;
-            _sfxController.OnEnforceGatcha();
+            SFXController.Instance.OnEnforceGatcha();
         }
 
         DebugTool.Log($"골드 : {gold}, 레벨 : {level}", DebugType.Game, this);
     }
 
+    public void OnSummonUnit(InputAction.CallbackContext ctx)
+    {
+        if (ctx.performed)
+        {
+            DebugTool.Log("스페이스바 눌림", DebugType.UI);
+            OnSummonUnit(SelectedId);
+        }
+    }
+    
     // 유닛 소환 시 호출
     public void OnSummonUnit(int id)
     {
-        if (id > 0)
+        SelectedId = id;
+        if (SelectedId > 0)
         {
-            int index = id - 10001;
+            int index = SelectedId - 10001;
             if (index < 0)
             {
                 DebugTool.Log("옳지 않은 인덱스 입니다.", DebugType.Unit, this);
@@ -220,14 +261,14 @@ public class PlayerUIController : MonoBehaviour
         if (_summonManger.SummonRandomUnit())
         {
             _player.Gold -= SUMMON_GOLD;
-            _sfxController.OnDrawSuccess();
+            SFXController.Instance.OnDrawSuccess();
         }
     }
 
     private void NotEnoughGold()
     {
         DebugTool.Log("골드가 부족합니다.", DebugType.Game, this);
-        _sfxController.OnUIFailure();
+        SFXController.Instance.OnUIFailure();
         _controlPanelUI.ShowWarningText(LocalizationManager.Instance.Get("NO_GOLD"));
     }
 
@@ -244,6 +285,8 @@ public class PlayerUIController : MonoBehaviour
 
     private void Init()
     {
+        _playerAction = new PlayerAction();
+        
         _player = GetComponent<PlayerDataManager>();
         _summonManger = GetComponent<SummonManager>();
         _combineManger = GetComponent<CombineManager>();

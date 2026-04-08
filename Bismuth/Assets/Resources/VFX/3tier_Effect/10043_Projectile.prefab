@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 576077659991881227}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: 10043_Projectile
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -43,6 +43,18 @@ PrefabInstance:
     - target: {fileID: 5435784154779905467, guid: c9f61717c7e51624db6c1410982c1a41, type: 3}
       propertyPath: m_Name
       value: pj1_magic_missile_small_green
+      objectReference: {fileID: 0}
+    - target: {fileID: 5435784154779905467, guid: c9f61717c7e51624db6c1410982c1a41, type: 3}
+      propertyPath: m_Layer
+      value: 16
+      objectReference: {fileID: 0}
+    - target: {fileID: 6395628200837642797, guid: c9f61717c7e51624db6c1410982c1a41, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6395628200837642797, guid: c9f61717c7e51624db6c1410982c1a41, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -493074105
       objectReference: {fileID: 0}
     - target: {fileID: 7967915001078864421, guid: c9f61717c7e51624db6c1410982c1a41, type: 3}
       propertyPath: m_LocalScale.x

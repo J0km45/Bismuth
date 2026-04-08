@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7329829110995627029}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: 10041_Hit
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -80,9 +80,21 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1289000086373481078, guid: f2d6e20d7572dab42853ca0d8d63372c, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 1289000086373481078, guid: f2d6e20d7572dab42853ca0d8d63372c, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -493074105
+      objectReference: {fileID: 0}
     - target: {fileID: 8869217944324878659, guid: f2d6e20d7572dab42853ca0d8d63372c, type: 3}
       propertyPath: m_Name
       value: impfx2_cinematic_impact_B_small_blue
+      objectReference: {fileID: 0}
+    - target: {fileID: 8869217944324878659, guid: f2d6e20d7572dab42853ca0d8d63372c, type: 3}
+      propertyPath: m_Layer
+      value: 16
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

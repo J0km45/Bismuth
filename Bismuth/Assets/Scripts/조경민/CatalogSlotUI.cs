@@ -34,8 +34,9 @@ public class CatalogSlotUI : MonoBehaviour
         _unitData = unitData;
         _controller = controller;
 
-        _icon.gameObject.SetActive(true);
-        _icon.sprite = unitData.Icon;
+        Sprite thumb = unitData.GetCatalogThumbnail();
+        _icon.sprite = thumb;
+        _icon.gameObject.SetActive(thumb != null);
 
         _lockObject.SetActive(!isSummoned);
 

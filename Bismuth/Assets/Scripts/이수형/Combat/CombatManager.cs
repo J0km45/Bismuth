@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using static UnityEngine.InputSystem.LowLevel.InputStateHistory;
 
 public class CombatManager : MonoBehaviour
 {
@@ -36,6 +37,8 @@ public class CombatManager : MonoBehaviour
     [SerializeField, Min(1)] private int aoeOverlapBufferSize = 32;
     [SerializeField, Min(0.01f)] private float aoeEffectScalePerRadius = 2f;
 
+
+    [SerializeField] private PlayerDataManager playerDataManager;
     [SerializeField] private SynergyManager synergyManager;
 
     [Header("Wizard Follow-Up")]
@@ -88,6 +91,8 @@ public class CombatManager : MonoBehaviour
             synergyManager = gameManager.GetComponent<SynergyManager>();
         if (_battleWaveRunner == null)
             _battleWaveRunner = FindFirstObjectByType<BattleWaveRunner>();
+        if(playerDataManager == null)
+            playerDataManager = FindFirstObjectByType<PlayerDataManager>();
     }
 
     private void OnEnable()
@@ -97,6 +102,11 @@ public class CombatManager : MonoBehaviour
 
         if (synergyManager != null)
             synergyManager.OnSynergyChanged += HandleSynergyChangedForSpirit;
+    }
+
+    private void Start()
+    {
+        DebugTool.DebugSelect(DebugType.Unit, false);
     }
 
     private void OnDisable()
@@ -469,12 +479,25 @@ public class CombatManager : MonoBehaviour
                 this
             );
 
+            if (HasSynergyTag(unitStat, (int)SynergyManager.SynergyType.Human))
+            {
+                Debug.Log(
+                        $"인간 시너지 존재확인");
+                if (GainHumanSynergyGold(unitStat))
+                {
+                    Debug.Log(
+                        $"인간 시너지 골드 획득 | source={sourceName}");
+                }
+
+            }
+
             TryTriggerWarriorExtraAttack(unit, unitStat, sourceName, context);
 
 
             if (HasSynergyTag(unitStat, (int)SynergyManager.SynergyType.Elf))
             {
-                unitStat.ElfWaveKillCount++;
+                if(unitStat.ElfWaveKillCount < 10)
+                    unitStat.ElfWaveKillCount++;
                 DebugTool.Log(
                     $"엘프 웨이브 킬 적립 | source={sourceName}, elfKill={unitStat.ElfWaveKillCount}",
                     DebugType.Synergy, this);
@@ -490,6 +513,71 @@ public class CombatManager : MonoBehaviour
         );
 
         return true;
+    }
+
+    private bool GainHumanSynergyGold(UnitStat attackerStat)
+    {
+        if (!HasSynergyTag(attackerStat, (int)SynergyManager.SynergyType.Human))
+            return false;
+
+
+
+        SynergyData humanData = GetSynergyData((int)SynergyManager.SynergyType.Human);
+
+
+        int activeCount = synergyManager.GetSynergyLevel((int)SynergyManager.SynergyType.Human);
+        
+        Debug.Log(
+            $"인간 시너지 레벨 조회 | activeCount={activeCount}"
+        );
+
+        int goldBonus = Mathf.RoundToInt(GetMatchedBonus(humanData, activeCount));
+
+        Debug.Log(
+            $"인간 시너지 골드 보너스 계산 | goldBonus={goldBonus}"
+        );
+
+        if (goldBonus <= 0)
+            return false;
+        playerDataManager.Gold += goldBonus;
+
+        return true;
+    }
+    private SynergyData GetSynergyData(int synergyId)
+    {
+        if (synergySO == null || synergySO.Rows == null)
+            return null;
+
+        for (int i = 0; i < synergySO.Rows.Count; i++)
+        {
+            SynergyData data = synergySO.Rows[i];
+            if (data != null && data.ID == synergyId)
+                return data;
+        }
+
+        return null;
+    }
+
+    private float GetMatchedBonus(SynergyData synergyData, int activeCount)
+    {
+        float bonus = 0f;
+
+        for (int i = 0; i < synergyData.Levels.Count; i++)
+        {
+            SynergyLevelData level = synergyData.Levels[i];
+            if (level == null)
+                continue;
+
+            if (activeCount < level.ActiveCount)
+                continue;
+
+            if (level.EffectValues == null || level.EffectValues.Count == 0)
+                continue;
+
+            bonus = level.EffectValues[0];
+        }
+
+        return bonus;
     }
 
     private void TryTriggerWarriorExtraAttack(GameObject unit, UnitStat unitStat, string sourceName, AttackContext context)
