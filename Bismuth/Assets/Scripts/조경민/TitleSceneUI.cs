@@ -32,14 +32,28 @@ public class TitleSceneUI : MonoBehaviour
 
     private void RefreshCG()
     {
-        Sprite CG = _characterSprites[Random.Range(0, _characterSprites.Length)];
+        int randomIndex = Random.Range(0, _characterSprites.Length);
+        Sprite CG = _characterSprites[randomIndex];
         float width = CG.rect.width;
         float height = CG.rect.height;
         
         DebugTool.Log($"스프라이트 크기 : {CG.rect.width}x{CG.rect.height}", DebugType.UI, this);
         
         _characterImage.rectTransform.sizeDelta = new Vector2(width * _imageScale, height * _imageScale);
-        _characterImage.rectTransform.anchoredPosition = new Vector3(0, 0);
+        switch (randomIndex)
+        {
+            case 0:
+            case 2:
+            case 7:
+                _characterImage.rectTransform.anchoredPosition = new Vector3(80, 0);
+                break;
+            case 4:
+                _characterImage.rectTransform.anchoredPosition = new Vector3(-80, 0);
+                break;
+            default:
+                _characterImage.rectTransform.anchoredPosition = new Vector3(0, 0);
+                break;
+        }
         _characterImage.sprite = CG;
     }
 
