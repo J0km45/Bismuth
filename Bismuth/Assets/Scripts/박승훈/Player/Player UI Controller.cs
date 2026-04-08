@@ -280,7 +280,7 @@ public class PlayerUIController : MonoBehaviour
     }
 
     public int GetSellGold(UnitStat stat)
-        => SellUnit(stat.Level * 10, stat.Tier);
+        => SellUnit((stat.Level - 1) * 10, stat.Tier);
 
 
     private void Init()
