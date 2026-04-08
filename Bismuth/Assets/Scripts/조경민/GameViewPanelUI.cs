@@ -1,58 +1,55 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 public class GameViewPanelUI : MonoBehaviour
 {
-    [Header("━━━━ 참조 ━━━━")]
-    [SerializeField] private BattleWaveRunner _battleWaveRunner;
+    [Header("━━━━ 참조 ━━━━")] [SerializeField]
+    private BattleWaveRunner _battleWaveRunner;
 
-    [Header("━━━━ 정비 UI ━━━━")]
-    [SerializeField] private GameObject _skipButton;
+    [Header("━━━━ 정비 UI ━━━━")] [SerializeField]
+    private GameObject _skipButton;
 
-    [Header("━━━━ 전투 UI ━━━━")]
-    [SerializeField] private GameObject _fastButtonObject;
+    [Header("━━━━ 전투 UI ━━━━")] [SerializeField]
+    private GameObject _fastButtonObject;
+
     [SerializeField] private GameObject _pauseButtonObject;
 
-    [Header("━━━━ 텍스트 ━━━━")]
-    [Tooltip("웨이브(Wave 00 (00/00)")]
-    [SerializeField] private TMP_Text _waveText;
-    [Tooltip("정비 시간 00:00")]
-    [SerializeField] private TMP_Text _preparationTimeText;
-    [Tooltip("배속")]
-    [SerializeField] private TMP_Text _extraSpeedText;
+    [Header("━━━━ 텍스트 ━━━━")] [Tooltip("웨이브(Wave 00 (00/00)")] [SerializeField]
+    private TMP_Text _waveText;
 
-    [Header("━━━━ 버튼(이미지) ━━━━")]
-    [Tooltip("배속 버튼")]
-    [SerializeField] private Image _fastButtonImage;
-    [Tooltip("일시정지 버튼")]
-    [SerializeField] private Image _pauseButtonImage;
+    [Tooltip("정비 시간 00:00")] [SerializeField]
+    private TMP_Text _preparationTimeText;
 
-    [Header("━━━━ 패널 ━━━━")]
-    [Tooltip("Esc 팝업")]
-    [SerializeField] private GameObject _pausePopup;
-    [Tooltip("일시정지 패널")]
-    [SerializeField] private GameObject _pausePanel;
+    [Tooltip("배속")] [SerializeField] private TMP_Text _extraSpeedText;
 
-    [Header("━━━━ 설정 ━━━━")]
-    [Tooltip("배속할 속도")]
-    [SerializeField] private float[] _fastSpeed = new float[4] { 1f, 2f, 3f, 4f };
-    [Tooltip("현재 속도")]
-    [SerializeField] private float currentSpeed = 1f;
-    [Tooltip("일시정지 이미지")]
-    [SerializeField] private Sprite _pauseSprite;
-    [Tooltip("재생 이미지")]
-    [SerializeField] private Sprite _playSprite;
-    [Tooltip("일반 배속 이미지")]
-    [SerializeField] private Sprite _baseSpeedSprite;
-    [Tooltip("가속 이미지")]
-    [SerializeField] private Sprite _extraSpeedSprite;
+    [Header("━━━━ 버튼(이미지) ━━━━")] [Tooltip("배속 버튼")] [SerializeField]
+    private Image _fastButtonImage;
 
-    [Header("━━━━ 게임 종료 ━━━━")]
-    [Tooltip("게임 클리어")]
-    [SerializeField] private GameclearPopupUI _gameclearPopupUI;
-    [Tooltip("게임 오버")]
-    [SerializeField] private GameoverPopupUI _gameoverPopupUI;
+    [Tooltip("일시정지 버튼")] [SerializeField] private Image _pauseButtonImage;
+
+    [Header("━━━━ 패널 ━━━━")] [Tooltip("Esc 팝업")] [SerializeField]
+    private GameObject _pausePopup;
+
+    [Tooltip("일시정지 패널")] [SerializeField] private GameObject _pausePanel;
+
+    [Header("━━━━ 설정 ━━━━")] [Tooltip("배속할 속도")] [SerializeField]
+    private float[] _fastSpeed = new float[4] { 1f, 2f, 3f, 4f };
+
+    [Tooltip("현재 속도")] [SerializeField] private float currentSpeed = 1f;
+    [Tooltip("일시정지 이미지")] [SerializeField] private Sprite _pauseSprite;
+    [Tooltip("재생 이미지")] [SerializeField] private Sprite _playSprite;
+
+    [Tooltip("일반 배속 이미지")] [SerializeField]
+    private Sprite _baseSpeedSprite;
+
+    [Tooltip("가속 이미지")] [SerializeField] private Sprite _extraSpeedSprite;
+
+    [Header("━━━━ 게임 종료 ━━━━")] [Tooltip("게임 클리어")] [SerializeField]
+    private GameclearPopupUI _gameclearPopupUI;
+
+    [Tooltip("게임 오버")] [SerializeField] private GameoverPopupUI _gameoverPopupUI;
 
     private bool _isPausePanelOpened => _pausePanel.activeSelf;
     private bool _isFast;
@@ -61,8 +58,12 @@ public class GameViewPanelUI : MonoBehaviour
     private int _currentRemainingCount;
     private int _currentTotalCount;
 
+    private PlayerAction _playerAction;
+
     private void Awake()
     {
+        _playerAction = new PlayerAction();
+        
         _originalColor = _fastButtonImage.color;
     }
 
@@ -77,13 +78,14 @@ public class GameViewPanelUI : MonoBehaviour
         _battleWaveRunner.IntermissionEnded += IntermissionEnded;
         _battleWaveRunner.BattleCompleted += BattleCompleted;
         _battleWaveRunner.BattleFailed += BattleFailed;
+
+        _playerAction.Enable();
+        _playerAction.UI.Pause.performed += OnClickPause;
     }
 
     private void Start()
     {
         RefreshWaveText();
-        // SetBattleUIActive(true);
-        // SetPreparationUIActive(false);
     }
 
     private void OnDisable()
@@ -97,6 +99,10 @@ public class GameViewPanelUI : MonoBehaviour
         _battleWaveRunner.IntermissionEnded -= IntermissionEnded;
         _battleWaveRunner.BattleCompleted -= BattleCompleted;
         _battleWaveRunner.BattleFailed -= BattleFailed;
+        
+        _playerAction.UI.Pause.performed -= OnClickPause;
+        
+        _playerAction.Disable();
     }
 
     // Esc 버튼
@@ -112,27 +118,36 @@ public class GameViewPanelUI : MonoBehaviour
     {
         switch (currentSpeed)
         {
-            case 1f :
+            case 1f:
                 currentSpeed = _fastSpeed[1];
                 _isFast = true;
                 break;
-            case 2f :
+            case 2f:
                 currentSpeed = _fastSpeed[2];
                 break;
-            case 3f :
+            case 3f:
                 currentSpeed = _fastSpeed[3];
                 break;
-            case 4f :
+            case 4f:
                 currentSpeed = _fastSpeed[0];
                 _isFast = false;
                 break;
         }
+
         UpdateFastButton();
         SFXController.Instance.OnClickMenu();
         TimeScaleController.Instance.ChangeSpeed(currentSpeed);
     }
 
-    // 일시정지 버튼
+    public void OnClickPause(InputAction.CallbackContext ctx)
+    {
+        if (ctx.performed)
+        {
+            OnClickPause();
+        }
+    }
+
+// 일시정지 버튼
     public void OnClickPause()
     {
         _pausePanel.SetActive(!_isPausePanelOpened);
