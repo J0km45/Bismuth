@@ -23,8 +23,8 @@ public class PlayerUIController : MonoBehaviour
     private readonly int MAX_UNIT_LEVEL = 20;
     private readonly int COMBINE_GOLD = 50;
     private readonly int SUMMON_GOLD = 50;
-    private readonly int[] SELL_GOLD_BY_TIER = { 20, 40, 50, 200 };
-    private readonly int[] PLAYER_UPGRADE_GOLD = { 110, 220, 330, 440, 550 };
+    private readonly int[] SELL_GOLD_BY_TIER = { 10, 20, 30, 50 };
+    private readonly int[] PLAYER_UPGRADE_GOLD = { 110, 220, 330, 440, 1100 };
 
     public int MaxUnitLevel => MAX_UNIT_LEVEL;
 
