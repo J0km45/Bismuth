@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
@@ -22,15 +23,16 @@ public class PlayerDataManager : MonoBehaviour
     
     [Tooltip("현재 베이스 체력")]
     [SerializeField] private int _currentBaseHealth;
-    
+
+    public event Action OnLevelChanged;
+
     public int Level
     {
         get => _level;
         set
         {
             _level = value;
-            _controlPanelUI.RefreshLevel();
-            _controlPanelUI.RefreshUpgradeGold();
+            OnLevelChanged?.Invoke();
         }
     }
 

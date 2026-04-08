@@ -13,6 +13,7 @@ public class UnitPointerInputRouter : MonoBehaviour
     [SerializeField] private GameObject unitInfoPanel;
     [SerializeField] private GameObject _combinationScrollView;
 
+    [SerializeField][Range(0.1f, 0.5f)] private float _holdDuration = 0.5f;
 
     private AttackRangeVisualizer _previousRangeVisualizer;
 
@@ -52,6 +53,7 @@ public class UnitPointerInputRouter : MonoBehaviour
 
 
         TowerLongPressDragHandler dragHandler = hit.GetComponent<TowerLongPressDragHandler>();
+        dragHandler.HoldDuration = _holdDuration;
 
         if (dragHandler == null)
             dragHandler = hit.GetComponentInParent<TowerLongPressDragHandler>();

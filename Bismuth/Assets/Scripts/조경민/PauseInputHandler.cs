@@ -27,13 +27,11 @@ public class PauseInputHandler : MonoBehaviour
         Input.Enable();
 
         Input.UI.Settings.performed += OnEsc;
-        Input.UI.Pause.performed += TogglePausePopup;
     }
 
     private void OnDisable()
     {
         Input.UI.Settings.performed -= OnEsc;
-        Input.UI.Pause.performed -= TogglePausePopup;
         Input.Disable();
     }
 

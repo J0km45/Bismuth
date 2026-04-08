@@ -12,6 +12,7 @@ public class TowerLongPressDragHandler : MonoBehaviour
 
     [Header("Long Press")]
     [SerializeField] private float holdDuration = 0.5f;
+    public float HoldDuration {get => holdDuration; set { holdDuration = value;} }
     [SerializeField] private float holdCancelThresholdPixels = 20f;
 
     private TowerUnit towerUnit;

@@ -264,9 +264,21 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 289124883089010408, guid: 6f5827745566e904dbc0e8d260b66451, type: 3}
+      propertyPath: _imageScale
+      value: 0.8
+      objectReference: {fileID: 0}
     - target: {fileID: 500667591796761450, guid: 6f5827745566e904dbc0e8d260b66451, type: 3}
       propertyPath: m_Name
       value: TitleCanvas
+      objectReference: {fileID: 0}
+    - target: {fileID: 3821047672999219481, guid: 6f5827745566e904dbc0e8d260b66451, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3821047672999219481, guid: 6f5827745566e904dbc0e8d260b66451, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5057742892756853211, guid: 6f5827745566e904dbc0e8d260b66451, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[1].m_Target
