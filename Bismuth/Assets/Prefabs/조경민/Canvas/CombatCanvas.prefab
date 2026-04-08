@@ -120,7 +120,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0.5, y: 1}
-  m_AnchoredPosition: {x: 55, y: -260}
+  m_AnchoredPosition: {x: 55, y: -480}
   m_SizeDelta: {x: -70, y: 50}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &6240001640981655528
@@ -4490,7 +4490,7 @@ GameObject:
   - component: {fileID: 3777967908617398716}
   - component: {fileID: 4043493037948156179}
   m_Layer: 5
-  m_Name: DescriptionText
+  m_Name: StatText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4543,7 +4543,11 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Description
+  m_text: 'Attack : 9999
+
+    AS : 1000/1s
+
+    Range : 9.9'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 2775cad2976b83541ac05203406cbcce, type: 2}
   m_sharedMaterial: {fileID: 850630175686753345, guid: 2775cad2976b83541ac05203406cbcce, type: 2}
@@ -4552,8 +4556,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4278190080
-  m_fontColor: {r: 0, g: 0, b: 0, a: 1}
+    rgba: 4294967295
+  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -4577,8 +4581,8 @@ MonoBehaviour:
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 0
-  m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_characterHorizontalScale: 1
@@ -4839,7 +4843,7 @@ GameObject:
   - component: {fileID: 9048443154291311257}
   - component: {fileID: 1660178281704504457}
   m_Layer: 5
-  m_Name: StatText
+  m_Name: AttackTypeText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4892,9 +4896,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Attack 9999
-
-    AS 1000/1s'
+  m_text: "[ \uD0C0\uAC9F\uD305 ]"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 2775cad2976b83541ac05203406cbcce, type: 2}
   m_sharedMaterial: {fileID: 850630175686753345, guid: 2775cad2976b83541ac05203406cbcce, type: 2}
@@ -4921,8 +4923,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 32
-  m_fontSizeBase: 32
+  m_fontSize: 30
+  m_fontSizeBase: 30
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -6884,9 +6886,9 @@ RectTransform:
   - {fileID: 9041947050038428394}
   - {fileID: 7294647724953289629}
   - {fileID: 5397058729295637260}
+  - {fileID: 70095490769915383}
   - {fileID: 2337337984215818483}
   - {fileID: 6570619411136239109}
-  - {fileID: 70095490769915383}
   m_Father: {fileID: 4671902234174367310}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 1}
@@ -6947,10 +6949,10 @@ MonoBehaviour:
   _nameText: {fileID: 6384255959146688795}
   _levelText: {fileID: 2727994119247439457}
   _tierText: {fileID: 7582282862169484090}
-  _statText: {fileID: 1660178281704504457}
+  _attackTypeText: {fileID: 1660178281704504457}
   _upgradeText: {fileID: 8854068859752104680}
   _sellText: {fileID: 530174695172451064}
-  _descriptionText: {fileID: 4043493037948156179}
+  _statText: {fileID: 4043493037948156179}
   _upgradeGoldText: {fileID: 5752946206129212212}
   _sellGoldText: {fileID: 1357840916801670966}
   _tagGroup: {fileID: 7294647724953289629}
@@ -7667,7 +7669,7 @@ GameObject:
   - component: {fileID: 1095142422955485730}
   - component: {fileID: 4685737682930616511}
   m_Layer: 5
-  m_Name: StatsBackground
+  m_Name: AttackTypeBackground
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -7690,8 +7692,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 0}
-  m_AnchoredPosition: {x: 0, y: 449}
-  m_SizeDelta: {x: -76, y: 97.33}
+  m_AnchoredPosition: {x: 0, y: 450}
+  m_SizeDelta: {x: -76, y: 70}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!222 &1095142422955485730
 CanvasRenderer:
@@ -8684,7 +8686,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -55, y: -260}
+  m_AnchoredPosition: {x: -55, y: -480}
   m_SizeDelta: {x: -75, y: 50}
   m_Pivot: {x: 1, y: 1}
 --- !u!222 &186506641356292538
@@ -8995,7 +8997,7 @@ GameObject:
   - component: {fileID: 2279386200943954830}
   - component: {fileID: 412949653697986544}
   m_Layer: 5
-  m_Name: Description
+  m_Name: StatBackground
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -9018,8 +9020,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 0}
-  m_AnchoredPosition: {x: 0, y: 25}
-  m_SizeDelta: {x: -76, y: 230}
+  m_AnchoredPosition: {x: 0, y: 145}
+  m_SizeDelta: {x: -76, y: 210}
   m_Pivot: {x: 0.5, y: 0}
 --- !u!222 &2279386200943954830
 CanvasRenderer:
