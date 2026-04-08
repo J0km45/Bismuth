@@ -21,9 +21,9 @@ public class SummonChanceUI : MonoBehaviour, IPointerEnterHandler, IPointerExitH
         }
     }
 
-    private void OnEnable()
+    private void Start()
     {
-        LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
+            LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
         RefreshText();
         _playerData.OnLevelChanged += RefreshChanceText;
     }
