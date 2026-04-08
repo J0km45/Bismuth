@@ -20,6 +20,9 @@ public class MonsterMover : MonoBehaviour
     private bool _isPathCompleted;
     private bool _isSlowed;
 
+    private SpriteColorTint _colorTint;
+    private static readonly Color SlowTintColor = new Color(0.5f, 0.5f, 1f, 1f);
+
     public bool IsMoving { get; private set; }
     public Vector2 MoveDirection { get; private set; }
     public bool IsSlowed => _isSlowed;
@@ -46,6 +49,7 @@ public class MonsterMover : MonoBehaviour
         _isInitialized = false;
         _isPathCompleted = false;
         _isSlowed = false;
+        _colorTint?.Remove();
     }
 
     private void FixedUpdate()
@@ -90,7 +94,7 @@ public class MonsterMover : MonoBehaviour
         transform.position = startPosition;
 
         _isInitialized = true;
-
+        _colorTint = new SpriteColorTint(gameObject);
 
         if (_path.WaypointCount <= 1) CompletePath();
     }
@@ -104,6 +108,7 @@ public class MonsterMover : MonoBehaviour
         float clampedPercent = Mathf.Clamp(percent, 0f, 100f);
         _moveSpeed = _baseSpeed * (1f - clampedPercent * 0.01f);
         _isSlowed = true;
+        _colorTint?.Apply(SlowTintColor);
 
         DebugTool.Log(
             $"이동속도 감소 적용 | base={_baseSpeed:F2}, slow={clampedPercent:F1}%, current={_moveSpeed:F2}",
@@ -118,6 +123,7 @@ public class MonsterMover : MonoBehaviour
 
         _moveSpeed = _baseSpeed;
         _isSlowed = false;
+        _colorTint?.Remove();
 
         DebugTool.Log(
             $"이동속도 감소 해제 | 복원 속도={_baseSpeed:F2}",
