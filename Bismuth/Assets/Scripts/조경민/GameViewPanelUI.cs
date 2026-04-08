@@ -53,7 +53,6 @@ public class GameViewPanelUI : MonoBehaviour
 
     private bool _isPausePanelOpened => _pausePanel.activeSelf;
     private bool _isFast;
-    private Color _originalColor;
     private int _currentWaveNumber;
     private int _currentRemainingCount;
     private int _currentTotalCount;
@@ -63,8 +62,6 @@ public class GameViewPanelUI : MonoBehaviour
     private void Awake()
     {
         _playerAction = new PlayerAction();
-        
-        _originalColor = _fastButtonImage.color;
     }
 
     private void OnEnable()
