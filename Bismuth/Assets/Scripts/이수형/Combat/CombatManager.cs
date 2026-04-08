@@ -73,21 +73,6 @@ public class CombatManager : MonoBehaviour
     public bool IsOrcBuffActive => _isOrcBuffActive;
     public float OrcBuffPercent => _orcBuffPercent;
 
-    [Header("Orc Synergy")]
-    [SerializeField, Min(0.1f)] private float orcCooldown = 10f;
-    [SerializeField] private bool orcSynergyLog = false;
-
-    private Coroutine _orcRoutine;
-    private readonly List<SpriteColorTint> _orcTintedUnits = new();
-    private bool _isOrcActive;
-    private bool _isOrcBuffActive;
-    private bool _isWaveActive;
-    private float _orcBuffPercent;
-    private static readonly Color OrcBuffTintColor = new Color(1f, 0.5f, 0.5f, 1f);
-
-    public bool IsOrcBuffActive => _isOrcBuffActive;
-    public float OrcBuffPercent => _orcBuffPercent;
-
     private Collider2D[] aoeOverlapResults;
 
     private void Awake()
@@ -122,7 +107,6 @@ public class CombatManager : MonoBehaviour
         if (_battleWaveRunner == null)
             _battleWaveRunner = FindFirstObjectByType<BattleWaveRunner>();
         if (playerDataManager == null)
-        if (playerDataManager == null)
             playerDataManager = FindFirstObjectByType<PlayerDataManager>();
     }
 
@@ -130,18 +114,12 @@ public class CombatManager : MonoBehaviour
     {
         if (_battleWaveRunner != null)
         {
-        {
             _battleWaveRunner.WaveStarted += OnWaveStarted;
-            _battleWaveRunner.WaveCleared += OnWaveCleared;
-        }
             _battleWaveRunner.WaveCleared += OnWaveCleared;
         }
 
         if (synergyManager != null)
             synergyManager.OnSynergyChanged += HandleSynergyChangedForSpirit;
-
-        if (synergyManager != null)
-            synergyManager.OnSynergyChanged += HandleSynergyChangedForOrc;
 
         if (synergyManager != null)
             synergyManager.OnSynergyChanged += HandleSynergyChangedForOrc;
@@ -156,13 +134,7 @@ public class CombatManager : MonoBehaviour
     {
         if (_battleWaveRunner != null)
         {
-        {
             _battleWaveRunner.WaveStarted -= OnWaveStarted;
-            _battleWaveRunner.WaveCleared -= OnWaveCleared;
-        }
-
-        if (synergyManager != null)
-            synergyManager.OnSynergyChanged -= HandleSynergyChangedForOrc;
             _battleWaveRunner.WaveCleared -= OnWaveCleared;
         }
 
@@ -552,7 +524,6 @@ public class CombatManager : MonoBehaviour
             if (HasSynergyTag(unitStat, (int)SynergyManager.SynergyType.Elf))
             {
                 if (unitStat.ElfWaveKillCount < 10)
-                if (unitStat.ElfWaveKillCount < 10)
                     unitStat.ElfWaveKillCount++;
                 DebugTool.Log(
                     $"엘프 웨이브 킬 적립 | source={sourceName}, elfKill={unitStat.ElfWaveKillCount}",
@@ -582,7 +553,6 @@ public class CombatManager : MonoBehaviour
 
 
         int activeCount = synergyManager.GetSynergyLevel((int)SynergyManager.SynergyType.Human);
-
 
         Debug.Log(
             $"인간 시너지 레벨 조회 | activeCount={activeCount}"
@@ -966,7 +936,7 @@ public class CombatManager : MonoBehaviour
 
         _isWaveActive = true;
 
-  
+        // 오크 시너지가 활성 상태인데 코루틴이 없으면 시작
         if (_isOrcActive && _orcRoutine == null)
         {
             _orcRoutine = StartCoroutine(OrcSynergyRoutine());
@@ -980,7 +950,7 @@ public class CombatManager : MonoBehaviour
     {
         _isWaveActive = false;
 
-
+        // 오크 버프 즉시 해제 + 코루틴 정지 + 쿨타임 초기화
         if (_orcRoutine != null)
         {
             StopCoroutine(_orcRoutine);
@@ -1224,7 +1194,7 @@ public class CombatManager : MonoBehaviour
 
         _isOrcActive = true;
 
-
+        // 웨이브 진행 중일 때만 코루틴 즉시 시작, 정비시간이면 웨이브 시작 시 시작됨
         if (_isWaveActive)
         {
             _orcRoutine = StartCoroutine(OrcSynergyRoutine());
