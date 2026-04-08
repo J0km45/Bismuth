@@ -271,7 +271,7 @@ PrefabInstance:
     - target: {fileID: 5057742892756853211, guid: 6f5827745566e904dbc0e8d260b66451, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[1].m_Target
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 590860731}
     - target: {fileID: 6864028392123519486, guid: 6f5827745566e904dbc0e8d260b66451, type: 3}
       propertyPath: m_Pivot.x
       value: 0
@@ -355,16 +355,27 @@ PrefabInstance:
     - target: {fileID: 7933295813376439038, guid: 6f5827745566e904dbc0e8d260b66451, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[1].m_Target
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 590860731}
     - target: {fileID: 9010318175339616367, guid: 6f5827745566e904dbc0e8d260b66451, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[1].m_Target
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 590860731}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 6f5827745566e904dbc0e8d260b66451, type: 3}
+--- !u!114 &590860731 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1890793036680527062, guid: 0fa2150b2d126484e8fc9a63d3f81ffb, type: 3}
+  m_PrefabInstance: {fileID: 691684878}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe32b2f341d2b1f49ab27d797f9fdb23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SFXController
 --- !u!1001 &691684878
 PrefabInstance:
   m_ObjectHideFlags: 0

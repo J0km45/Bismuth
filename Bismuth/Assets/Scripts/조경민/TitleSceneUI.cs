@@ -1,6 +1,8 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using Random = UnityEngine.Random;
 
 public class TitleSceneUI : MonoBehaviour
 {
@@ -15,7 +17,7 @@ public class TitleSceneUI : MonoBehaviour
     [Header("━━━━ 패널 ━━━━")]
     [Tooltip("환경 설정 팝업")]
     [SerializeField] private GameObject _settingsPopup;
-
+    
     [Header("━━━━ 이미지 ━━━━")]
     [Tooltip("캐릭터 이미지")]
     [SerializeField] private Image _characterImage;
@@ -47,23 +49,27 @@ public class TitleSceneUI : MonoBehaviour
     // 게임 시작 버튼 (로비화면으로)
     public void OnClickStart()
     {
+        SFXController.Instance.OnClickMenu();
         GameSceneManager.Instance.LoadNextStage();
     }
 
     // 환경 설정 버튼
     public void OnClickSettings()
     {
+        SFXController.Instance.OnClickMenu();
         _settingsPopup.SetActive(true);
     }
 
     // 게임 종료 버튼
     public void OnClickQuit()
     {
+        SFXController.Instance.OnClickMenu();
         GameSceneManager.Instance.GameQuit();
     }
 
     public void OnClickOpenURL(string url)
     {
+        SFXController.Instance.OnClickMenu();
         Application.OpenURL(url);
     }
 }

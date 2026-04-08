@@ -82,6 +82,7 @@ public class CatalogUIController : MonoBehaviour
     // 도감 버튼 클릭(토글)
     public void OpenCatalog()
     {
+        SFXController.Instance.OnClickMenu();
         bool isOpening = !_encyclopediaPopup.activeSelf;
         _howToPlayPanel.SetActive(false);
         _mapScrollView.SetActive(false);
@@ -100,6 +101,7 @@ public class CatalogUIController : MonoBehaviour
     public void CloseCatalog()
     {
         // 도감 팝업 닫기
+        SFXController.Instance.OnClickMenu();
         _encyclopediaPopup.SetActive(false);
     }
 
@@ -112,12 +114,14 @@ public class CatalogUIController : MonoBehaviour
     public void NextPage()
     {
         // 마지막 양면 페이지가 아니면 다음 페이지로 이동
+        SFXController.Instance.OnClickMenu();
         if (_currentSpread < MaxSpread - 1)
             ShowSpread(_currentSpread + 1);
     }
 
     public void PrevPage()
     {
+        SFXController.Instance.OnClickMenu();
         // 첫 번째 양면 페이지가 아니면 이전 페이지로 이동
         if (_currentSpread > 0)
             ShowSpread(_currentSpread - 1);
