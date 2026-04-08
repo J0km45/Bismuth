@@ -75,8 +75,6 @@ public class CombineManager : MonoBehaviour
         
         // 마지막에서 두번 째 : 결과 유닛 ID
         int resultUnitId = recipe[length - 2];
-        // 앞쪽 인덱스 재료 유닛들
-        int sourceUnitCount = length - 2;
         
         UnitData data = null;
         
@@ -95,53 +93,93 @@ public class CombineManager : MonoBehaviour
             DebugTool.Log($"{resultUnitId} : 결과 유닛을 찾지 못했습니다.", DebugType.Combine, this);
             return false;
         }
-
-        // 소비할 유닛 목록
-        List<TowerUnit> consumeTargets = new();
-        // 이미 소비한 유닛 중복 선택 방지
-        HashSet<TowerUnit> selectUnits = new();
         
-        // 재료 유닛 필요한 만큼 찾기
-        for (int i = 0; i < sourceUnitCount; i++)
-        {
-            int needId = recipe[i];
-            TowerUnit foundTower = null;
-            
-            foreach (SummonUnit.SummonedTowerRecord unit in _summonUnit.OwnedTowers)
-            {
-                if(unit.towerUnit == null)
-                    continue;
-                if (unit.Id != needId)
-                    continue;
-                if (selectUnits.Contains(unit.towerUnit))
-                    continue;
-                
-                foundTower = unit.towerUnit;
-                break;
-            }
-
-            if (foundTower == null)
-            {
-                DebugTool.Warnning($"재료유닛 ID {needId} 이(가) 부족합니다.", DebugType.Combine, this);
-                return false;
-            }
-            selectUnits.Add(foundTower);
-            consumeTargets.Add(foundTower);
-        }
+        // 재료 유닛 선택
+        if (!TryGetConsumeTargets(recipe, out List<TowerUnit> consumeTargets))
+            return false;
         
-        // 찾은 필요 재료들을 제거
+        // 선택된 재료 유닛 제거
         foreach (TowerUnit unit in consumeTargets)
         {
             _summonManager.DespawnUnit(unit);
         }
-        
-        DebugTool.Log($"{resultUnitId} 생성",  DebugType.Combine, this);
         
         // 결과 유닛 생성
         _summonManager.SummonCombineUnit(data);
         return true;
     }
     
+    // 소모될 유닛 우선순위에 의해 선택
+    private bool TryGetConsumeTargets(int[] recipe, out List<TowerUnit> consumeTargets)
+    {
+        consumeTargets = new List<TowerUnit>();
+
+        // recipe 구조
+        // [재료1,2,3 | 결과유닛ID | 조합가능여부]
+        int sourceUnitCount = recipe.Length - 2;
+
+        // 레시피에서 필요한 재료 개수 집계
+        Dictionary<int, int> requiredCounts = new();
+
+        for (int i = 0; i < sourceUnitCount; i++)
+        {
+            int sourceId = recipe[i];
+
+            if (requiredCounts.ContainsKey(sourceId))
+                requiredCounts[sourceId]++;
+            else
+                requiredCounts.Add(sourceId, 1);
+        }
+
+        // 각 재료 ID마다 후보를 모아서
+        // Level 낮은 순 -> 먼저 소환된 순으로 정렬 후 필요한 개수만큼 선택
+        foreach (var pair in requiredCounts)
+        {
+            int needId = pair.Key;
+            int needCount = pair.Value;
+
+            List<SummonUnit.SummonedTowerRecord> candidates = new();
+
+            foreach (var record in _summonUnit.OwnedTowers)
+            {
+                if (record == null)
+                    continue;
+                if (record.towerUnit == null)
+                    continue;
+                if (record.Id != needId)
+                    continue;
+
+                candidates.Add(record);
+            }
+
+            candidates.Sort((a, b) =>
+            {
+                int levelA = a.unitStat != null ? a.unitStat.Level : int.MaxValue;
+                int levelB = b.unitStat != null ? b.unitStat.Level : int.MaxValue;
+
+                // 1. 강화 안 된 유닛 우선 소모
+                if (levelA != levelB)
+                    return levelA.CompareTo(levelB);
+
+                // 2. 같으면 먼저 소환된 유닛 우선 소모
+                return a.summonIndex.CompareTo(b.summonIndex);
+            });
+
+            if (candidates.Count < needCount)
+            {
+                DebugTool.Warnning($"재료유닛 ID {needId} 이(가) {needCount}개 필요하지만 부족합니다.", DebugType.Combine, this);
+                consumeTargets = null;
+                return false;
+            }
+
+            for (int i = 0; i < needCount; i++)
+            {
+                consumeTargets.Add(candidates[i].towerUnit);
+            }
+        }
+
+        return true;
+    }
 
     // 보유한 유닛으로 조합 가능 여부 판단
     public bool CanCombine(CombineData recipe)
@@ -219,6 +257,8 @@ public class CombineManager : MonoBehaviour
             _ownedUnitCounts.Remove(unitId);
     }
     
+    // 합성 목록 리스트 정렬
+    // 합성 가능한 순, 유닛 ID 가 높은 순으로 정렬
     private List<int> GetSortedRecipeIndices()
     {
         List<int> result = new();

@@ -21,11 +21,40 @@ public class TitleSceneUI : MonoBehaviour
     [Header("━━━━ 이미지 ━━━━")]
     [Tooltip("캐릭터 이미지")]
     [SerializeField] private Image _characterImage;
+
+    [SerializeField][Range(0.1f, 10f)] float _imageScale = 0.5f;
     [SerializeField] private Sprite[] _characterSprites;
 
     private void Awake()
     {
-        _characterImage.sprite = _characterSprites[Random.Range(0, _characterSprites.Length)];
+        RefreshCG();
+    }
+
+    private void RefreshCG()
+    {
+        int randomIndex = Random.Range(0, _characterSprites.Length);
+        Sprite CG = _characterSprites[randomIndex];
+        float width = CG.rect.width;
+        float height = CG.rect.height;
+        
+        DebugTool.Log($"스프라이트 크기 : {CG.rect.width}x{CG.rect.height}", DebugType.UI, this);
+        
+        _characterImage.rectTransform.sizeDelta = new Vector2(width * _imageScale, height * _imageScale);
+        switch (randomIndex)
+        {
+            case 0:
+            case 2:
+            case 7:
+                _characterImage.rectTransform.anchoredPosition = new Vector3(80, 0);
+                break;
+            case 4:
+                _characterImage.rectTransform.anchoredPosition = new Vector3(-80, 0);
+                break;
+            default:
+                _characterImage.rectTransform.anchoredPosition = new Vector3(0, 0);
+                break;
+        }
+        _characterImage.sprite = CG;
     }
 
     private void Start()
