@@ -48,9 +48,7 @@ public class CombatManager : MonoBehaviour
     [Header("Elf Synergy")]
     [SerializeField] private BattleWaveRunner _battleWaveRunner;
 
-    [Header("Synergy SO")]
-    [SerializeField] private SynergySO synergySO;
-    public SynergySO SynergySO => synergySO;
+    [Header("Spirit Synergy")]
     [SerializeField, Min(0.1f)] private float spiritCooldown = 10f;
     [SerializeField] private bool spiritSynergyLog = false;
 
@@ -547,64 +545,26 @@ public class CombatManager : MonoBehaviour
         if (!HasSynergyTag(attackerStat, (int)SynergyManager.SynergyType.Human))
             return false;
 
+        if (synergyManager == null)
+            return false;
 
-
-        SynergyData humanData = GetSynergyData((int)SynergyManager.SynergyType.Human);
-
-
-        int activeCount = synergyManager.GetSynergyLevel((int)SynergyManager.SynergyType.Human);
-
-        Debug.Log(
-            $"인간 시너지 레벨 조회 | activeCount={activeCount}"
-        );
-
-        int goldBonus = Mathf.RoundToInt(GetMatchedBonus(humanData, activeCount));
-
-        Debug.Log(
-            $"인간 시너지 골드 보너스 계산 | goldBonus={goldBonus}"
-        );
+        int goldBonus = Mathf.RoundToInt(synergyManager.GetEffectValue((int)SynergyManager.SynergyType.Human));
 
         if (goldBonus <= 0)
             return false;
+
+        if (playerDataManager == null)
+            return false;
+
         playerDataManager.Gold += goldBonus;
 
+        DebugTool.Log(
+            $"인간 시너지 골드 획득 | unit={attackerStat.Name}, goldBonus={goldBonus}",
+            DebugType.Synergy,
+            this
+        );
+
         return true;
-    }
-    private SynergyData GetSynergyData(int synergyId)
-    {
-        if (synergySO == null || synergySO.Rows == null)
-            return null;
-
-        for (int i = 0; i < synergySO.Rows.Count; i++)
-        {
-            SynergyData data = synergySO.Rows[i];
-            if (data != null && data.ID == synergyId)
-                return data;
-        }
-
-        return null;
-    }
-
-    private float GetMatchedBonus(SynergyData synergyData, int activeCount)
-    {
-        float bonus = 0f;
-
-        for (int i = 0; i < synergyData.Levels.Count; i++)
-        {
-            SynergyLevelData level = synergyData.Levels[i];
-            if (level == null)
-                continue;
-
-            if (activeCount < level.ActiveCount)
-                continue;
-
-            if (level.EffectValues == null || level.EffectValues.Count == 0)
-                continue;
-
-            bonus = level.EffectValues[0];
-        }
-
-        return bonus;
     }
 
     private void TryTriggerWarriorExtraAttack(GameObject unit, UnitStat unitStat, string sourceName, AttackContext context)
@@ -831,6 +791,27 @@ public class CombatManager : MonoBehaviour
     public int GetSynergyLevel(int synergyId)
     {
         return synergyManager.GetSynergyLevel(synergyId);
+    }
+
+    // SynergyManager 로의 passthrough. UnitAutoAttack 등 외부에서 CombatManager.Instance 를 통해 간편 호출.
+    public float GetSynergyEffectValue(int synergyId, int effectIndex = 0)
+    {
+        return synergyManager != null ? synergyManager.GetEffectValue(synergyId, effectIndex) : 0f;
+    }
+
+    public bool TryGetSynergyEffectValue(int synergyId, int effectIndex, out float value)
+    {
+        if (synergyManager == null)
+        {
+            value = 0f;
+            return false;
+        }
+        return synergyManager.TryGetEffectValue(synergyId, effectIndex, out value);
+    }
+
+    public bool IsSynergyActive(int synergyId)
+    {
+        return synergyManager != null && synergyManager.IsSynergyActive(synergyId);
     }
 
 
@@ -1072,36 +1053,17 @@ public class CombatManager : MonoBehaviour
         duration = 0f;
         slowPercent = 0f;
 
-        if (synergySO == null || synergyManager == null)
+        if (synergyManager == null)
             return false;
 
         const int spiritId = (int)SynergyManager.SynergyType.Spirit;
 
-        SynergyData spiritData = GetSpiritSynergyData(spiritId);
-        if (spiritData == null || spiritData.Levels == null || spiritData.Levels.Count == 0)
+        if (!synergyManager.TryGetEffectValue(spiritId, 0, out duration))
             return false;
 
-        int activeCount = synergyManager.GetSynergyLevel(spiritId);
-
-
-        SynergyLevelData matchedLevel = null;
-        for (int i = 0; i < spiritData.Levels.Count; i++)
-        {
-            SynergyLevelData level = spiritData.Levels[i];
-            if (level == null)
-                continue;
-
-            if (activeCount < level.ActiveCount)
-                continue;
-
-            matchedLevel = level;
-        }
-
-        if (matchedLevel == null || matchedLevel.EffectValues == null || matchedLevel.EffectValues.Count < 2)
+        if (!synergyManager.TryGetEffectValue(spiritId, 1, out slowPercent))
             return false;
 
-        duration = matchedLevel.EffectValues[0];
-        slowPercent = matchedLevel.EffectValues[1];
         return true;
     }
 
@@ -1138,34 +1100,12 @@ public class CombatManager : MonoBehaviour
         _slowedMonsters.Clear();
     }
 
-    private SynergyData GetSpiritSynergyData(int synergyId)
-    {
-        if (synergySO == null || synergySO.Rows == null)
-            return null;
-
-        for (int i = 0; i < synergySO.Rows.Count; i++)
-        {
-            SynergyData data = synergySO.Rows[i];
-            if (data != null && data.ID == synergyId)
-                return data;
-        }
-
-        return null;
-    }
-
-
     private int GetSpiritMinActiveCount()
     {
-        if (synergySO == null)
+        if (synergyManager == null)
             return int.MaxValue;
 
-        const int spiritId = (int)SynergyManager.SynergyType.Spirit;
-        SynergyData spiritData = GetSpiritSynergyData(spiritId);
-
-        if (spiritData == null || spiritData.Levels == null || spiritData.Levels.Count == 0)
-            return int.MaxValue;
-
-        return spiritData.Levels[0].ActiveCount;
+        return synergyManager.GetMinActiveCount((int)SynergyManager.SynergyType.Spirit);
     }
 
 
@@ -1265,34 +1205,14 @@ public class CombatManager : MonoBehaviour
         duration = 0f;
         attackPercent = 0f;
 
-        if (synergySO == null || synergyManager == null)
+        if (synergyManager == null)
             return false;
 
         const int orcId = (int)SynergyManager.SynergyType.Orc;
 
-        SynergyData orcData = GetSynergyData(orcId);
-        if (orcData == null || orcData.Levels == null || orcData.Levels.Count == 0)
+        if (!synergyManager.TryGetEffectValue(orcId, 0, out attackPercent))
             return false;
 
-        int activeCount = synergyManager.GetSynergyLevel(orcId);
-
-        SynergyLevelData matchedLevel = null;
-        for (int i = 0; i < orcData.Levels.Count; i++)
-        {
-            SynergyLevelData level = orcData.Levels[i];
-            if (level == null)
-                continue;
-
-            if (activeCount < level.ActiveCount)
-                continue;
-
-            matchedLevel = level;
-        }
-
-        if (matchedLevel == null || matchedLevel.EffectValues == null || matchedLevel.EffectValues.Count == 0)
-            return false;
-
-        attackPercent = matchedLevel.EffectValues[0];
         duration = 5f;
         return true;
     }
@@ -1340,15 +1260,9 @@ public class CombatManager : MonoBehaviour
 
     private int GetOrcMinActiveCount()
     {
-        if (synergySO == null)
+        if (synergyManager == null)
             return int.MaxValue;
 
-        const int orcId = (int)SynergyManager.SynergyType.Orc;
-        SynergyData orcData = GetSynergyData(orcId);
-
-        if (orcData == null || orcData.Levels == null || orcData.Levels.Count == 0)
-            return int.MaxValue;
-
-        return orcData.Levels[0].ActiveCount;
+        return synergyManager.GetMinActiveCount((int)SynergyManager.SynergyType.Orc);
     }
 }

@@ -33,11 +33,6 @@ public class UnitAutoAttack : MonoBehaviour
     private const float WizardBonusCooldownSeconds = 5f;
     private const float FurryTriggerAnimSpeedBoost = 1.3f;
 
-    private SynergySO synergySO => CombatManager.Instance != null ? CombatManager.Instance.SynergySO : null;
-
-    private bool warnedMissingSynergySO = false;
-
-
     private TowerUnit towerUnit;
     private MonsterController currentTarget;
     private MonsterController lockedTarget;
@@ -760,59 +755,7 @@ public class UnitAutoAttack : MonoBehaviour
         if (CombatManager.Instance == null)
             return 0f;
 
-        if (synergySO == null)
-        {
-            WarnMissingSynergySO("Archer", ref warnedMissingSynergySO);
-            return 0f;
-        }
-
-        SynergyData archerData = GetSynergyDataById(ArcherSynergyId);
-        if (archerData == null || archerData.Levels == null || archerData.Levels.Count == 0)
-            return 0f;
-
-        int activeCount = CombatManager.Instance.GetSynergyLevel(ArcherSynergyId);
-        float bonusPercent = 0f;
-
-        for (int i = 0; i < archerData.Levels.Count; i++)
-        {
-            SynergyLevelData level = archerData.Levels[i];
-            if (level == null)
-                continue;
-
-            if (activeCount < level.ActiveCount)
-                continue;
-
-            if (level.EffectValues == null || level.EffectValues.Count == 0)
-                continue;
-
-            bonusPercent = level.EffectValues[0];
-        }
-
-        return bonusPercent;
-    }
-
-    private SynergyData GetSynergyDataById(int synergyId)
-    {
-        if (synergySO == null || synergySO.Rows == null)
-            return null;
-
-        for (int i = 0; i < synergySO.Rows.Count; i++)
-        {
-            SynergyData data = synergySO.Rows[i];
-            if (data != null && data.ID == synergyId)
-                return data;
-        }
-
-        return null;
-    }
-
-    private void WarnMissingSynergySO(string synergyName, ref bool warned)
-    {
-        if (warned)
-            return;
-
-        warned = true;
-        DebugTool.Warnning($"SynergySO 참조가 없어 {synergyName} 시너지를 적용하지 않습니다.", DebugType.Synergy, this);
+        return CombatManager.Instance.GetSynergyEffectValue(ArcherSynergyId);
     }
 
 
@@ -895,32 +838,7 @@ public class UnitAutoAttack : MonoBehaviour
         if (CombatManager.Instance == null)
             return 0;
 
-        if (synergySO == null)
-            return 0;
-
-        SynergyData furryData = GetSynergyDataById(FurrySynergyId);
-        if (furryData == null || furryData.Levels == null || furryData.Levels.Count == 0)
-            return 0;
-
-        int activeCount = CombatManager.Instance.GetSynergyLevel(FurrySynergyId);
-        int extraAttacks = 0;
-
-        for (int i = 0; i < furryData.Levels.Count; i++)
-        {
-            SynergyLevelData level = furryData.Levels[i];
-            if (level == null)
-                continue;
-
-            if (activeCount < level.ActiveCount)
-                continue;
-
-            if (level.EffectValues == null || level.EffectValues.Count == 0)
-                continue;
-
-            extraAttacks = (int)level.EffectValues[0];
-        }
-
-        return extraAttacks;
+        return (int)CombatManager.Instance.GetSynergyEffectValue(FurrySynergyId);
     }
 
     private float GetWizardDamageBonusPercent()
@@ -934,38 +852,12 @@ public class UnitAutoAttack : MonoBehaviour
         if (CombatManager.Instance == null)
             return 0f;
 
-        if (synergySO == null)
-        {
-            WarnMissingSynergySO("Wizard", ref warnedMissingSynergySO);
-            return 0f;
-        }
-
-        SynergyData wizardData = GetSynergyDataById(WizardSynergyId);
-        if (wizardData == null || wizardData.Levels == null || wizardData.Levels.Count == 0)
-            return 0f;
-
-        int activeCount = CombatManager.Instance.GetSynergyLevel(WizardSynergyId);
-        float bonusPercent = 0f;
-
-        for (int i = 0; i < wizardData.Levels.Count; i++)
-        {
-            SynergyLevelData level = wizardData.Levels[i];
-            if (level == null)
-                continue;
-
-            if (activeCount < level.ActiveCount)
-                continue;
-
-            if (level.EffectValues == null || level.EffectValues.Count == 0)
-                continue;
-
-            bonusPercent = level.EffectValues[0];
-        }
+        float bonusPercent = CombatManager.Instance.GetSynergyEffectValue(WizardSynergyId);
 
         if (attackLog && bonusPercent > 0f)
         {
             DebugTool.Log(
-                $"마법사 추가 대미지 준비 가능 | unit={unitStat.Name}, active={activeCount}, bonusPercent={bonusPercent:F2}",
+                $"마법사 추가 대미지 준비 가능 | unit={unitStat.Name}, active={CombatManager.Instance.GetSynergyLevel(WizardSynergyId)}, bonusPercent={bonusPercent:F2}",
                 DebugType.Synergy,
                 this
             );
@@ -985,39 +877,12 @@ public class UnitAutoAttack : MonoBehaviour
         if (CombatManager.Instance == null)
             return 0f;
 
-        if (synergySO == null)
-        {
-            WarnMissingSynergySO("Gunner", ref warnedMissingSynergySO);
-            return 0f;
-        }
-
-        SynergyData gunnerData = GetSynergyDataById(GunnerSynergyId);
-        if (gunnerData == null || gunnerData.Levels == null || gunnerData.Levels.Count == 0)
-            return 0f;
-
-        int activeCount = CombatManager.Instance.GetSynergyLevel(GunnerSynergyId);
-        float bonusPercent = 0f;
-
-        for (int i = 0; i < gunnerData.Levels.Count; i++)
-        {
-            SynergyLevelData level = gunnerData.Levels[i];
-            if (level == null)
-                continue;
-
-            if (activeCount < level.ActiveCount)
-                continue;
-
-            if (level.EffectValues == null || level.EffectValues.Count == 0)
-                continue;
-
-
-            bonusPercent = level.EffectValues[0];
-        }
+        float bonusPercent = CombatManager.Instance.GetSynergyEffectValue(GunnerSynergyId);
 
         if (attackLog && bonusPercent > 0f)
         {
             DebugTool.Log(
-                $"거너 공속 보너스 적용 | unit={unitStat.Name}, active={activeCount}, bonusPercent={bonusPercent:F2}",
+                $"거너 공속 보너스 적용 | unit={unitStat.Name}, active={CombatManager.Instance.GetSynergyLevel(GunnerSynergyId)}, bonusPercent={bonusPercent:F2}",
                 DebugType.Synergy,
                 this
             );
