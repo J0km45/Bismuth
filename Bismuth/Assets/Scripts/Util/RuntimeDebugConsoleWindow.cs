@@ -39,6 +39,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private GUIStyle _foldoutButtonStyle;
     private GUIStyle _toolbarButtonStyle;
     private GUIStyle _toolbarInfoLabelStyle;
+    private GUIStyle _toolbarInfoRightLabelStyle;
     private GUIStyle _objectFocusedRowStyle;
     private GUIStyle _objectParentFocusedRowStyle;
     private GUIStyle _componentFocusedRowStyle;
@@ -203,7 +204,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _toolbarInfoLabelStyle = new GUIStyle(GUI.skin.label)
         {
             alignment = TextAnchor.MiddleLeft,
-            wordWrap = true,
+            wordWrap = false,
             richText = false,
             fontStyle = FontStyle.Bold
         };
@@ -215,6 +216,11 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _toolbarInfoLabelStyle.onHover.textColor = _toolbarInfoText;
         _toolbarInfoLabelStyle.onActive.textColor = _toolbarInfoText;
         _toolbarInfoLabelStyle.onFocused.textColor = _toolbarInfoText;
+
+        _toolbarInfoRightLabelStyle = new GUIStyle(_toolbarInfoLabelStyle)
+        {
+            alignment = TextAnchor.MiddleRight
+        };
     }
 
     private void DrawWindow(int windowId)
@@ -253,22 +259,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             DrawToolbarToggleGroup(manager);
             GUILayout.Space(8f);
             DrawToolbarActionGroup(manager, typeButtonLabel);
-            GUILayout.Space(12f);
-            DrawToolbarInfoGroup(manager, false);
-            GUILayout.EndHorizontal();
-            return;
-        }
-
-        if (layoutLevel == 2)
-        {
-            GUILayout.BeginHorizontal(GUILayout.MinHeight(28f));
-            DrawToolbarToggleGroup(manager);
-            GUILayout.Space(8f);
-            DrawToolbarActionGroup(manager, typeButtonLabel);
-            GUILayout.EndHorizontal();
-
-            GUILayout.BeginHorizontal(GUILayout.MinHeight(32f));
-            DrawToolbarInfoGroup(manager, true);
             GUILayout.EndHorizontal();
             return;
         }
@@ -280,32 +270,29 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.BeginHorizontal(GUILayout.MinHeight(28f));
         DrawToolbarActionGroup(manager, typeButtonLabel);
         GUILayout.EndHorizontal();
-
-        GUILayout.BeginHorizontal(GUILayout.MinHeight(40f));
-        DrawToolbarInfoGroup(manager, true);
-        GUILayout.EndHorizontal();
     }
 
     private void DrawSearchBar()
     {
         float availableWidth = GetTopAreaWidth();
 
-        if (availableWidth >= 980f)
+        if (availableWidth >= 760f)
         {
             GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
-            DrawHierarchySearchField(GetSearchFieldWidth(availableWidth, false));
+            float hierarchyWidth = Mathf.Clamp((availableWidth - 330f) * 0.42f, 160f, 320f);
+            DrawHierarchySearchField(hierarchyWidth, 105f);
             GUILayout.Space(12f);
-            DrawLogSearchField(true);
+            DrawLogSearchField(75f);
             GUILayout.EndHorizontal();
             return;
         }
 
         GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
-        DrawHierarchySearchField(GetSearchFieldWidth(availableWidth, true));
+        DrawHierarchySearchField(Mathf.Max(160f, availableWidth - 130f), 105f);
         GUILayout.EndHorizontal();
 
         GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
-        DrawLogSearchField(false);
+        DrawLogSearchField(75f);
         GUILayout.EndHorizontal();
     }
 
@@ -408,7 +395,11 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private void DrawHierarchyPanel(DebugConsoleManager manager, float panelWidth)
     {
         GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
+        GUILayout.BeginHorizontal();
         GUILayout.Label("Scene Objects / Components", _titleStyle);
+        GUILayout.FlexibleSpace();
+        GUILayout.Label(GetFocusLabel(), _toolbarInfoRightLabelStyle, GUILayout.Width(Mathf.Clamp(panelWidth * 0.46f, 120f, 260f)));
+        GUILayout.EndHorizontal();
 
         _hierarchyScroll = GUILayout.BeginScrollView(_hierarchyScroll);
 
@@ -540,7 +531,11 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     {
         GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
+        GUILayout.BeginHorizontal();
         GUILayout.Label($"Logs {GetFocusSuffix()}", _titleStyle);
+        GUILayout.FlexibleSpace();
+        GUILayout.Label($"Count : {GetVisibleEntryCount(manager)}", _toolbarInfoRightLabelStyle, GUILayout.Width(110f));
+        GUILayout.EndHorizontal();
 
         bool wasNearBottom = IsNearBottom(_lastMaxLogScrollY);
         float contentHeight = 0f;
@@ -1016,15 +1011,15 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.Label($"Count : {manager.Entries.Count}", _toolbarInfoLabelStyle, GUILayout.Width(expanded ? 120f : 110f), GUILayout.MinHeight(expanded ? 34f : 18f));
     }
 
-    private void DrawHierarchySearchField(float fieldWidth)
+    private void DrawHierarchySearchField(float fieldWidth, float labelWidth)
     {
-        GUILayout.Label("Hierarchy Search", GUILayout.Width(105f));
+        GUILayout.Label("Hierarchy Search", GUILayout.Width(labelWidth));
         _hierarchySearch = GUILayout.TextField(_hierarchySearch, _searchTextFieldStyle, GUILayout.Width(fieldWidth));
     }
 
-    private void DrawLogSearchField(bool singleRow)
+    private void DrawLogSearchField(float labelWidth)
     {
-        GUILayout.Label("Log Search", GUILayout.Width(75f));
+        GUILayout.Label("Log Search", GUILayout.Width(labelWidth));
         _logSearch = GUILayout.TextField(_logSearch, _searchTextFieldStyle, GUILayout.ExpandWidth(true));
 
         if (GUILayout.Button("Clear Search", GUILayout.Width(100f)))
@@ -1057,6 +1052,20 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             return Mathf.Max(180f, availableWidth - 130f);
 
         return Mathf.Clamp((availableWidth * 0.28f), 180f, 280f);
+    }
+
+    private int GetVisibleEntryCount(DebugConsoleManager manager)
+    {
+        int count = 0;
+        IReadOnlyList<DebugEntry> entries = manager.Entries;
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            if (ShouldDisplayEntry(manager, entries[i]))
+                count++;
+        }
+
+        return count;
     }
 
     private void UpdateHierarchyButtonWidths()
