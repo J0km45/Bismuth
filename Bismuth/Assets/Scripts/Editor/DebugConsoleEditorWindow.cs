@@ -37,12 +37,8 @@ public class DebugConsoleEditorWindow : EditorWindow
     private Texture2D _solidTexture;
 
     private const int MaxDisplayNameLength = 15;
-    private const float MinHierarchyNameButtonWidth = 84f;
-    private const float MaxHierarchyNameButtonWidth = 220f;
-    private const float HierarchyNamePadding = 12f;
 
-    private float _hierarchyNameButtonWidth = 96f;
-    private float _hierarchyActionButtonWidth = 110f;
+    private float _hierarchyActionButtonWidth = 104f;
     private float _lastLogContentHeight;
     private float _lastLogViewportHeight;
     private float _lastMaxLogScrollY;
@@ -359,7 +355,9 @@ public class DebugConsoleEditorWindow : EditorWindow
         bool isObjectFocused = IsObjectFocused(id);
         bool isComponentParentFocused = IsFocusedObjectParent(id);
 
-        EditorGUILayout.BeginHorizontal(GetHierarchyRowStyle(isObjectFocused, isComponentParentFocused, false), GUILayout.Height(24f));
+        EditorGUILayout.BeginVertical(GetHierarchyRowStyle(isObjectFocused, isComponentParentFocused, false));
+
+        EditorGUILayout.BeginHorizontal(GUILayout.Height(24f));
         GUILayout.Space(depth * 18f);
 
         bool nextObjectEnabled = GUILayout.Toggle(objectEnabled, "", GUILayout.Width(20));
@@ -373,34 +371,47 @@ public class DebugConsoleEditorWindow : EditorWindow
             ? _selectedLinkButtonStyle
             : (objectEnabled ? _linkButtonStyle : _dimLabelStyle);
 
-        if (GUILayout.Button(objectLabel, objectStyle, GUILayout.Width(_hierarchyNameButtonWidth)))
+        GUIContent objectContent = new GUIContent(objectLabel, go.name);
+        if (GUILayout.Button(objectContent, objectStyle, GUILayout.ExpandWidth(true)))
             ToggleGameObjectFocus(go);
 
-        GUILayout.FlexibleSpace();
-
-        if (hasVisibleChildren)
-        {
-            if (GUILayout.Button((childrenExpanded || forceOpenChildren) ? "하위 ▼" : "하위 ▶", GUILayout.Width(_hierarchyActionButtonWidth)))
-            {
-                if (childrenExpanded)
-                    _expandedChildren.Remove(id);
-                else
-                    _expandedChildren.Add(id);
-            }
-        }
-
-        if (hasVisibleComponents)
-        {
-            if (GUILayout.Button((componentsExpanded || forceOpenComponents) ? "컴포넌트 ▼" : "컴포넌트 ▶", GUILayout.Width(_hierarchyActionButtonWidth)))
-            {
-                if (componentsExpanded)
-                    _expandedComponents.Remove(id);
-                else
-                    _expandedComponents.Add(id);
-            }
-        }
-
         EditorGUILayout.EndHorizontal();
+
+        if (hasVisibleChildren || hasVisibleComponents)
+        {
+            EditorGUILayout.BeginHorizontal(GUILayout.Height(22f));
+            GUILayout.Space(depth * 18f + 24f);
+
+            if (hasVisibleChildren)
+            {
+                if (GUILayout.Button((childrenExpanded || forceOpenChildren) ? "하위 ▼" : "하위 ▶", GUILayout.Width(_hierarchyActionButtonWidth)))
+                {
+                    if (childrenExpanded)
+                        _expandedChildren.Remove(id);
+                    else
+                        _expandedChildren.Add(id);
+                }
+            }
+
+            if (hasVisibleComponents)
+            {
+                if (hasVisibleChildren)
+                    GUILayout.Space(4f);
+
+                if (GUILayout.Button((componentsExpanded || forceOpenComponents) ? "컴포넌트 ▼" : "컴포넌트 ▶", GUILayout.Width(_hierarchyActionButtonWidth)))
+                {
+                    if (componentsExpanded)
+                        _expandedComponents.Remove(id);
+                    else
+                        _expandedComponents.Add(id);
+                }
+            }
+
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+        }
+
+        EditorGUILayout.EndVertical();
 
         bool showComponents = hasVisibleComponents && (componentsExpanded || forceOpenComponents);
         bool showChildren = hasVisibleChildren && (childrenExpanded || forceOpenChildren);
@@ -431,10 +442,10 @@ public class DebugConsoleEditorWindow : EditorWindow
                     ? _selectedLinkButtonStyle
                     : (objectEnabled ? _linkButtonStyle : _dimLabelStyle);
 
-                if (GUILayout.Button(componentLabel, componentStyle, GUILayout.Width(_hierarchyNameButtonWidth)))
+                GUIContent componentContent = new GUIContent(componentLabel, component.GetType().Name);
+                if (GUILayout.Button(componentContent, componentStyle, GUILayout.ExpandWidth(true)))
                     ToggleComponentFocus(component);
 
-                GUILayout.FlexibleSpace();
                 EditorGUILayout.EndHorizontal();
             }
 
@@ -885,19 +896,9 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private void UpdateHierarchyButtonWidths()
     {
-        float maxNameWidth = 0f;
-
-        Scene activeScene = SceneManager.GetActiveScene();
-        GameObject[] roots = activeScene.GetRootGameObjects();
-
-        for (int i = 0; i < roots.Length; i++)
-            CollectHierarchyButtonWidths(roots[i], ref maxNameWidth);
-
-        _hierarchyNameButtonWidth = Mathf.Clamp(Mathf.Ceil(maxNameWidth) + HierarchyNamePadding, MinHierarchyNameButtonWidth, MaxHierarchyNameButtonWidth);
-
-        float childWidth = _linkButtonStyle.CalcSize(new GUIContent("하위 ▼")).x + 18f;
-        float componentWidth = _linkButtonStyle.CalcSize(new GUIContent("컴포넌트 ▼")).x + 18f;
-        _hierarchyActionButtonWidth = Mathf.Ceil(Mathf.Max(childWidth, componentWidth, 92f));
+        float childWidth = _linkButtonStyle.CalcSize(new GUIContent("하위 ▼")).x + 12f;
+        float componentWidth = _linkButtonStyle.CalcSize(new GUIContent("컴포넌트 ▼")).x + 12f;
+        _hierarchyActionButtonWidth = Mathf.Ceil(Mathf.Max(childWidth, componentWidth, 76f));
     }
 
     private void CollectHierarchyButtonWidths(GameObject go, ref float maxNameWidth)
