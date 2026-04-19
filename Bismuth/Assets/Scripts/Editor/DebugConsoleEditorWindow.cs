@@ -56,6 +56,12 @@ public class DebugConsoleEditorWindow : EditorWindow
     private const float HierarchyRowHeight = 22f;
     private const float HierarchyToggleSize = 18f;
     private const float HierarchyFoldoutSize = 18f;
+    private const float PanelSplitterWidth = 6f;
+    private const float MinHierarchyPanelWidth = 160f;
+    private const float MinLogPanelWidth = 200f;
+
+    private float _hierarchyPanelWidth = 520f;
+    private bool _isDraggingPanelSplitter;
 
     private float _lastLogContentHeight;
     private float _lastLogViewportHeight;
@@ -143,10 +149,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         DrawSearchBar();
         DrawTypeFilterPanel(manager);
 
-        EditorGUILayout.BeginHorizontal();
-        DrawHierarchyPanel(manager);
-        DrawLogPanel(manager);
-        EditorGUILayout.EndHorizontal();
+        DrawResizablePanels(manager);
     }
 
     private void InitStyles()
@@ -367,11 +370,67 @@ public class DebugConsoleEditorWindow : EditorWindow
         GUILayout.Space(4f);
     }
 
-    private void DrawHierarchyPanel(DebugConsoleManager manager)
+    private void DrawResizablePanels(DebugConsoleManager manager)
     {
-        float width = Mathf.Max(position.width * 0.42f, 320f);
+        float contentWidth = Mathf.Max(620f, position.width - 24f);
+        float maxHierarchyPanelWidth = Mathf.Max(MinHierarchyPanelWidth, contentWidth - MinLogPanelWidth - PanelSplitterWidth);
 
-        EditorGUILayout.BeginVertical(_boxStyle, GUILayout.Width(width), GUILayout.ExpandHeight(true));
+        if (_hierarchyPanelWidth <= 0f)
+            _hierarchyPanelWidth = contentWidth * 0.42f;
+
+        _hierarchyPanelWidth = Mathf.Clamp(_hierarchyPanelWidth, MinHierarchyPanelWidth, maxHierarchyPanelWidth);
+        float logPanelWidth = Mathf.Max(MinLogPanelWidth, contentWidth - _hierarchyPanelWidth - PanelSplitterWidth);
+
+        EditorGUILayout.BeginHorizontal(GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
+        DrawHierarchyPanel(manager, _hierarchyPanelWidth);
+        DrawPanelSplitter(contentWidth);
+        DrawLogPanel(manager, logPanelWidth);
+        EditorGUILayout.EndHorizontal();
+    }
+
+    private void DrawPanelSplitter(float contentWidth)
+    {
+        Rect splitterRect = GUILayoutUtility.GetRect(PanelSplitterWidth, 10f, GUILayout.Width(PanelSplitterWidth), GUILayout.ExpandHeight(true));
+        EditorGUIUtility.AddCursorRect(splitterRect, MouseCursor.ResizeHorizontal);
+
+        Event current = Event.current;
+        bool hovered = splitterRect.Contains(current.mousePosition);
+
+        if (current.type == EventType.MouseDown && current.button == 0 && hovered)
+        {
+            _isDraggingPanelSplitter = true;
+            current.Use();
+        }
+
+        if (_isDraggingPanelSplitter && current.type == EventType.MouseDrag)
+        {
+            float maxHierarchyPanelWidth = Mathf.Max(MinHierarchyPanelWidth, contentWidth - MinLogPanelWidth - PanelSplitterWidth);
+            _hierarchyPanelWidth = Mathf.Clamp(_hierarchyPanelWidth + current.delta.x, MinHierarchyPanelWidth, maxHierarchyPanelWidth);
+            current.Use();
+            Repaint();
+        }
+
+        if (_isDraggingPanelSplitter && (current.type == EventType.MouseUp || current.rawType == EventType.MouseUp))
+        {
+            _isDraggingPanelSplitter = false;
+            current.Use();
+        }
+
+        Color previousColor = GUI.color;
+        if (_isDraggingPanelSplitter)
+            GUI.color = new Color(1.00f, 0.86f, 0.32f, 0.95f);
+        else if (hovered)
+            GUI.color = new Color(0.95f, 0.92f, 0.72f, 0.55f);
+        else
+            GUI.color = new Color(0.80f, 0.80f, 0.80f, 0.20f);
+
+        GUI.Box(splitterRect, GUIContent.none);
+        GUI.color = previousColor;
+    }
+
+    private void DrawHierarchyPanel(DebugConsoleManager manager, float panelWidth)
+    {
+        EditorGUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
         GUILayout.Label("Scene Objects / Components", _titleStyle);
 
         _hierarchyScroll = EditorGUILayout.BeginScrollView(_hierarchyScroll);
@@ -501,9 +560,9 @@ public class DebugConsoleEditorWindow : EditorWindow
         }
     }
 
-    private void DrawLogPanel(DebugConsoleManager manager)
+    private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     {
-        EditorGUILayout.BeginVertical(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
+        EditorGUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
         GUILayout.Label($"Logs {GetFocusSuffix()}", _titleStyle);
 
         bool wasNearBottom = IsNearBottom(_lastMaxLogScrollY);
@@ -512,7 +571,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         _logScroll = EditorGUILayout.BeginScrollView(_logScroll);
 
         IReadOnlyList<DebugEntry> entries = manager.Entries;
-        float width = Mathf.Max(position.width * 0.52f - 40f, 300f);
+        float width = Mathf.Max(panelWidth - 32f, 300f);
 
         for (int i = 0; i < entries.Count; i++)
         {
