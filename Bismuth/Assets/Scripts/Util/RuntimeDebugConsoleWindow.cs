@@ -60,10 +60,10 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private const float HierarchyToggleSize = 18f;
     private const float HierarchyFoldoutSize = 18f;
     private const float PanelSplitterWidth = 6f;
-    private const float MinHierarchyPanelWidth = 160f;
+    private const float MinHierarchyPanelWidth = 180f;
     private const float MinLogPanelWidth = 220f;
 
-    [SerializeField] private float _hierarchyPanelWidth = 520f;
+    [SerializeField] private float _hierarchyPanelWidth = 420f;
     private bool _isDraggingPanelSplitter;
 
     private float _lastLogContentHeight;
@@ -371,7 +371,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private void DrawPanelSplitter(float contentWidth)
     {
         Rect splitterRect = GUILayoutUtility.GetRect(PanelSplitterWidth, 10f, GUILayout.Width(PanelSplitterWidth), GUILayout.ExpandHeight(true));
-
         Event current = Event.current;
         bool hovered = splitterRect.Contains(current.mousePosition);
 

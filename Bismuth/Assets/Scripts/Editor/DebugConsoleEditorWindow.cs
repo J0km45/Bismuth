@@ -57,10 +57,10 @@ public class DebugConsoleEditorWindow : EditorWindow
     private const float HierarchyToggleSize = 18f;
     private const float HierarchyFoldoutSize = 18f;
     private const float PanelSplitterWidth = 6f;
-    private const float MinHierarchyPanelWidth = 160f;
-    private const float MinLogPanelWidth = 200f;
+    private const float MinHierarchyPanelWidth = 180f;
+    private const float MinLogPanelWidth = 220f;
 
-    private float _hierarchyPanelWidth = 520f;
+    private float _hierarchyPanelWidth = 420f;
     private bool _isDraggingPanelSplitter;
 
     private float _lastLogContentHeight;
