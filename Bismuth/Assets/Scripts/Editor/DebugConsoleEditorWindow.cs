@@ -30,10 +30,22 @@ public class DebugConsoleEditorWindow : EditorWindow
     private GUIStyle _searchTextFieldStyle;
     private GUIStyle _linkButtonStyle;
     private GUIStyle _selectedLinkButtonStyle;
+    private GUIStyle _toolbarInfoLabelStyle;
     private GUIStyle _objectFocusedRowStyle;
     private GUIStyle _objectParentFocusedRowStyle;
     private GUIStyle _componentFocusedRowStyle;
     private Texture2D _solidTexture;
+
+    private const int MaxDisplayNameLength = 15;
+    private const float MinHierarchyNameButtonWidth = 84f;
+    private const float MaxHierarchyNameButtonWidth = 220f;
+    private const float HierarchyNamePadding = 12f;
+
+    private float _hierarchyNameButtonWidth = 96f;
+    private float _hierarchyActionButtonWidth = 110f;
+    private float _lastLogContentHeight;
+    private float _lastLogViewportHeight;
+    private float _lastMaxLogScrollY;
 
     private readonly HashSet<int> _expandedComponents = new();
     private readonly HashSet<int> _expandedChildren = new();
@@ -163,6 +175,13 @@ public class DebugConsoleEditorWindow : EditorWindow
         _selectedLinkButtonStyle.fontStyle = FontStyle.Bold;
         _selectedLinkButtonStyle.normal.textColor = new Color(0.4f, 0.9f, 1f);
 
+        _toolbarInfoLabelStyle = new GUIStyle(EditorStyles.label)
+        {
+            alignment = TextAnchor.MiddleLeft,
+            wordWrap = true,
+            richText = false
+        };
+
         if (_solidTexture == null)
         {
             _solidTexture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
@@ -177,23 +196,8 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private void DrawToolbar(DebugConsoleManager manager)
     {
-        EditorGUILayout.BeginHorizontal(GUILayout.Height(24));
-
-        bool global = GUILayout.Toggle(manager.GlobalEnabled, "Global", GUILayout.Width(80));
-        if (global != manager.GlobalEnabled)
-            manager.GlobalEnabled = global;
-
-        bool mirror = GUILayout.Toggle(manager.MirrorToUnityConsole, "Mirror Unity", GUILayout.Width(110));
-        if (mirror != manager.MirrorToUnityConsole)
-            manager.MirrorToUnityConsole = mirror;
-
-        bool autoScroll = GUILayout.Toggle(_autoScroll, "Auto Scroll", GUILayout.Width(100));
-        if (autoScroll != _autoScroll)
-            _autoScroll = autoScroll;
-
-        bool hideTransform = GUILayout.Toggle(_hideTransform, "Hide Transform", GUILayout.Width(120));
-        if (hideTransform != _hideTransform)
-            _hideTransform = hideTransform;
+        float availableWidth = GetTopAreaWidth();
+        int layoutLevel = GetTopLayoutLevel(availableWidth);
 
         int enabledCount = GetEnabledTypeCount(manager);
         int totalCount = Enum.GetValues(typeof(DebugType)).Length;
@@ -201,48 +205,69 @@ public class DebugConsoleEditorWindow : EditorWindow
             ? $"Type Filter ▲ ({enabledCount}/{totalCount})"
             : $"Type Filter ▼ ({enabledCount}/{totalCount})";
 
-        if (GUILayout.Button(typeButtonLabel, GUILayout.Width(160)))
-            _showTypeFilterPanel = !_showTypeFilterPanel;
+        if (layoutLevel == 1)
+        {
+            EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+            DrawToolbarToggleGroup(manager);
+            GUILayout.Space(8f);
+            DrawToolbarActionGroup(manager, typeButtonLabel);
+            GUILayout.Space(12f);
+            DrawToolbarInfoGroup(manager, false);
+            EditorGUILayout.EndHorizontal();
+            GUILayout.Space(4f);
+            return;
+        }
 
-        if (GUILayout.Button("All Types On", GUILayout.Width(100)))
-            manager.SetAllTypes(true);
+        if (layoutLevel == 2)
+        {
+            EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+            DrawToolbarToggleGroup(manager);
+            GUILayout.Space(8f);
+            DrawToolbarActionGroup(manager, typeButtonLabel);
+            EditorGUILayout.EndHorizontal();
 
-        if (GUILayout.Button("All Types Off", GUILayout.Width(100)))
-            manager.SetAllTypes(false);
+            EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(30f));
+            DrawToolbarInfoGroup(manager, true);
+            EditorGUILayout.EndHorizontal();
+            GUILayout.Space(4f);
+            return;
+        }
 
-        if (GUILayout.Button("Clear Logs", GUILayout.Width(100)))
-            manager.ClearLogs();
+        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+        DrawToolbarToggleGroup(manager);
+        EditorGUILayout.EndHorizontal();
 
-        if (GUILayout.Button("Clear Focus", GUILayout.Width(100)))
-            ClearFocus();
+        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+        DrawToolbarActionGroup(manager, typeButtonLabel);
+        EditorGUILayout.EndHorizontal();
 
-        GUILayout.FlexibleSpace();
-        GUILayout.Label(GetFocusLabel(), GUILayout.Width(280));
-        GUILayout.Label($"Count : {manager.Entries.Count}", GUILayout.Width(110));
-
+        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(38f));
+        DrawToolbarInfoGroup(manager, true);
         EditorGUILayout.EndHorizontal();
         GUILayout.Space(4f);
     }
 
     private void DrawSearchBar()
     {
-        EditorGUILayout.BeginHorizontal(GUILayout.Height(22));
+        float availableWidth = GetTopAreaWidth();
 
-        GUILayout.Label("Hierarchy Search", GUILayout.Width(105));
-        _hierarchySearch = GUILayout.TextField(_hierarchySearch, _searchTextFieldStyle, GUILayout.Width(220));
-
-        GUILayout.Space(12f);
-
-        GUILayout.Label("Log Search", GUILayout.Width(75));
-        _logSearch = GUILayout.TextField(_logSearch, _searchTextFieldStyle, GUILayout.ExpandWidth(true));
-
-        if (GUILayout.Button("Clear Search", GUILayout.Width(100)))
+        if (availableWidth >= 980f)
         {
-            _hierarchySearch = string.Empty;
-            _logSearch = string.Empty;
-            GUI.FocusControl(null);
+            EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
+            DrawHierarchySearchField(GetSearchFieldWidth(availableWidth, false));
+            GUILayout.Space(12f);
+            DrawLogSearchField();
+            EditorGUILayout.EndHorizontal();
+            GUILayout.Space(4f);
+            return;
         }
 
+        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
+        DrawHierarchySearchField(GetSearchFieldWidth(availableWidth, true));
+        EditorGUILayout.EndHorizontal();
+
+        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
+        DrawLogSearchField();
         EditorGUILayout.EndHorizontal();
         GUILayout.Space(4f);
     }
@@ -291,6 +316,7 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private void DrawHierarchyPanel(DebugConsoleManager manager)
     {
+        UpdateHierarchyButtonWidths();
         float width = Mathf.Max(position.width * 0.42f, 320f);
 
         EditorGUILayout.BeginVertical(_boxStyle, GUILayout.Width(width), GUILayout.ExpandHeight(true));
@@ -340,35 +366,37 @@ public class DebugConsoleEditorWindow : EditorWindow
         if (nextObjectEnabled != objectEnabled)
             manager.SetGameObjectEnabled(go, nextObjectEnabled);
 
-        string objectLabel = isObjectFocused ? $"▶ {go.name}" : (isComponentParentFocused ? $"▸ {go.name}" : go.name);
+        string objectLabel = isObjectFocused
+            ? $"▶ {GetDisplayName(go.name)}"
+            : (isComponentParentFocused ? $"▸ {GetDisplayName(go.name)}" : GetDisplayName(go.name));
         GUIStyle objectStyle = (isObjectFocused || isComponentParentFocused)
             ? _selectedLinkButtonStyle
             : (objectEnabled ? _linkButtonStyle : _dimLabelStyle);
 
-        if (GUILayout.Button(objectLabel, objectStyle, GUILayout.Width(220)))
+        if (GUILayout.Button(objectLabel, objectStyle, GUILayout.Width(_hierarchyNameButtonWidth)))
             ToggleGameObjectFocus(go);
 
         GUILayout.FlexibleSpace();
 
-        if (hasVisibleComponents)
-        {
-            if (GUILayout.Button((componentsExpanded || forceOpenComponents) ? "컴포넌트 ▼" : "컴포넌트 ▶", GUILayout.Width(110)))
-            {
-                if (componentsExpanded)
-                    _expandedComponents.Remove(id);
-                else
-                    _expandedComponents.Add(id);
-            }
-        }
-
         if (hasVisibleChildren)
         {
-            if (GUILayout.Button((childrenExpanded || forceOpenChildren) ? "자식 ▼" : "자식 ▶", GUILayout.Width(80)))
+            if (GUILayout.Button((childrenExpanded || forceOpenChildren) ? "하위 ▼" : "하위 ▶", GUILayout.Width(_hierarchyActionButtonWidth)))
             {
                 if (childrenExpanded)
                     _expandedChildren.Remove(id);
                 else
                     _expandedChildren.Add(id);
+            }
+        }
+
+        if (hasVisibleComponents)
+        {
+            if (GUILayout.Button((componentsExpanded || forceOpenComponents) ? "컴포넌트 ▼" : "컴포넌트 ▶", GUILayout.Width(_hierarchyActionButtonWidth)))
+            {
+                if (componentsExpanded)
+                    _expandedComponents.Remove(id);
+                else
+                    _expandedComponents.Add(id);
             }
         }
 
@@ -397,12 +425,13 @@ public class DebugConsoleEditorWindow : EditorWindow
                 if (nextComponentEnabled != componentEnabled)
                     manager.SetComponentEnabled(component, nextComponentEnabled);
 
-                string componentLabel = isComponentFocused ? $"▶ {component.GetType().Name}" : component.GetType().Name;
+                string componentName = GetDisplayName(component.GetType().Name);
+                string componentLabel = isComponentFocused ? $"▶ {componentName}" : componentName;
                 GUIStyle componentStyle = isComponentFocused
                     ? _selectedLinkButtonStyle
                     : (objectEnabled ? _linkButtonStyle : _dimLabelStyle);
 
-                if (GUILayout.Button(componentLabel, componentStyle, GUILayout.Width(220)))
+                if (GUILayout.Button(componentLabel, componentStyle, GUILayout.Width(_hierarchyNameButtonWidth)))
                     ToggleComponentFocus(component);
 
                 GUILayout.FlexibleSpace();
@@ -424,6 +453,9 @@ public class DebugConsoleEditorWindow : EditorWindow
         EditorGUILayout.BeginVertical(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
         GUILayout.Label($"Logs {GetFocusSuffix()}", _titleStyle);
 
+        bool wasNearBottom = IsNearBottom(_lastMaxLogScrollY);
+        float contentHeight = 0f;
+
         _logScroll = EditorGUILayout.BeginScrollView(_logScroll);
 
         IReadOnlyList<DebugEntry> entries = manager.Entries;
@@ -436,19 +468,25 @@ public class DebugConsoleEditorWindow : EditorWindow
             if (!ShouldDisplayEntry(manager, entry))
                 continue;
 
-            DrawLogEntry(entry, i, width);
+            float drawnHeight = DrawLogEntry(entry, i, width);
+            contentHeight += drawnHeight + 4f;
             GUILayout.Space(4f);
         }
 
         EditorGUILayout.EndScrollView();
 
-        if (_autoScroll && Event.current.type == EventType.Repaint)
-            _logScroll.y = 999999f;
+        Rect scrollRect = GUILayoutUtility.GetLastRect();
+        _lastLogViewportHeight = scrollRect.height;
+        _lastLogContentHeight = contentHeight + 8f;
+        _lastMaxLogScrollY = Mathf.Max(0f, _lastLogContentHeight - _lastLogViewportHeight);
+
+        if (Event.current.type == EventType.Repaint && (_autoScroll || wasNearBottom || IsNearBottom(_lastMaxLogScrollY)))
+            _logScroll.y = _lastMaxLogScrollY + 4f;
 
         EditorGUILayout.EndVertical();
     }
 
-    private void DrawLogEntry(DebugEntry entry, int index, float width)
+    private float DrawLogEntry(DebugEntry entry, int index, float width)
     {
         GUIContent content = new GUIContent(entry.RichText);
         float height = _richLabelStyle.CalcHeight(content, width);
@@ -471,6 +509,8 @@ public class DebugConsoleEditorWindow : EditorWindow
             FocusEntry(entry);
             Event.current.Use();
         }
+
+        return rect.height;
     }
 
     private void FocusEntry(DebugEntry entry)
@@ -753,6 +793,148 @@ public class DebugConsoleEditorWindow : EditorWindow
             return true;
 
         return ContainsIgnoreCase(component.GetType().Name, _hierarchySearch);
+    }
+
+
+    private void DrawToolbarToggleGroup(DebugConsoleManager manager)
+    {
+        bool global = GUILayout.Toggle(manager.GlobalEnabled, "Global", GUILayout.Width(80f));
+        if (global != manager.GlobalEnabled)
+            manager.GlobalEnabled = global;
+
+        bool mirror = GUILayout.Toggle(manager.MirrorToUnityConsole, "Mirror Unity", GUILayout.Width(110f));
+        if (mirror != manager.MirrorToUnityConsole)
+            manager.MirrorToUnityConsole = mirror;
+
+        bool autoScroll = GUILayout.Toggle(_autoScroll, "Auto Scroll", GUILayout.Width(100f));
+        if (autoScroll != _autoScroll)
+            _autoScroll = autoScroll;
+
+        bool hideTransform = GUILayout.Toggle(_hideTransform, "Hide Transform", GUILayout.Width(120f));
+        if (hideTransform != _hideTransform)
+            _hideTransform = hideTransform;
+    }
+
+    private void DrawToolbarActionGroup(DebugConsoleManager manager, string typeButtonLabel)
+    {
+        if (GUILayout.Button(typeButtonLabel, GUILayout.Width(160f)))
+            _showTypeFilterPanel = !_showTypeFilterPanel;
+
+        if (GUILayout.Button("All Types On", GUILayout.Width(100f)))
+            manager.SetAllTypes(true);
+
+        if (GUILayout.Button("All Types Off", GUILayout.Width(100f)))
+            manager.SetAllTypes(false);
+
+        if (GUILayout.Button("Clear Logs", GUILayout.Width(100f)))
+            manager.ClearLogs();
+
+        if (GUILayout.Button("Clear Focus", GUILayout.Width(100f)))
+            ClearFocus();
+    }
+
+    private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
+    {
+        GUILayout.Label(GetFocusLabel(), _toolbarInfoLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(expanded ? 30f : 18f));
+        GUILayout.Space(8f);
+        GUILayout.Label($"Count : {manager.Entries.Count}", _toolbarInfoLabelStyle, GUILayout.Width(expanded ? 120f : 110f), GUILayout.MinHeight(expanded ? 30f : 18f));
+    }
+
+    private void DrawHierarchySearchField(float fieldWidth)
+    {
+        GUILayout.Label("Hierarchy Search", GUILayout.Width(105f));
+        _hierarchySearch = GUILayout.TextField(_hierarchySearch, _searchTextFieldStyle, GUILayout.Width(fieldWidth));
+    }
+
+    private void DrawLogSearchField()
+    {
+        GUILayout.Label("Log Search", GUILayout.Width(75f));
+        _logSearch = GUILayout.TextField(_logSearch, _searchTextFieldStyle, GUILayout.ExpandWidth(true));
+
+        if (GUILayout.Button("Clear Search", GUILayout.Width(100f)))
+        {
+            _hierarchySearch = string.Empty;
+            _logSearch = string.Empty;
+            GUI.FocusControl(null);
+        }
+    }
+
+    private float GetTopAreaWidth()
+    {
+        return Mathf.Max(320f, position.width - 32f);
+    }
+
+    private int GetTopLayoutLevel(float availableWidth)
+    {
+        if (availableWidth >= 1500f)
+            return 1;
+
+        if (availableWidth >= 980f)
+            return 2;
+
+        return 3;
+    }
+
+    private float GetSearchFieldWidth(float availableWidth, bool stacked)
+    {
+        if (stacked)
+            return Mathf.Max(180f, availableWidth - 130f);
+
+        return Mathf.Clamp(availableWidth * 0.28f, 180f, 280f);
+    }
+
+    private void UpdateHierarchyButtonWidths()
+    {
+        float maxNameWidth = 0f;
+
+        Scene activeScene = SceneManager.GetActiveScene();
+        GameObject[] roots = activeScene.GetRootGameObjects();
+
+        for (int i = 0; i < roots.Length; i++)
+            CollectHierarchyButtonWidths(roots[i], ref maxNameWidth);
+
+        _hierarchyNameButtonWidth = Mathf.Clamp(Mathf.Ceil(maxNameWidth) + HierarchyNamePadding, MinHierarchyNameButtonWidth, MaxHierarchyNameButtonWidth);
+
+        float childWidth = _linkButtonStyle.CalcSize(new GUIContent("하위 ▼")).x + 18f;
+        float componentWidth = _linkButtonStyle.CalcSize(new GUIContent("컴포넌트 ▼")).x + 18f;
+        _hierarchyActionButtonWidth = Mathf.Ceil(Mathf.Max(childWidth, componentWidth, 92f));
+    }
+
+    private void CollectHierarchyButtonWidths(GameObject go, ref float maxNameWidth)
+    {
+        if (go == null || !ShouldShowGameObject(go))
+            return;
+
+        maxNameWidth = Mathf.Max(maxNameWidth, _linkButtonStyle.CalcSize(new GUIContent($"▶ {GetDisplayName(go.name)}")).x);
+
+        Component[] components = go.GetComponents<Component>();
+        foreach (Component component in components)
+        {
+            if (!ShouldShowComponent(component, go.name))
+                continue;
+
+            maxNameWidth = Mathf.Max(maxNameWidth, _linkButtonStyle.CalcSize(new GUIContent($"▶ {GetDisplayName(component.GetType().Name)}")).x);
+        }
+
+        for (int i = 0; i < go.transform.childCount; i++)
+            CollectHierarchyButtonWidths(go.transform.GetChild(i).gameObject, ref maxNameWidth);
+    }
+
+    private string GetDisplayName(string source)
+    {
+        if (string.IsNullOrEmpty(source))
+            return "(Null)";
+
+        return source.Length > MaxDisplayNameLength ? source.Substring(0, MaxDisplayNameLength) + "..." : source;
+    }
+
+    private bool IsNearBottom(float maxScrollY)
+    {
+        if (maxScrollY <= 0f)
+            return true;
+
+        float remaining = maxScrollY - _logScroll.y;
+        return remaining <= Mathf.Max(maxScrollY * 0.05f, 32f);
     }
 
     private bool ContainsIgnoreCase(string source, string keyword)
