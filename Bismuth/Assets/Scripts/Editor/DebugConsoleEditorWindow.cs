@@ -16,6 +16,7 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private bool _autoScroll = true;
     private bool _hideTransform = true;
+    private bool _collapsePreviousOnSelection = true;
     private bool _showTypeFilterPanel;
 
     private int _focusedGameObjectId;
@@ -29,7 +30,11 @@ public class DebugConsoleEditorWindow : EditorWindow
     private GUIStyle _dimLabelStyle;
     private GUIStyle _searchTextFieldStyle;
     private GUIStyle _linkButtonStyle;
-    private GUIStyle _selectedLinkButtonStyle;
+    private GUIStyle _disabledButtonStyle;
+    private GUIStyle _objectSelectedButtonStyle;
+    private GUIStyle _componentSelectedButtonStyle;
+    private GUIStyle _parentSelectedButtonStyle;
+    private GUIStyle _foldoutButtonStyle;
     private GUIStyle _toolbarInfoLabelStyle;
     private GUIStyle _objectFocusedRowStyle;
     private GUIStyle _objectParentFocusedRowStyle;
@@ -37,8 +42,10 @@ public class DebugConsoleEditorWindow : EditorWindow
     private Texture2D _solidTexture;
 
     private const int MaxDisplayNameLength = 15;
+    private const float HierarchyRowHeight = 22f;
+    private const float HierarchyToggleSize = 18f;
+    private const float HierarchyFoldoutSize = 18f;
 
-    private float _hierarchyActionButtonWidth = 104f;
     private float _lastLogContentHeight;
     private float _lastLogViewportHeight;
     private float _lastMaxLogScrollY;
@@ -163,13 +170,25 @@ public class DebugConsoleEditorWindow : EditorWindow
         _linkButtonStyle = new GUIStyle(GUI.skin.button)
         {
             alignment = TextAnchor.MiddleLeft,
-            padding = new RectOffset(2, 2, 0, 0),
-            margin = new RectOffset(0, 0, 0, 0)
+            padding = new RectOffset(6, 6, 0, 0),
+            margin = new RectOffset(0, 0, 0, 0),
+            fixedHeight = HierarchyRowHeight
         };
 
-        _selectedLinkButtonStyle = new GUIStyle(_linkButtonStyle);
-        _selectedLinkButtonStyle.fontStyle = FontStyle.Bold;
-        _selectedLinkButtonStyle.normal.textColor = new Color(0.4f, 0.9f, 1f);
+        _disabledButtonStyle = new GUIStyle(_linkButtonStyle);
+        _disabledButtonStyle.normal.textColor = new Color(0.55f, 0.55f, 0.55f);
+        _disabledButtonStyle.hover.textColor = _disabledButtonStyle.normal.textColor;
+        _disabledButtonStyle.active.textColor = _disabledButtonStyle.normal.textColor;
+
+        _foldoutButtonStyle = new GUIStyle(GUI.skin.button)
+        {
+            alignment = TextAnchor.MiddleCenter,
+            padding = new RectOffset(0, 0, 0, 0),
+            margin = new RectOffset(0, 0, 0, 0),
+            fixedWidth = HierarchyFoldoutSize,
+            fixedHeight = HierarchyRowHeight,
+            fontStyle = FontStyle.Bold
+        };
 
         _toolbarInfoLabelStyle = new GUIStyle(EditorStyles.label)
         {
@@ -185,9 +204,13 @@ public class DebugConsoleEditorWindow : EditorWindow
             _solidTexture.Apply();
         }
 
-        _objectFocusedRowStyle = CreateRowStyle(new Color(0.20f, 0.72f, 0.95f, 0.22f));
-        _objectParentFocusedRowStyle = CreateRowStyle(new Color(0.20f, 0.72f, 0.95f, 0.10f));
-        _componentFocusedRowStyle = CreateRowStyle(new Color(0.22f, 0.52f, 0.95f, 0.32f));
+        _objectFocusedRowStyle = CreateRowStyle(new Color(0.12f, 0.50f, 0.78f, 0.26f));
+        _objectParentFocusedRowStyle = CreateRowStyle(new Color(0.12f, 0.50f, 0.78f, 0.12f));
+        _componentFocusedRowStyle = CreateRowStyle(new Color(0.10f, 0.72f, 0.62f, 0.30f));
+
+        _objectSelectedButtonStyle = CreateButtonStyle(new Color(0.14f, 0.48f, 0.74f, 0.95f), Color.white, true, TextAnchor.MiddleLeft);
+        _parentSelectedButtonStyle = CreateButtonStyle(new Color(0.18f, 0.35f, 0.47f, 0.95f), new Color(0.88f, 0.96f, 1f), true, TextAnchor.MiddleLeft);
+        _componentSelectedButtonStyle = CreateButtonStyle(new Color(0.08f, 0.58f, 0.52f, 0.95f), Color.white, true, TextAnchor.MiddleLeft);
     }
 
     private void DrawToolbar(DebugConsoleManager manager)
@@ -312,7 +335,6 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private void DrawHierarchyPanel(DebugConsoleManager manager)
     {
-        UpdateHierarchyButtonWidths();
         float width = Mathf.Max(position.width * 0.42f, 320f);
 
         EditorGUILayout.BeginVertical(_boxStyle, GUILayout.Width(width), GUILayout.ExpandHeight(true));
@@ -355,47 +377,36 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         bool isObjectFocused = IsObjectFocused(id);
         bool isComponentParentFocused = IsFocusedObjectParent(id);
+        bool showDetails = hasDetails && (detailsExpanded || forceOpenDetails);
+        bool showChildren = hasVisibleChildren && (childrenExpanded || forceOpenChildren);
 
-        EditorGUILayout.BeginVertical(GetHierarchyRowStyle(isObjectFocused, isComponentParentFocused, false));
-
-        EditorGUILayout.BeginHorizontal(GUILayout.Height(24f));
+        GUILayout.BeginVertical(GetHierarchyRowStyle(isObjectFocused, isComponentParentFocused, false));
+        GUILayout.BeginHorizontal(GUILayout.Height(HierarchyRowHeight));
         GUILayout.Space(depth * 18f);
 
-        bool nextObjectEnabled = GUILayout.Toggle(objectEnabled, "", GUILayout.Width(20));
+        bool nextObjectEnabled = GUILayout.Toggle(objectEnabled, GUIContent.none, GUILayout.Width(HierarchyToggleSize), GUILayout.Height(HierarchyRowHeight));
         if (nextObjectEnabled != objectEnabled)
             manager.SetGameObjectEnabled(go, nextObjectEnabled);
 
-        string objectLabel = isObjectFocused
-            ? $"▶ {GetDisplayName(go.name)}"
-            : (isComponentParentFocused ? $"▸ {GetDisplayName(go.name)}" : GetDisplayName(go.name));
-        GUIStyle objectStyle = (isObjectFocused || isComponentParentFocused)
-            ? _selectedLinkButtonStyle
-            : (objectEnabled ? _linkButtonStyle : _dimLabelStyle);
-
-        GUIContent objectContent = new GUIContent(objectLabel, go.name);
-        if (GUILayout.Button(objectContent, objectStyle, GUILayout.ExpandWidth(true)))
+        GUIStyle objectStyle = GetObjectButtonStyle(objectEnabled, isObjectFocused, isComponentParentFocused);
+        GUIContent objectContent = new GUIContent(GetDisplayName(go.name), go.name);
+        if (GUILayout.Button(objectContent, objectStyle, GUILayout.ExpandWidth(true), GUILayout.Height(HierarchyRowHeight)))
             ToggleGameObjectFocus(go);
 
         if (hasDetails)
         {
-            string foldoutLabel = (detailsExpanded || forceOpenDetails) ? "▾" : "▸";
-            if (GUILayout.Button(foldoutLabel, GUILayout.Width(26f), GUILayout.Height(20f)))
-            {
-                if (detailsExpanded)
-                    _expandedComponents.Remove(id);
-                else
-                    _expandedComponents.Add(id);
-            }
+            string foldoutLabel = showDetails ? "▾" : "▸";
+            if (GUILayout.Button(foldoutLabel, _foldoutButtonStyle, GUILayout.Width(HierarchyFoldoutSize), GUILayout.Height(HierarchyRowHeight)))
+                ToggleExpandedSet(_expandedComponents, id);
         }
         else
         {
-            GUILayout.Space(26f);
+            GUILayout.Space(HierarchyFoldoutSize);
         }
 
-        EditorGUILayout.EndHorizontal();
-        EditorGUILayout.EndVertical();
+        GUILayout.EndHorizontal();
+        GUILayout.EndVertical();
 
-        bool showDetails = hasDetails && (detailsExpanded || forceOpenDetails);
         if (!showDetails)
             return;
 
@@ -411,26 +422,23 @@ public class DebugConsoleEditorWindow : EditorWindow
 
                 bool isComponentFocused = IsComponentFocused(component.GetInstanceID());
 
-                EditorGUILayout.BeginHorizontal(GetHierarchyRowStyle(false, false, isComponentFocused), GUILayout.Height(22f));
-                GUILayout.Space((depth + 1) * 18f + 24f);
+                GUILayout.BeginVertical(GetHierarchyRowStyle(false, false, isComponentFocused));
+                GUILayout.BeginHorizontal(GUILayout.Height(HierarchyRowHeight));
+                GUILayout.Space((depth + 1) * 18f + HierarchyToggleSize + 8f);
 
                 bool componentEnabled = manager.GetComponentEnabled(component);
-                bool nextComponentEnabled = GUILayout.Toggle(componentEnabled, "", GUILayout.Width(20));
+                bool nextComponentEnabled = GUILayout.Toggle(componentEnabled, GUIContent.none, GUILayout.Width(HierarchyToggleSize), GUILayout.Height(HierarchyRowHeight));
                 if (nextComponentEnabled != componentEnabled)
                     manager.SetComponentEnabled(component, nextComponentEnabled);
 
-                string componentName = GetDisplayName(component.GetType().Name);
-                string componentLabel = isComponentFocused ? $"▶ {componentName}" : componentName;
-                GUIStyle componentStyle = isComponentFocused
-                    ? _selectedLinkButtonStyle
-                    : (objectEnabled ? _linkButtonStyle : _dimLabelStyle);
-
-                GUIContent componentContent = new GUIContent(componentLabel, component.GetType().Name);
-                if (GUILayout.Button(componentContent, componentStyle, GUILayout.ExpandWidth(true)))
+                GUIStyle componentStyle = GetComponentButtonStyle(objectEnabled, isComponentFocused);
+                GUIContent componentContent = new GUIContent(GetDisplayName(component.GetType().Name), component.GetType().Name);
+                if (GUILayout.Button(componentContent, componentStyle, GUILayout.ExpandWidth(true), GUILayout.Height(HierarchyRowHeight)))
                     ToggleComponentFocus(component);
 
-                GUILayout.Space(26f);
-                EditorGUILayout.EndHorizontal();
+                GUILayout.Space(HierarchyFoldoutSize);
+                GUILayout.EndHorizontal();
+                GUILayout.EndVertical();
             }
 
             GUI.enabled = previousEnabled;
@@ -438,22 +446,20 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         if (hasVisibleChildren)
         {
-            EditorGUILayout.BeginHorizontal(GUILayout.Height(22f));
-            GUILayout.Space((depth + 1) * 18f + 24f);
+            GUILayout.BeginHorizontal(GUILayout.Height(HierarchyRowHeight));
+            GUILayout.Space((depth + 1) * 18f + HierarchyToggleSize + 8f);
+            GUILayout.Space(HierarchyToggleSize);
 
-            string childFoldoutLabel = (childrenExpanded || forceOpenChildren) ? "하위 오브젝트 ▾" : "하위 오브젝트 ▸";
-            if (GUILayout.Button(childFoldoutLabel, GUILayout.Width(140f), GUILayout.Height(20f)))
-            {
-                if (childrenExpanded)
-                    _expandedChildren.Remove(id);
-                else
-                    _expandedChildren.Add(id);
-            }
+            if (GUILayout.Button("하위 오브젝트", _linkButtonStyle, GUILayout.ExpandWidth(true), GUILayout.Height(HierarchyRowHeight)))
+                ToggleGameObjectFocus(go);
 
-            GUILayout.FlexibleSpace();
-            EditorGUILayout.EndHorizontal();
+            string childFoldoutLabel = showChildren ? "▾" : "▸";
+            if (GUILayout.Button(childFoldoutLabel, _foldoutButtonStyle, GUILayout.Width(HierarchyFoldoutSize), GUILayout.Height(HierarchyRowHeight)))
+                ToggleExpandedSet(_expandedChildren, id);
 
-            if (childrenExpanded || forceOpenChildren)
+            GUILayout.EndHorizontal();
+
+            if (showChildren)
             {
                 for (int i = 0; i < go.transform.childCount; i++)
                     DrawGameObjectNode(manager, go.transform.GetChild(i).gameObject, depth + 1);
@@ -536,17 +542,25 @@ public class DebugConsoleEditorWindow : EditorWindow
         if (entry.Context is GameObject go)
         {
             targetGameObject = go;
+            _focusedGameObjectId = go.GetInstanceID();
+            _focusedComponentId = 0;
+            _focusedObjectName = go.name;
+            _focusedComponentName = string.Empty;
+            PrepareSelectionExpansion(go.transform, true);
         }
         else if (entry.Context is Component component)
         {
             targetGameObject = component.gameObject;
-            _expandedComponents.Add(targetGameObject.GetInstanceID());
+            _focusedGameObjectId = component.gameObject.GetInstanceID();
+            _focusedComponentId = component.GetInstanceID();
+            _focusedObjectName = component.gameObject.name;
+            _focusedComponentName = component.GetType().Name;
+            PrepareSelectionExpansion(component.transform, true);
         }
 
         if (targetGameObject == null)
             return;
 
-        ExpandParents(targetGameObject.transform);
         Selection.activeGameObject = targetGameObject;
         EditorGUIUtility.PingObject(targetGameObject);
     }
@@ -606,8 +620,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         _focusedObjectName = go.name;
         _focusedComponentName = string.Empty;
 
-        _expandedComponents.Add(id);
-        ExpandParents(go.transform);
+        PrepareSelectionExpansion(go.transform, true);
     }
 
     private void ToggleComponentFocus(Component component)
@@ -628,8 +641,24 @@ public class DebugConsoleEditorWindow : EditorWindow
         _focusedObjectName = component.gameObject.name;
         _focusedComponentName = component.GetType().Name;
 
-        _expandedComponents.Add(_focusedGameObjectId);
-        ExpandParents(component.transform);
+        PrepareSelectionExpansion(component.transform, true);
+    }
+
+    private void PrepareSelectionExpansion(Transform target, bool includeDetails)
+    {
+        if (target == null)
+            return;
+
+        if (_collapsePreviousOnSelection)
+        {
+            _expandedComponents.Clear();
+            _expandedChildren.Clear();
+        }
+
+        if (includeDetails)
+            _expandedComponents.Add(target.gameObject.GetInstanceID());
+
+        ExpandParents(target);
     }
 
     private void ClearFocus()
@@ -673,9 +702,33 @@ public class DebugConsoleEditorWindow : EditorWindow
             normal = { background = texture },
             border = new RectOffset(0, 0, 0, 0),
             margin = new RectOffset(0, 0, 1, 1),
-            padding = new RectOffset(4, 4, 1, 1),
+            padding = new RectOffset(3, 3, 1, 1),
             alignment = TextAnchor.MiddleLeft
         };
+    }
+
+    private GUIStyle CreateButtonStyle(Color backgroundColor, Color textColor, bool bold, TextAnchor alignment)
+    {
+        Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        texture.SetPixel(0, 0, backgroundColor);
+        texture.Apply();
+
+        GUIStyle style = new GUIStyle(_linkButtonStyle)
+        {
+            alignment = alignment,
+            fontStyle = bold ? FontStyle.Bold : FontStyle.Normal,
+            fixedHeight = HierarchyRowHeight
+        };
+
+        style.normal.background = texture;
+        style.hover.background = texture;
+        style.active.background = texture;
+        style.focused.background = texture;
+        style.normal.textColor = textColor;
+        style.hover.textColor = textColor;
+        style.active.textColor = textColor;
+        style.focused.textColor = textColor;
+        return style;
     }
 
     private GUIStyle GetHierarchyRowStyle(bool isObjectFocused, bool isComponentParentFocused, bool isComponentFocused)
@@ -705,6 +758,33 @@ public class DebugConsoleEditorWindow : EditorWindow
     private bool IsComponentFocused(int componentId)
     {
         return _focusedComponentId == componentId;
+    }
+
+    private GUIStyle GetObjectButtonStyle(bool objectEnabled, bool isObjectFocused, bool isComponentParentFocused)
+    {
+        if (isObjectFocused)
+            return _objectSelectedButtonStyle;
+
+        if (isComponentParentFocused)
+            return _parentSelectedButtonStyle;
+
+        return objectEnabled ? _linkButtonStyle : _disabledButtonStyle;
+    }
+
+    private GUIStyle GetComponentButtonStyle(bool objectEnabled, bool isComponentFocused)
+    {
+        if (isComponentFocused)
+            return _componentSelectedButtonStyle;
+
+        return objectEnabled ? _linkButtonStyle : _disabledButtonStyle;
+    }
+
+    private void ToggleExpandedSet(HashSet<int> set, int id)
+    {
+        if (set.Contains(id))
+            set.Remove(id);
+        else
+            set.Add(id);
     }
 
     private int GetEnabledTypeCount(DebugConsoleManager manager)
@@ -826,6 +906,10 @@ public class DebugConsoleEditorWindow : EditorWindow
         bool hideTransform = GUILayout.Toggle(_hideTransform, "Hide Transform", GUILayout.Width(120f));
         if (hideTransform != _hideTransform)
             _hideTransform = hideTransform;
+
+        bool collapsePrevious = GUILayout.Toggle(_collapsePreviousOnSelection, "Collapse Prev", GUILayout.Width(120f));
+        if (collapsePrevious != _collapsePreviousOnSelection)
+            _collapsePreviousOnSelection = collapsePrevious;
     }
 
     private void DrawToolbarActionGroup(DebugConsoleManager manager, string typeButtonLabel)
@@ -898,9 +982,6 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private void UpdateHierarchyButtonWidths()
     {
-        float childWidth = _linkButtonStyle.CalcSize(new GUIContent("하위 ▼")).x + 12f;
-        float componentWidth = _linkButtonStyle.CalcSize(new GUIContent("컴포넌트 ▼")).x + 12f;
-        _hierarchyActionButtonWidth = Mathf.Ceil(Mathf.Max(childWidth, componentWidth, 76f));
     }
 
     private void CollectHierarchyButtonWidths(GameObject go, ref float maxNameWidth)
