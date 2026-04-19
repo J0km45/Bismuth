@@ -414,8 +414,6 @@ public class DebugConsoleEditorWindow : EditorWindow
         EditorGUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
         EditorGUILayout.BeginHorizontal();
         GUILayout.Label("Scene Objects / Components", _titleStyle);
-        GUILayout.FlexibleSpace();
-        GUILayout.Label(GetFocusLabel(), _toolbarInfoRightLabelStyle, GUILayout.Width(Mathf.Clamp(panelWidth * 0.46f, 120f, 260f)));
         EditorGUILayout.EndHorizontal();
 
         _hierarchyScroll = EditorGUILayout.BeginScrollView(_hierarchyScroll);
@@ -427,6 +425,11 @@ public class DebugConsoleEditorWindow : EditorWindow
             DrawGameObjectNode(manager, roots[i], 0);
 
         EditorGUILayout.EndScrollView();
+
+        GUILayout.Space(4f);
+        EditorGUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(28f));
+        GUILayout.Label(new GUIContent(GetFocusLabel(), GetFocusLabel()), _toolbarInfoLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(20f));
+        EditorGUILayout.EndHorizontal();
         EditorGUILayout.EndVertical();
     }
 

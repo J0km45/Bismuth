@@ -397,8 +397,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
         GUILayout.BeginHorizontal();
         GUILayout.Label("Scene Objects / Components", _titleStyle);
-        GUILayout.FlexibleSpace();
-        GUILayout.Label(GetFocusLabel(), _toolbarInfoRightLabelStyle, GUILayout.Width(Mathf.Clamp(panelWidth * 0.46f, 120f, 260f)));
         GUILayout.EndHorizontal();
 
         _hierarchyScroll = GUILayout.BeginScrollView(_hierarchyScroll);
@@ -410,6 +408,11 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             DrawGameObjectNode(manager, roots[i], 0);
 
         GUILayout.EndScrollView();
+
+        GUILayout.Space(4f);
+        GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(28f));
+        GUILayout.Label(new GUIContent(GetFocusLabel(), GetFocusLabel()), _toolbarInfoLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(20f));
+        GUILayout.EndHorizontal();
         GUILayout.EndVertical();
     }
 
