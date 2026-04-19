@@ -4,17 +4,10 @@ using UnityEngine;
 using Object = UnityEngine.Object;
 
 /// <summary>
-/// 디버그 타입에 따라 로그를 필터링하고 색상 및 출처 정보를 함께 출력하는 공용 유틸 클래스이다.
+/// 디버그 타입에 따라 로그를 필터링하고 별도 런타임 디버그 콘솔로 전달하는 공용 유틸 클래스이다.
 /// </summary>
 public static class DebugTool
 {
-    private static readonly bool[] DebugTypeSelect = new bool[System.Enum.GetValues(typeof(DebugType)).Length];
-    private static bool _debugAllOn;
-
-    // ----------------------------
-    // Public API
-    // ----------------------------
-
     public static void Log(
         string text,
         DebugType type,
@@ -23,10 +16,7 @@ public static class DebugTool
         [CallerFilePath] string filePath = "",
         [CallerLineNumber] int lineNumber = 0)
     {
-        if (!CanPrint(type))
-            return;
-
-        Print(LogType.Log, text, type, context, memberName, filePath, lineNumber);
+        Write(DebugLogLevel.Log, text, type, context, memberName, filePath, lineNumber);
     }
 
     public static void Warning(
@@ -37,13 +27,10 @@ public static class DebugTool
         [CallerFilePath] string filePath = "",
         [CallerLineNumber] int lineNumber = 0)
     {
-        if (!CanPrint(type))
-            return;
-
-        Print(LogType.Warning, text, type, context, memberName, filePath, lineNumber);
+        Write(DebugLogLevel.Warning, text, type, context, memberName, filePath, lineNumber);
     }
 
-    // 기존 코드 호환용
+    // 기존 오타 함수명 호환
     public static void Warnning(
         string text,
         DebugType type,
@@ -52,7 +39,7 @@ public static class DebugTool
         [CallerFilePath] string filePath = "",
         [CallerLineNumber] int lineNumber = 0)
     {
-        Warning(text, type, context, memberName, filePath, lineNumber);
+        Write(DebugLogLevel.Warning, text, type, context, memberName, filePath, lineNumber);
     }
 
     public static void Error(
@@ -63,10 +50,7 @@ public static class DebugTool
         [CallerFilePath] string filePath = "",
         [CallerLineNumber] int lineNumber = 0)
     {
-        if (!CanPrint(type))
-            return;
-
-        Print(LogType.Error, text, type, context, memberName, filePath, lineNumber);
+        Write(DebugLogLevel.Error, text, type, context, memberName, filePath, lineNumber);
     }
 
     public static void MissingComponent(
@@ -80,45 +64,31 @@ public static class DebugTool
             ? "컴포넌트를 찾을 수 없습니다."
             : $"{text}을(를) 찾을 수 없습니다.";
 
-        Warning(message, DebugType.Missing, context, memberName, filePath, lineNumber);
+        Write(DebugLogLevel.Warning, message, DebugType.Missing, context, memberName, filePath, lineNumber);
     }
 
+    // 기존 코드 호환용
+    // 커스텀 윈도우에서 전역 On/Off를 관리하므로 되도록 코드에서는 호출하지 않는 것을 권장한다.
     public static void DebugPrintAll(bool value)
     {
-        _debugAllOn = value;
+        if (DebugConsoleManager.Instance == null)
+            return;
 
-        for (int i = 0; i < DebugTypeSelect.Length; i++)
-            DebugTypeSelect[i] = value;
-
-        if (value)
-        {
-            Debug.Log("<color=#ffffff>[DebugTool] 모든 디버그 출력 활성화</color>");
-        }
-        else
-        {
-            Debug.Log("<color=#ffffff>[DebugTool] 모든 디버그 출력 비활성화</color>");
-        }
+        DebugConsoleManager.Instance.GlobalEnabled = value;
     }
 
+    // 기존 코드 호환용
+    // 커스텀 윈도우에서 타입 On/Off를 관리하므로 되도록 코드에서는 호출하지 않는 것을 권장한다.
     public static void DebugSelect(DebugType type, bool value)
     {
-        DebugTypeSelect[(int)type] = value;
+        if (DebugConsoleManager.Instance == null)
+            return;
+
+        DebugConsoleManager.Instance.SetTypeEnabled(type, value);
     }
 
-    // ----------------------------
-    // Internal
-    // ----------------------------
-
-    private static bool CanPrint(DebugType type)
-    {
-        if (!_debugAllOn)
-            return false;
-
-        return DebugTypeSelect[(int)type];
-    }
-
-    private static void Print(
-        LogType logType,
+    private static void Write(
+        DebugLogLevel level,
         string text,
         DebugType type,
         Object context,
@@ -126,29 +96,94 @@ public static class DebugTool
         string filePath,
         int lineNumber)
     {
+        GetTargetIds(context, out int gameObjectId, out int componentId);
+
+        DebugConsoleManager manager = DebugConsoleManager.Instance;
+
+        if (manager != null && !manager.IsAllowed(type, gameObjectId, componentId))
+            return;
+
         string color = GetColor(type);
         string fileName = Path.GetFileNameWithoutExtension(filePath);
-        string sourceName = context != null ? context.name : fileName;
+        string sourceName = GetSourceName(context, fileName);
 
         if (memberName == ".ctor")
             memberName = "생성자";
 
-        string message =
-            $"<color={color}>[{type}] {text}</color>\n" +
-            $"<color=#daa520>출처 : [{sourceName}.{memberName} : {lineNumber}]</color>";
-
-        switch (logType)
+        DebugEntry entry = new DebugEntry
         {
-            case LogType.Warning:
-                Debug.LogWarning(message, context);
+            Time = System.DateTime.Now.ToString("HH:mm:ss"),
+            Message = text,
+            SourceName = sourceName,
+            MemberName = memberName,
+            LineNumber = lineNumber,
+            Type = type,
+            Level = level,
+            Context = context,
+            GameObjectId = gameObjectId,
+            ComponentId = componentId,
+            ColorHex = color
+        };
+
+        if (manager != null)
+        {
+            manager.AddEntry(entry);
+
+            if (manager.MirrorToUnityConsole)
+                PrintToUnityConsole(entry);
+        }
+        else
+        {
+            PrintToUnityConsole(entry);
+        }
+    }
+
+    private static void GetTargetIds(Object context, out int gameObjectId, out int componentId)
+    {
+        gameObjectId = 0;
+        componentId = 0;
+
+        if (context is GameObject go)
+        {
+            gameObjectId = go.GetInstanceID();
+            return;
+        }
+
+        if (context is Component component)
+        {
+            gameObjectId = component.gameObject.GetInstanceID();
+            componentId = component.GetInstanceID();
+        }
+    }
+
+    private static string GetSourceName(Object context, string fallbackFileName)
+    {
+        if (context == null)
+            return fallbackFileName;
+
+        if (context is Component component)
+            return $"{component.gameObject.name}/{component.GetType().Name}";
+
+        if (context is GameObject go)
+            return go.name;
+
+        return context.name;
+    }
+
+    private static void PrintToUnityConsole(DebugEntry entry)
+    {
+        switch (entry.Level)
+        {
+            case DebugLogLevel.Warning:
+                Debug.LogWarning(entry.RichText, entry.Context);
                 break;
 
-            case LogType.Error:
-                Debug.LogError(message, context);
+            case DebugLogLevel.Error:
+                Debug.LogError(entry.RichText, entry.Context);
                 break;
 
             default:
-                Debug.Log(message, context);
+                Debug.Log(entry.RichText, entry.Context);
                 break;
         }
     }
@@ -174,13 +209,6 @@ public static class DebugTool
             case DebugType.Default: return "#251f59";
             default: return "#ffffff";
         }
-    }
-
-    private enum LogType
-    {
-        Log,
-        Warning,
-        Error
     }
 }
 
