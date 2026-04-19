@@ -344,12 +344,13 @@ public class DebugConsoleEditorWindow : EditorWindow
         Component[] components = go.GetComponents<Component>();
         bool hasVisibleComponents = HasVisibleComponents(components);
         bool hasVisibleChildren = HasVisibleChildren(go);
+        bool hasDetails = hasVisibleComponents || hasVisibleChildren;
 
-        bool componentsExpanded = _expandedComponents.Contains(id);
+        bool detailsExpanded = _expandedComponents.Contains(id);
         bool childrenExpanded = _expandedChildren.Contains(id);
 
         bool searchActive = !string.IsNullOrWhiteSpace(_hierarchySearch);
-        bool forceOpenComponents = searchActive && HasMatchingComponent(go, _hierarchySearch);
+        bool forceOpenDetails = searchActive && (HasMatchingComponent(go, _hierarchySearch) || HasVisibleChildren(go));
         bool forceOpenChildren = searchActive && HasVisibleChildren(go);
 
         bool isObjectFocused = IsObjectFocused(id);
@@ -375,48 +376,30 @@ public class DebugConsoleEditorWindow : EditorWindow
         if (GUILayout.Button(objectContent, objectStyle, GUILayout.ExpandWidth(true)))
             ToggleGameObjectFocus(go);
 
-        EditorGUILayout.EndHorizontal();
-
-        if (hasVisibleChildren || hasVisibleComponents)
+        if (hasDetails)
         {
-            EditorGUILayout.BeginHorizontal(GUILayout.Height(22f));
-            GUILayout.Space(depth * 18f + 24f);
-
-            if (hasVisibleChildren)
+            string foldoutLabel = (detailsExpanded || forceOpenDetails) ? "▾" : "▸";
+            if (GUILayout.Button(foldoutLabel, GUILayout.Width(26f), GUILayout.Height(20f)))
             {
-                if (GUILayout.Button((childrenExpanded || forceOpenChildren) ? "하위 ▼" : "하위 ▶", GUILayout.Width(_hierarchyActionButtonWidth)))
-                {
-                    if (childrenExpanded)
-                        _expandedChildren.Remove(id);
-                    else
-                        _expandedChildren.Add(id);
-                }
+                if (detailsExpanded)
+                    _expandedComponents.Remove(id);
+                else
+                    _expandedComponents.Add(id);
             }
-
-            if (hasVisibleComponents)
-            {
-                if (hasVisibleChildren)
-                    GUILayout.Space(4f);
-
-                if (GUILayout.Button((componentsExpanded || forceOpenComponents) ? "컴포넌트 ▼" : "컴포넌트 ▶", GUILayout.Width(_hierarchyActionButtonWidth)))
-                {
-                    if (componentsExpanded)
-                        _expandedComponents.Remove(id);
-                    else
-                        _expandedComponents.Add(id);
-                }
-            }
-
-            GUILayout.FlexibleSpace();
-            EditorGUILayout.EndHorizontal();
+        }
+        else
+        {
+            GUILayout.Space(26f);
         }
 
+        EditorGUILayout.EndHorizontal();
         EditorGUILayout.EndVertical();
 
-        bool showComponents = hasVisibleComponents && (componentsExpanded || forceOpenComponents);
-        bool showChildren = hasVisibleChildren && (childrenExpanded || forceOpenChildren);
+        bool showDetails = hasDetails && (detailsExpanded || forceOpenDetails);
+        if (!showDetails)
+            return;
 
-        if (showComponents)
+        if (hasVisibleComponents)
         {
             bool previousEnabled = GUI.enabled;
             GUI.enabled = objectEnabled;
@@ -446,16 +429,35 @@ public class DebugConsoleEditorWindow : EditorWindow
                 if (GUILayout.Button(componentContent, componentStyle, GUILayout.ExpandWidth(true)))
                     ToggleComponentFocus(component);
 
+                GUILayout.Space(26f);
                 EditorGUILayout.EndHorizontal();
             }
 
             GUI.enabled = previousEnabled;
         }
 
-        if (showChildren)
+        if (hasVisibleChildren)
         {
-            for (int i = 0; i < go.transform.childCount; i++)
-                DrawGameObjectNode(manager, go.transform.GetChild(i).gameObject, depth + 1);
+            EditorGUILayout.BeginHorizontal(GUILayout.Height(22f));
+            GUILayout.Space((depth + 1) * 18f + 24f);
+
+            string childFoldoutLabel = (childrenExpanded || forceOpenChildren) ? "하위 오브젝트 ▾" : "하위 오브젝트 ▸";
+            if (GUILayout.Button(childFoldoutLabel, GUILayout.Width(140f), GUILayout.Height(20f)))
+            {
+                if (childrenExpanded)
+                    _expandedChildren.Remove(id);
+                else
+                    _expandedChildren.Add(id);
+            }
+
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+
+            if (childrenExpanded || forceOpenChildren)
+            {
+                for (int i = 0; i < go.transform.childCount; i++)
+                    DrawGameObjectNode(manager, go.transform.GetChild(i).gameObject, depth + 1);
+            }
         }
     }
 
