@@ -40,6 +40,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private GUIStyle _toolbarButtonStyle;
     private GUIStyle _toolbarInfoLabelStyle;
     private GUIStyle _toolbarInfoRightLabelStyle;
+    private GUIStyle _footerLeftLabelStyle;
+    private GUIStyle _footerRightLabelStyle;
     private GUIStyle _objectFocusedRowStyle;
     private GUIStyle _objectParentFocusedRowStyle;
     private GUIStyle _componentFocusedRowStyle;
@@ -55,6 +57,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private readonly Color _selectedText = new Color(0.18f, 0.11f, 0.00f, 1f);
     private readonly Color _selectedParentText = new Color(1.00f, 0.95f, 0.78f, 1f);
     private readonly Color _toolbarInfoText = new Color(1.00f, 0.89f, 0.34f, 1f);
+    private readonly Color _footerInfoTextColor = new Color(0.96f, 0.84f, 0.22f, 1f);
 
     private const int MaxDisplayNameLength = 15;
     private const float HierarchyRowHeight = 22f;
@@ -221,6 +224,32 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         {
             alignment = TextAnchor.MiddleRight
         };
+
+        _footerLeftLabelStyle = new GUIStyle(GUI.skin.label)
+        {
+            alignment = TextAnchor.MiddleLeft,
+            wordWrap = false,
+            richText = false,
+            fontStyle = FontStyle.Bold
+        };
+        ApplyLabelTextColor(_footerLeftLabelStyle, _footerInfoTextColor);
+
+        _footerRightLabelStyle = new GUIStyle(_footerLeftLabelStyle)
+        {
+            alignment = TextAnchor.MiddleRight
+        };
+    }
+
+    private void ApplyLabelTextColor(GUIStyle style, Color color)
+    {
+        style.normal.textColor = color;
+        style.hover.textColor = color;
+        style.active.textColor = color;
+        style.focused.textColor = color;
+        style.onNormal.textColor = color;
+        style.onHover.textColor = color;
+        style.onActive.textColor = color;
+        style.onFocused.textColor = color;
     }
 
     private void DrawWindow(int windowId)
@@ -412,9 +441,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.Space(4f);
         GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(30f));
         GUILayout.Space(10f);
-        GUILayout.Label(new GUIContent(GetFocusLabel(), GetFocusLabel()), _toolbarInfoLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
+        GUILayout.Label(new GUIContent(GetFocusLabel(), GetFocusLabel()), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
         GUILayout.Space(12f);
-        GUILayout.Label(new GUIContent($"Count : {GetVisibleEntryCount(manager)}", $"Count : {GetVisibleEntryCount(manager)}"), _toolbarInfoRightLabelStyle, GUILayout.Width(100f), GUILayout.MinHeight(22f));
+        GUILayout.Label(new GUIContent($"Count : {GetVisibleEntryCount(manager)}", $"Count : {GetVisibleEntryCount(manager)}"), _footerRightLabelStyle, GUILayout.Width(100f), GUILayout.MinHeight(22f));
         GUILayout.Space(10f);
         GUILayout.EndHorizontal();
         GUILayout.EndVertical();
