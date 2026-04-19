@@ -41,6 +41,16 @@ public class DebugConsoleEditorWindow : EditorWindow
     private GUIStyle _componentFocusedRowStyle;
     private Texture2D _solidTexture;
 
+    private readonly Color _selectedObjectBg = new Color(0.96f, 0.78f, 0.22f, 0.95f);
+    private readonly Color _selectedComponentBg = new Color(0.86f, 0.67f, 0.20f, 0.95f);
+    private readonly Color _selectedParentBg = new Color(0.45f, 0.35f, 0.12f, 0.95f);
+    private readonly Color _objectFocusedRowBg = new Color(0.96f, 0.78f, 0.22f, 0.28f);
+    private readonly Color _parentFocusedRowBg = new Color(0.72f, 0.56f, 0.16f, 0.18f);
+    private readonly Color _componentFocusedRowBg = new Color(0.86f, 0.67f, 0.20f, 0.34f);
+    private readonly Color _selectedText = new Color(0.16f, 0.11f, 0.02f, 1f);
+    private readonly Color _selectedParentText = new Color(1.00f, 0.95f, 0.78f, 1f);
+    private readonly Color _toolbarInfoText = new Color(1.00f, 0.87f, 0.32f, 1f);
+
     private const int MaxDisplayNameLength = 15;
     private const float HierarchyRowHeight = 22f;
     private const float HierarchyToggleSize = 18f;
@@ -194,8 +204,17 @@ public class DebugConsoleEditorWindow : EditorWindow
         {
             alignment = TextAnchor.MiddleLeft,
             wordWrap = true,
-            richText = false
+            richText = false,
+            fontStyle = FontStyle.Bold
         };
+        _toolbarInfoLabelStyle.normal.textColor = _toolbarInfoText;
+        _toolbarInfoLabelStyle.hover.textColor = _toolbarInfoText;
+        _toolbarInfoLabelStyle.active.textColor = _toolbarInfoText;
+        _toolbarInfoLabelStyle.focused.textColor = _toolbarInfoText;
+        _toolbarInfoLabelStyle.onNormal.textColor = _toolbarInfoText;
+        _toolbarInfoLabelStyle.onHover.textColor = _toolbarInfoText;
+        _toolbarInfoLabelStyle.onActive.textColor = _toolbarInfoText;
+        _toolbarInfoLabelStyle.onFocused.textColor = _toolbarInfoText;
 
         if (_solidTexture == null)
         {
@@ -204,13 +223,13 @@ public class DebugConsoleEditorWindow : EditorWindow
             _solidTexture.Apply();
         }
 
-        _objectFocusedRowStyle = CreateRowStyle(new Color(0.12f, 0.50f, 0.78f, 0.26f));
-        _objectParentFocusedRowStyle = CreateRowStyle(new Color(0.12f, 0.50f, 0.78f, 0.12f));
-        _componentFocusedRowStyle = CreateRowStyle(new Color(0.10f, 0.72f, 0.62f, 0.30f));
+        _objectFocusedRowStyle = CreateRowStyle(_objectFocusedRowBg);
+        _objectParentFocusedRowStyle = CreateRowStyle(_parentFocusedRowBg);
+        _componentFocusedRowStyle = CreateRowStyle(_componentFocusedRowBg);
 
-        _objectSelectedButtonStyle = CreateButtonStyle(new Color(0.14f, 0.48f, 0.74f, 0.95f), Color.white, true, TextAnchor.MiddleLeft);
-        _parentSelectedButtonStyle = CreateButtonStyle(new Color(0.18f, 0.35f, 0.47f, 0.95f), new Color(0.88f, 0.96f, 1f), true, TextAnchor.MiddleLeft);
-        _componentSelectedButtonStyle = CreateButtonStyle(new Color(0.08f, 0.58f, 0.52f, 0.95f), Color.white, true, TextAnchor.MiddleLeft);
+        _objectSelectedButtonStyle = CreateButtonStyle(_selectedObjectBg, _selectedText, true, TextAnchor.MiddleLeft);
+        _parentSelectedButtonStyle = CreateButtonStyle(_selectedParentBg, _selectedParentText, true, TextAnchor.MiddleLeft);
+        _componentSelectedButtonStyle = CreateButtonStyle(_selectedComponentBg, _selectedText, true, TextAnchor.MiddleLeft);
     }
 
     private void DrawToolbar(DebugConsoleManager manager)
@@ -724,10 +743,18 @@ public class DebugConsoleEditorWindow : EditorWindow
         style.hover.background = texture;
         style.active.background = texture;
         style.focused.background = texture;
+        style.onNormal.background = texture;
+        style.onHover.background = texture;
+        style.onActive.background = texture;
+        style.onFocused.background = texture;
         style.normal.textColor = textColor;
         style.hover.textColor = textColor;
         style.active.textColor = textColor;
         style.focused.textColor = textColor;
+        style.onNormal.textColor = textColor;
+        style.onHover.textColor = textColor;
+        style.onActive.textColor = textColor;
+        style.onFocused.textColor = textColor;
         return style;
     }
 
