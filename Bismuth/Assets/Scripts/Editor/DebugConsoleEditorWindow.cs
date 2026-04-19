@@ -40,16 +40,17 @@ public class DebugConsoleEditorWindow : EditorWindow
     private GUIStyle _objectParentFocusedRowStyle;
     private GUIStyle _componentFocusedRowStyle;
     private Texture2D _solidTexture;
+    private bool _stylesDirty = true;
 
-    private readonly Color _selectedObjectBg = new Color(0.96f, 0.78f, 0.22f, 0.95f);
-    private readonly Color _selectedComponentBg = new Color(0.86f, 0.67f, 0.20f, 0.95f);
-    private readonly Color _selectedParentBg = new Color(0.45f, 0.35f, 0.12f, 0.95f);
-    private readonly Color _objectFocusedRowBg = new Color(0.96f, 0.78f, 0.22f, 0.28f);
-    private readonly Color _parentFocusedRowBg = new Color(0.72f, 0.56f, 0.16f, 0.18f);
-    private readonly Color _componentFocusedRowBg = new Color(0.86f, 0.67f, 0.20f, 0.34f);
-    private readonly Color _selectedText = new Color(0.16f, 0.11f, 0.02f, 1f);
+    private readonly Color _selectedObjectBg = new Color(0.98f, 0.80f, 0.18f, 1f);
+    private readonly Color _selectedComponentBg = new Color(0.84f, 0.64f, 0.14f, 1f);
+    private readonly Color _selectedParentBg = new Color(0.50f, 0.38f, 0.08f, 1f);
+    private readonly Color _objectFocusedRowBg = new Color(0.98f, 0.80f, 0.18f, 0.32f);
+    private readonly Color _parentFocusedRowBg = new Color(0.76f, 0.58f, 0.12f, 0.22f);
+    private readonly Color _componentFocusedRowBg = new Color(0.84f, 0.64f, 0.14f, 0.36f);
+    private readonly Color _selectedText = new Color(0.18f, 0.11f, 0.00f, 1f);
     private readonly Color _selectedParentText = new Color(1.00f, 0.95f, 0.78f, 1f);
-    private readonly Color _toolbarInfoText = new Color(1.00f, 0.87f, 0.32f, 1f);
+    private readonly Color _toolbarInfoText = new Color(1.00f, 0.89f, 0.34f, 1f);
 
     private const int MaxDisplayNameLength = 15;
     private const float HierarchyRowHeight = 22f;
@@ -109,6 +110,8 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        _stylesDirty = true;
+        _titleStyle = null;
         _expandedComponents.Clear();
         _expandedChildren.Clear();
         _selectedLogIndex = -1;
@@ -148,8 +151,10 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private void InitStyles()
     {
-        if (_titleStyle != null)
+        if (!_stylesDirty && _titleStyle != null)
             return;
+
+        _stylesDirty = false;
 
         _titleStyle = new GUIStyle(EditorStyles.boldLabel)
         {
@@ -182,8 +187,18 @@ public class DebugConsoleEditorWindow : EditorWindow
             alignment = TextAnchor.MiddleLeft,
             padding = new RectOffset(6, 6, 0, 0),
             margin = new RectOffset(0, 0, 0, 0),
-            fixedHeight = HierarchyRowHeight
+            fixedHeight = HierarchyRowHeight,
+            fontStyle = FontStyle.Normal
         };
+        Color normalButtonText = new Color(0.84f, 0.96f, 0.92f, 1f);
+        _linkButtonStyle.normal.textColor = normalButtonText;
+        _linkButtonStyle.hover.textColor = normalButtonText;
+        _linkButtonStyle.active.textColor = normalButtonText;
+        _linkButtonStyle.focused.textColor = normalButtonText;
+        _linkButtonStyle.onNormal.textColor = normalButtonText;
+        _linkButtonStyle.onHover.textColor = normalButtonText;
+        _linkButtonStyle.onActive.textColor = normalButtonText;
+        _linkButtonStyle.onFocused.textColor = normalButtonText;
 
         _disabledButtonStyle = new GUIStyle(_linkButtonStyle);
         _disabledButtonStyle.normal.textColor = new Color(0.55f, 0.55f, 0.55f);
@@ -470,7 +485,7 @@ public class DebugConsoleEditorWindow : EditorWindow
             GUILayout.Space(HierarchyToggleSize);
 
             if (GUILayout.Button("하위 오브젝트", _linkButtonStyle, GUILayout.ExpandWidth(true), GUILayout.Height(HierarchyRowHeight)))
-                ToggleGameObjectFocus(go);
+                ToggleExpandedSet(_expandedChildren, id);
 
             string childFoldoutLabel = showChildren ? "▾" : "▸";
             if (GUILayout.Button(childFoldoutLabel, _foldoutButtonStyle, GUILayout.Width(HierarchyFoldoutSize), GUILayout.Height(HierarchyRowHeight)))
