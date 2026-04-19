@@ -410,8 +410,12 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.EndScrollView();
 
         GUILayout.Space(4f);
-        GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(28f));
-        GUILayout.Label(new GUIContent(GetFocusLabel(), GetFocusLabel()), _toolbarInfoLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(20f));
+        GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(30f));
+        GUILayout.Space(10f);
+        GUILayout.Label(new GUIContent(GetFocusLabel(), GetFocusLabel()), _toolbarInfoLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
+        GUILayout.Space(12f);
+        GUILayout.Label(new GUIContent($"Count : {GetVisibleEntryCount(manager)}", $"Count : {GetVisibleEntryCount(manager)}"), _toolbarInfoRightLabelStyle, GUILayout.Width(100f), GUILayout.MinHeight(22f));
+        GUILayout.Space(10f);
         GUILayout.EndHorizontal();
         GUILayout.EndVertical();
     }
@@ -536,8 +540,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
         GUILayout.BeginHorizontal();
         GUILayout.Label($"Logs {GetFocusSuffix()}", _titleStyle);
-        GUILayout.FlexibleSpace();
-        GUILayout.Label($"Count : {GetVisibleEntryCount(manager)}", _toolbarInfoRightLabelStyle, GUILayout.Width(110f));
         GUILayout.EndHorizontal();
 
         bool wasNearBottom = IsNearBottom(_lastMaxLogScrollY);
