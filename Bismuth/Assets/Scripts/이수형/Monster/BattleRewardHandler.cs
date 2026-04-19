@@ -34,12 +34,7 @@ public class BattleRewardHandler : MonoBehaviour
         _playerDataManager = GetComponentInParent<PlayerDataManager>();
         _synergyManager = GetComponentInParent<SynergyManager>();
     }
-
-    private void Start()
-    {
-        DebugTool.DebugSelect(DebugType.Synergy, _log);
-    }
-
+    
     private void OnEnable()
     {
         if (_battleWaveRunner == null)

@@ -39,11 +39,6 @@ public class SynergyManager : MonoBehaviour
         OnUnitRemoved.RemoveListener(RemoveSynergy);
     }
 
-    private void Start()
-    {
-        DebugTool.DebugSelect(DebugType.Synergy, _log);
-    }
-
     public void ChangedSynergy(UnitStat stat)
     {
         _unitCount++;
