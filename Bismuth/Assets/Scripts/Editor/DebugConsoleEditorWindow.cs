@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -723,11 +724,105 @@ public class DebugConsoleEditorWindow : EditorWindow
         {
             _selectedLogIndex = index;
             FocusEntry(entry);
+            OpenEntryScript(entry);
             Event.current.Use();
         }
 
         return rect.height;
     }
+
+    private void OpenEntryScript(DebugEntry entry)
+    {
+#if UNITY_EDITOR
+        if (!TryGetEntryScriptLocation(entry, out MonoScript script, out int lineNumber, out int columnNumber))
+            return;
+
+        AssetDatabase.OpenAsset(script, Mathf.Max(1, lineNumber), Mathf.Max(1, columnNumber));
+#endif
+    }
+
+#if UNITY_EDITOR
+    private bool TryGetEntryScriptLocation(DebugEntry entry, out MonoScript script, out int lineNumber, out int columnNumber)
+    {
+        script = null;
+        lineNumber = 1;
+        columnNumber = 1;
+
+        if (entry == null || string.IsNullOrWhiteSpace(entry.CallerFilePath))
+            return false;
+
+        lineNumber = Mathf.Max(1, entry.LineNumber);
+        columnNumber = Mathf.Max(1, entry.CallerColumn);
+
+        if (TryConvertCallerPathToAssetPath(entry.CallerFilePath, out string assetPath))
+        {
+            script = AssetDatabase.LoadAssetAtPath<MonoScript>(assetPath);
+            if (script != null)
+                return true;
+        }
+
+        return TryFindScriptByFileName(entry.CallerFilePath, out script);
+    }
+
+    private bool TryConvertCallerPathToAssetPath(string callerFilePath, out string assetPath)
+    {
+        assetPath = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(callerFilePath))
+            return false;
+
+        string normalizedPath = callerFilePath.Replace('\', '/');
+
+        int assetsIndex = normalizedPath.LastIndexOf("/Assets/", StringComparison.OrdinalIgnoreCase);
+        if (assetsIndex >= 0)
+        {
+            assetPath = normalizedPath.Substring(assetsIndex + 1);
+            return true;
+        }
+
+        int packagesIndex = normalizedPath.LastIndexOf("/Packages/", StringComparison.OrdinalIgnoreCase);
+        if (packagesIndex >= 0)
+        {
+            assetPath = normalizedPath.Substring(packagesIndex + 1);
+            return true;
+        }
+
+        string projectAssetsPath = Application.dataPath.Replace('\', '/');
+        if (normalizedPath.StartsWith(projectAssetsPath, StringComparison.OrdinalIgnoreCase))
+        {
+            assetPath = "Assets" + normalizedPath.Substring(projectAssetsPath.Length);
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryFindScriptByFileName(string callerFilePath, out MonoScript script)
+    {
+        script = null;
+
+        string fileName = Path.GetFileNameWithoutExtension(callerFilePath);
+        if (string.IsNullOrWhiteSpace(fileName))
+            return false;
+
+        string[] guids = AssetDatabase.FindAssets($"{fileName} t:MonoScript");
+        for (int i = 0; i < guids.Length; i++)
+        {
+            string assetPath = AssetDatabase.GUIDToAssetPath(guids[i]);
+            if (!string.Equals(Path.GetFileNameWithoutExtension(assetPath), fileName, StringComparison.Ordinal))
+                continue;
+
+            MonoScript found = AssetDatabase.LoadAssetAtPath<MonoScript>(assetPath);
+            if (found == null)
+                continue;
+
+            script = found;
+            return true;
+        }
+
+        return false;
+    }
+#endif
 
     private void FocusEntry(DebugEntry entry)
     {

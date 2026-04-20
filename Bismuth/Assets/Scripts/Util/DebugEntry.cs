@@ -21,6 +21,8 @@ public sealed class DebugEntry
     public int GameObjectId;
     public int ComponentId;
     public string ColorHex;
+    public string CallerFilePath;
+    public int CallerColumn = 1;
 
     public string PlainText =>
         $"[{Time}] [{Type}] {Message}\n출처 : [{SourceName}.{MemberName} : {LineNumber}]";

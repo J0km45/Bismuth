@@ -122,7 +122,9 @@ public static class DebugTool
             Context = context,
             GameObjectId = gameObjectId,
             ComponentId = componentId,
-            ColorHex = color
+            ColorHex = color,
+            CallerFilePath = filePath,
+            CallerColumn = 1
         };
 
         if (manager != null)
