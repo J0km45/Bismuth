@@ -7,7 +7,7 @@ using Text = UnityEngine.UI.Text;
 public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 {
     private const float FieldHeight = 24f;
-    private const int FontSize = 14;
+    private const int FontSize = 15;
 
     private Canvas _canvas;
     private RectTransform _canvasRect;
@@ -129,7 +129,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         rootRect.sizeDelta = new Vector2(240f, FieldHeight);
 
         Image background = root.GetComponent<Image>();
-        background.color = new Color(0.07f, 0.10f, 0.15f, 0.45f);
+        background.color = new Color(0.08f, 0.11f, 0.16f, 0.28f);
         background.raycastTarget = true;
 
         InputField inputField = root.GetComponent<InputField>();
@@ -151,14 +151,14 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         textAreaRect.offsetMin = new Vector2(8f, 3f);
         textAreaRect.offsetMax = new Vector2(-8f, -3f);
 
-        Text placeholder = CreateTextChild(textArea.transform, "Placeholder", new Color(0.30f, 0.34f, 0.38f, 0.95f));
+        Text placeholder = CreateTextChild(textArea.transform, "Placeholder", new Color(0.38f, 0.46f, 0.48f, 0.95f));
         placeholder.text = string.Empty;
 
         Text text = CreateTextChild(textArea.transform, "Text", Color.white);
 
         inputField.textComponent = text;
         inputField.placeholder = placeholder;
-        inputField.textComponent.color = Color.white;
+        ApplyInputVisuals(inputField);
 
         return inputField;
     }
@@ -170,14 +170,39 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
             return;
 
         inputField.text = value ?? string.Empty;
+        ApplyInputVisuals(inputField);
+        inputField.ForceLabelUpdate();
+    }
+
+    private void LateUpdate()
+    {
+        ApplyInputVisuals(_hierarchyInput);
+        ApplyInputVisuals(_logInput);
+    }
+
+    private void ApplyInputVisuals(InputField inputField)
+    {
+        if (inputField == null)
+            return;
 
         if (inputField.textComponent != null)
+        {
             inputField.textComponent.color = Color.white;
+            inputField.textComponent.fontStyle = FontStyle.Bold;
+            inputField.textComponent.fontSize = FontSize;
+            inputField.textComponent.material = null;
+        }
 
-        if (inputField.placeholder is Text placeholderText)
-            placeholderText.color = new Color(0.30f, 0.34f, 0.38f, 0.95f);
+        Text placeholderText = inputField.placeholder as Text;
+        if (placeholderText != null)
+        {
+            placeholderText.color = new Color(0.28f, 0.32f, 0.36f, 0.95f);
+            placeholderText.fontStyle = FontStyle.Normal;
+            placeholderText.fontSize = FontSize;
+            placeholderText.material = null;
+        }
 
-        inputField.ForceLabelUpdate();
+        inputField.caretColor = Color.white;
     }
     private Text CreateTextChild(Transform parent, string objectName, Color color)
     {
@@ -193,7 +218,6 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         Text text = textObject.GetComponent<Text>();
         text.font = _dynamicFont;
         text.fontSize = FontSize;
-        text.fontStyle = FontStyle.Normal;
         text.supportRichText = false;
         text.horizontalOverflow = HorizontalWrapMode.Overflow;
         text.verticalOverflow = VerticalWrapMode.Truncate;
