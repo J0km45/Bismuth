@@ -64,6 +64,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private const float HierarchyToggleSize = 18f;
     private const float HierarchyFoldoutSize = 18f;
     private const float PanelSplitterWidth = 6f;
+    private const float MaxHierarchyIndentPenalty = 24f;
     private const float MinHierarchyPanelWidth = 126f;
     private const float MinLogPanelWidth = 220f;
 
@@ -463,8 +464,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
             GUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
             GUILayout.Space(footerHorizontalPadding);
-            GUILayout.FlexibleSpace();
-            GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerRightLabelStyle, GUILayout.MinHeight(22f));
+            GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
             GUILayout.Space(footerHorizontalPadding);
             GUILayout.EndHorizontal();
 
@@ -490,7 +490,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         float width = panelWidth;
         width -= _boxStyle.padding.left + _boxStyle.padding.right;
         width -= 24f;
-        width -= leadingSpace;
+        width -= Mathf.Min(leadingSpace, MaxHierarchyIndentPenalty);
 
         if (reserveToggle)
             width -= HierarchyToggleSize + 4f;
@@ -546,7 +546,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         GUIStyle objectStyle = GetObjectButtonStyle(objectEnabled, isObjectFocused, isComponentParentFocused);
         GUIContent objectContent = new GUIContent(GetDisplayName(go.name), go.name);
-        if (GUILayout.Button(objectContent, objectStyle, GUILayout.Height(HierarchyRowHeight), GUILayout.ExpandWidth(true)))
+        float objectButtonWidth = GetHierarchyTextButtonWidth(panelWidth, objectLeadingSpace, true, true);
+        if (GUILayout.Button(objectContent, objectStyle, GUILayout.Width(objectButtonWidth), GUILayout.Height(HierarchyRowHeight)))
             ToggleGameObjectFocus(go);
 
         if (hasDetails)
@@ -591,7 +592,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
                 GUIStyle componentStyle = GetComponentButtonStyle(objectEnabled, isComponentFocused);
                 GUIContent componentContent = new GUIContent(GetDisplayName(component.GetType().Name), component.GetType().Name);
-                if (GUILayout.Button(componentContent, componentStyle, GUILayout.Height(HierarchyRowHeight), GUILayout.ExpandWidth(true)))
+                float componentButtonWidth = GetHierarchyTextButtonWidth(panelWidth, componentLeadingSpace, true, true);
+                if (GUILayout.Button(componentContent, componentStyle, GUILayout.Width(componentButtonWidth), GUILayout.Height(HierarchyRowHeight)))
                     ToggleComponentFocus(component);
 
                 GUILayout.Space(HierarchyFoldoutSize);
@@ -610,7 +612,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             GUILayout.Space((depth + 1) * 18f + HierarchyToggleSize + 8f);
             GUILayout.Space(HierarchyToggleSize);
 
-            if (GUILayout.Button(new GUIContent("하위 오브젝트", "하위 오브젝트"), _linkButtonStyle, GUILayout.Height(HierarchyRowHeight), GUILayout.ExpandWidth(true)))
+            float childButtonWidth = GetHierarchyTextButtonWidth(panelWidth, childLeadingSpace, true, true);
+            if (GUILayout.Button(new GUIContent("하위 오브젝트", "하위 오브젝트"), _linkButtonStyle, GUILayout.Width(childButtonWidth), GUILayout.Height(HierarchyRowHeight)))
                 ToggleExpandedSet(_expandedChildren, id);
 
             string childFoldoutLabel = showChildren ? "▾" : "▸";
