@@ -1393,13 +1393,13 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.Label("Hierarchy Search", GUILayout.Width(labelWidth));
 
         Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, 24f, GUILayout.Width(fieldWidth), GUILayout.Height(24f));
+        if (Event.current.type == EventType.Repaint)
+            _searchTextFieldStyle.Draw(fieldRect, GUIContent.none, false, false, false, false);
+
         _hierarchySearchScreenRect = ToScreenRect(fieldRect);
 
-        if (_searchOverlay != null)
-        {
-            _hierarchySearch = _searchOverlay.HierarchyText;
-            _searchFieldFocusedThisFrame |= _searchOverlay.IsHierarchyFocused;
-        }
+        if (_searchOverlay != null && _searchOverlay.IsHierarchyFocused)
+            _searchFieldFocusedThisFrame = true;
     }
 
     private void DrawLogSearchField(float labelWidth)
@@ -1407,13 +1407,13 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.Label("Log Search", GUILayout.Width(labelWidth));
 
         Rect fieldRect = GUILayoutUtility.GetRect(10f, 24f, GUILayout.ExpandWidth(true), GUILayout.Height(24f));
+        if (Event.current.type == EventType.Repaint)
+            _searchTextFieldStyle.Draw(fieldRect, GUIContent.none, false, false, false, false);
+
         _logSearchScreenRect = ToScreenRect(fieldRect);
 
-        if (_searchOverlay != null)
-        {
-            _logSearch = _searchOverlay.LogText;
-            _searchFieldFocusedThisFrame |= _searchOverlay.IsLogFocused;
-        }
+        if (_searchOverlay != null && _searchOverlay.IsLogFocused)
+            _searchFieldFocusedThisFrame = true;
 
         if (GUILayout.Button("Clear Search", GUILayout.Width(100f)))
         {
