@@ -1,20 +1,21 @@
-using UnityEngine.TextCore.LowLevel;
-using TMPro;
+
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
+using Text = UnityEngine.UI.Text;
 
 public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 {
     private const float FieldHeight = 24f;
-    private const float FontSize = 16f;
+    private const int FontSize = 14;
 
     private Canvas _canvas;
     private RectTransform _canvasRect;
-    private TMP_InputField _hierarchyInput;
-    private TMP_InputField _logInput;
+    private InputField _hierarchyInput;
+    private InputField _logInput;
     private RectTransform _hierarchyRectTransform;
     private RectTransform _logRectTransform;
-    private TMP_FontAsset _dynamicFontAsset;
+    private Font _dynamicFont;
 
     public string HierarchyText => _hierarchyInput != null ? _hierarchyInput.text : string.Empty;
     public string LogText => _logInput != null ? _logInput.text : string.Empty;
@@ -39,7 +40,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         _canvasRect.offsetMin = Vector2.zero;
         _canvasRect.offsetMax = Vector2.zero;
 
-        _dynamicFontAsset = CreateDynamicTMPFontAsset();
+        _dynamicFont = CreateDynamicUiFont();
 
         _hierarchyInput = CreateInputField("HierarchySearchInput", out _hierarchyRectTransform);
         _logInput = CreateInputField("LogSearchInput", out _logRectTransform);
@@ -61,15 +62,16 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
             _logInput.gameObject.SetActive(visible);
     }
 
-
     public void FocusHierarchy()
     {
         if (_hierarchyInput == null)
             return;
 
+        EnsureEventSystemExists();
         _hierarchyInput.gameObject.SetActive(true);
-        _hierarchyInput.ActivateInputField();
         _hierarchyInput.Select();
+        _hierarchyInput.ActivateInputField();
+        _hierarchyInput.MoveTextEnd(false);
     }
 
     public void FocusLog()
@@ -77,10 +79,13 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         if (_logInput == null)
             return;
 
+        EnsureEventSystemExists();
         _logInput.gameObject.SetActive(true);
-        _logInput.ActivateInputField();
         _logInput.Select();
+        _logInput.ActivateInputField();
+        _logInput.MoveTextEnd(false);
     }
+
     public void SetTexts(string hierarchyText, string logText)
     {
         hierarchyText ??= string.Empty;
@@ -112,9 +117,9 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         ApplyScreenRect(_logRectTransform, screenRect);
     }
 
-    private TMP_InputField CreateInputField(string objectName, out RectTransform rootRect)
+    private InputField CreateInputField(string objectName, out RectTransform rootRect)
     {
-        GameObject root = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(TMP_InputField));
+        GameObject root = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(InputField));
         root.transform.SetParent(transform, false);
 
         rootRect = root.GetComponent<RectTransform>();
@@ -124,21 +129,20 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         rootRect.sizeDelta = new Vector2(240f, FieldHeight);
 
         Image background = root.GetComponent<Image>();
-        background.color = new Color(0.10f, 0.17f, 0.16f, 0.02f);
+        background.color = new Color(0.10f, 0.17f, 0.16f, 0.01f);
         background.raycastTarget = true;
 
-        TMP_InputField inputField = root.GetComponent<TMP_InputField>();
+        InputField inputField = root.GetComponent<InputField>();
         inputField.targetGraphic = background;
-        inputField.lineType = TMP_InputField.LineType.SingleLine;
-        inputField.contentType = TMP_InputField.ContentType.Standard;
-        inputField.richText = false;
+        inputField.lineType = InputField.LineType.SingleLine;
+        inputField.contentType = InputField.ContentType.Standard;
         inputField.shouldHideMobileInput = false;
         inputField.resetOnDeActivation = false;
         inputField.restoreOriginalTextOnEscape = false;
+        inputField.caretWidth = 2;
         inputField.customCaretColor = true;
         inputField.caretColor = new Color(0.78f, 0.93f, 0.89f, 1f);
         inputField.selectionColor = new Color(0.20f, 0.36f, 0.33f, 0.85f);
-        inputField.caretWidth = 2;
 
         GameObject textArea = new GameObject("Text Area", typeof(RectTransform), typeof(RectMask2D));
         textArea.transform.SetParent(root.transform, false);
@@ -149,23 +153,21 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         textAreaRect.offsetMin = new Vector2(8f, 3f);
         textAreaRect.offsetMax = new Vector2(-8f, -3f);
 
-        TextMeshProUGUI placeholder = CreateTextChild(textArea.transform, "Placeholder", new Color(0.46f, 0.60f, 0.58f, 0.95f));
+        Text placeholder = CreateTextChild(textArea.transform, "Placeholder", new Color(0.46f, 0.60f, 0.58f, 0.95f));
         placeholder.text = string.Empty;
 
-        TextMeshProUGUI text = CreateTextChild(textArea.transform, "Text", new Color(0.82f, 0.95f, 0.91f, 1f));
+        Text text = CreateTextChild(textArea.transform, "Text", new Color(0.82f, 0.95f, 0.91f, 1f));
 
-        inputField.textViewport = textAreaRect;
         inputField.textComponent = text;
         inputField.placeholder = placeholder;
-
         inputField.onSelect.AddListener(_ => inputField.ActivateInputField());
 
         return inputField;
     }
 
-    private TextMeshProUGUI CreateTextChild(Transform parent, string objectName, Color color)
+    private Text CreateTextChild(Transform parent, string objectName, Color color)
     {
-        GameObject textObject = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI));
+        GameObject textObject = new GameObject(objectName, typeof(RectTransform), typeof(Text));
         textObject.transform.SetParent(parent, false);
 
         RectTransform textRect = textObject.GetComponent<RectTransform>();
@@ -174,44 +176,33 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         textRect.offsetMin = Vector2.zero;
         textRect.offsetMax = Vector2.zero;
 
-        TextMeshProUGUI text = textObject.GetComponent<TextMeshProUGUI>();
-        text.font = _dynamicFontAsset;
+        Text text = textObject.GetComponent<Text>();
+        text.font = _dynamicFont;
         text.fontSize = FontSize;
-        text.richText = false;
-        text.enableWordWrapping = false;
-        text.overflowMode = TextOverflowModes.Masking;
-        text.alignment = TextAlignmentOptions.MidlineLeft;
+        text.supportRichText = false;
+        text.horizontalOverflow = HorizontalWrapMode.Overflow;
+        text.verticalOverflow = VerticalWrapMode.Truncate;
+        text.alignment = TextAnchor.MiddleLeft;
         text.color = color;
-
         return text;
     }
 
-    private TMP_FontAsset CreateDynamicTMPFontAsset()
+    private Font CreateDynamicUiFont()
     {
         string[] candidates =
         {
+            "Arial Unicode MS",
+            "Segoe UI",
             "Malgun Gothic",
             "맑은 고딕",
-            "Noto Sans CJK KR",
-            "Arial Unicode MS",
             "Arial"
         };
 
-        Font sourceFont = Font.CreateDynamicFontFromOSFont(candidates, Mathf.RoundToInt(FontSize));
+        Font sourceFont = Font.CreateDynamicFontFromOSFont(candidates, FontSize);
         if (sourceFont == null)
             sourceFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
 
-        TMP_FontAsset fontAsset = TMP_FontAsset.CreateFontAsset(
-            sourceFont,
-            samplingPointSize: 90,
-            atlasPadding: 9,
-            renderMode: GlyphRenderMode.SDFAA,
-            atlasWidth: 1024,
-            atlasHeight: 1024,
-            atlasPopulationMode: AtlasPopulationMode.Dynamic,
-            enableMultiAtlasSupport: true);
-
-        return fontAsset;
+        return sourceFont;
     }
 
     private void ApplyScreenRect(RectTransform rectTransform, Rect screenRect)
@@ -221,5 +212,14 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 
         rectTransform.anchoredPosition = new Vector2(screenRect.xMin, -screenRect.yMin);
         rectTransform.sizeDelta = new Vector2(screenRect.width, Mathf.Max(FieldHeight, screenRect.height));
+    }
+
+    private void EnsureEventSystemExists()
+    {
+        if (EventSystem.current != null)
+            return;
+
+        GameObject eventSystemObject = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+        DontDestroyOnLoad(eventSystemObject);
     }
 }

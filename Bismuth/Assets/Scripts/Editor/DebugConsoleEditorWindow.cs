@@ -296,7 +296,6 @@ public class DebugConsoleEditorWindow : EditorWindow
     private void DrawToolbar(DebugConsoleManager manager)
     {
         float availableWidth = GetTopAreaWidth();
-        int layoutLevel = GetTopLayoutLevel(availableWidth);
 
         int enabledCount = GetEnabledTypeCount(manager);
         int totalCount = Enum.GetValues(typeof(DebugType)).Length;
@@ -304,7 +303,7 @@ public class DebugConsoleEditorWindow : EditorWindow
             ? $"Type Filter ▲ ({enabledCount}/{totalCount})"
             : $"Type Filter ▼ ({enabledCount}/{totalCount})";
 
-        if (layoutLevel == 1)
+        if (availableWidth >= 1500f)
         {
             EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
             DrawToolbarToggleGroup(manager);
@@ -315,13 +314,8 @@ public class DebugConsoleEditorWindow : EditorWindow
             return;
         }
 
-        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
-        DrawToolbarToggleGroup(manager);
-        EditorGUILayout.EndHorizontal();
-
-        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
-        DrawToolbarActionGroup(manager, typeButtonLabel);
-        EditorGUILayout.EndHorizontal();
+        DrawToolbarToggleGroupWrapped(manager, availableWidth);
+        DrawToolbarActionGroupWrapped(manager, typeButtonLabel, availableWidth);
         GUILayout.Space(4f);
     }
 
@@ -1277,6 +1271,24 @@ public class DebugConsoleEditorWindow : EditorWindow
     }
 
 
+    private readonly (string label, float width)[] _toolbarToggleItems =
+    {
+        ("Global", 80f),
+        ("Mirror Unity", 110f),
+        ("Auto Scroll", 100f),
+        ("Hide Transform", 120f),
+        ("Collapse Prev", 120f),
+    };
+
+    private readonly (string label, float width)[] _toolbarActionItems =
+    {
+        ("TypeFilter", 160f),
+        ("All Types On", 100f),
+        ("All Types Off", 100f),
+        ("Clear Logs", 100f),
+        ("Clear Focus", 100f),
+    };
+
     private void DrawToolbarToggleGroup(DebugConsoleManager manager)
     {
         bool global = GUILayout.Toggle(manager.GlobalEnabled, "Global", GUILayout.Width(80f));
@@ -1300,6 +1312,73 @@ public class DebugConsoleEditorWindow : EditorWindow
             _collapsePreviousOnSelection = collapsePrevious;
     }
 
+    private void DrawToolbarToggleGroupWrapped(DebugConsoleManager manager, float availableWidth)
+    {
+        int splitIndex = GetWrappedSplitIndex(_toolbarToggleItems, availableWidth);
+        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+        DrawToolbarToggleItems(manager, 0, splitIndex);
+        EditorGUILayout.EndHorizontal();
+
+        if (splitIndex < _toolbarToggleItems.Length)
+        {
+            EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+            DrawToolbarToggleItems(manager, splitIndex, _toolbarToggleItems.Length);
+            EditorGUILayout.EndHorizontal();
+        }
+    }
+
+    private void DrawToolbarToggleItems(DebugConsoleManager manager, int startIndex, int endIndex)
+    {
+        for (int i = startIndex; i < endIndex; i++)
+        {
+            switch (_toolbarToggleItems[i].label)
+            {
+                case "Global":
+                {
+                    bool value = GUILayout.Toggle(manager.GlobalEnabled, "Global", GUILayout.Width(80f));
+                    if (value != manager.GlobalEnabled)
+                        manager.GlobalEnabled = value;
+                    break;
+                }
+
+                case "Mirror Unity":
+                {
+                    bool value = GUILayout.Toggle(manager.MirrorToUnityConsole, "Mirror Unity", GUILayout.Width(110f));
+                    if (value != manager.MirrorToUnityConsole)
+                        manager.MirrorToUnityConsole = value;
+                    break;
+                }
+
+                case "Auto Scroll":
+                {
+                    bool value = GUILayout.Toggle(_autoScroll, "Auto Scroll", GUILayout.Width(100f));
+                    if (value != _autoScroll)
+                        _autoScroll = value;
+                    break;
+                }
+
+                case "Hide Transform":
+                {
+                    bool value = GUILayout.Toggle(_hideTransform, "Hide Transform", GUILayout.Width(120f));
+                    if (value != _hideTransform)
+                        _hideTransform = value;
+                    break;
+                }
+
+                case "Collapse Prev":
+                {
+                    bool value = GUILayout.Toggle(_collapsePreviousOnSelection, "Collapse Prev", GUILayout.Width(120f));
+                    if (value != _collapsePreviousOnSelection)
+                        _collapsePreviousOnSelection = value;
+                    break;
+                }
+            }
+
+            if (i < endIndex - 1)
+                GUILayout.Space(8f);
+        }
+    }
+
     private void DrawToolbarActionGroup(DebugConsoleManager manager, string typeButtonLabel)
     {
         if (GUILayout.Button(typeButtonLabel, GUILayout.Width(160f)))
@@ -1316,6 +1395,78 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         if (GUILayout.Button("Clear Focus", GUILayout.Width(100f)))
             ClearFocus();
+    }
+
+    private void DrawToolbarActionGroupWrapped(DebugConsoleManager manager, string typeButtonLabel, float availableWidth)
+    {
+        int splitIndex = GetWrappedSplitIndex(_toolbarActionItems, availableWidth);
+        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+        DrawToolbarActionItems(manager, typeButtonLabel, 0, splitIndex);
+        EditorGUILayout.EndHorizontal();
+
+        if (splitIndex < _toolbarActionItems.Length)
+        {
+            EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+            DrawToolbarActionItems(manager, typeButtonLabel, splitIndex, _toolbarActionItems.Length);
+            EditorGUILayout.EndHorizontal();
+        }
+    }
+
+    private void DrawToolbarActionItems(DebugConsoleManager manager, string typeButtonLabel, int startIndex, int endIndex)
+    {
+        for (int i = startIndex; i < endIndex; i++)
+        {
+            string key = _toolbarActionItems[i].label;
+            float width = _toolbarActionItems[i].width;
+
+            switch (key)
+            {
+                case "TypeFilter":
+                    if (GUILayout.Button(typeButtonLabel, GUILayout.Width(width)))
+                        _showTypeFilterPanel = !_showTypeFilterPanel;
+                    break;
+
+                case "All Types On":
+                    if (GUILayout.Button("All Types On", GUILayout.Width(width)))
+                        manager.SetAllTypes(true);
+                    break;
+
+                case "All Types Off":
+                    if (GUILayout.Button("All Types Off", GUILayout.Width(width)))
+                        manager.SetAllTypes(false);
+                    break;
+
+                case "Clear Logs":
+                    if (GUILayout.Button("Clear Logs", GUILayout.Width(width)))
+                        manager.ClearLogs();
+                    break;
+
+                case "Clear Focus":
+                    if (GUILayout.Button("Clear Focus", GUILayout.Width(width)))
+                        ClearFocus();
+                    break;
+            }
+
+            if (i < endIndex - 1)
+                GUILayout.Space(8f);
+        }
+    }
+
+    private int GetWrappedSplitIndex((string label, float width)[] items, float availableWidth)
+    {
+        float rowWidth = 0f;
+        const float spacing = 8f;
+
+        for (int i = 0; i < items.Length; i++)
+        {
+            float nextWidth = items[i].width + (i > 0 ? spacing : 0f);
+            if (rowWidth + nextWidth > availableWidth && i > 0)
+                return i;
+
+            rowWidth += nextWidth;
+        }
+
+        return items.Length;
     }
 
     private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
