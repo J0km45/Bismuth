@@ -42,6 +42,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private RectTransform _leftPanelRect;
     private RectTransform _rightPanelRect;
     private RectTransform _dividerRect;
+    private RectTransform _hierarchyScrollRoot;
+    private RectTransform _logScrollRoot;
 
     private Toggle _globalToggle;
     private Toggle _mirrorToggle;
@@ -203,8 +205,12 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         CreateText(_titleRect, "Runtime Debug Console", 34f, FontStyles.Bold, TextAlignmentOptions.Center);
 
         _toggleRowRect = CreateRect(_windowRoot, "ToggleRow");
-        HorizontalLayoutGroup toggleLayout = AddHorizontalLayout(_toggleRowRect, 12f, 4, 4, 0, 0);
-        toggleLayout.childAlignment = TextAnchor.MiddleLeft;
+        GridLayoutGroup toggleLayout = _toggleRowRect.gameObject.AddComponent<GridLayoutGroup>();
+        toggleLayout.cellSize = new Vector2(260f, 26f);
+        toggleLayout.spacing = new Vector2(12f, 8f);
+        toggleLayout.padding = new RectOffset(4, 4, 0, 0);
+        toggleLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        toggleLayout.constraintCount = 3;
         _globalToggle = CreateLabeledToggle(_toggleRowRect, "Global", v =>
         {
             DebugConsoleManager manager = DebugConsoleManager.Instance;
@@ -233,9 +239,14 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _blockInputToggle = CreateLabeledToggle(_toggleRowRect, "Block Input", v => ApplyBlockInput(v), 180f);
 
         _buttonRowRect = CreateRect(_windowRoot, "ButtonRow");
-        AddHorizontalLayout(_buttonRowRect, 10f, 0, 0, 0, 0);
+        GridLayoutGroup buttonLayout = _buttonRowRect.gameObject.AddComponent<GridLayoutGroup>();
+        buttonLayout.cellSize = new Vector2(210f, 34f);
+        buttonLayout.spacing = new Vector2(10f, 8f);
+        buttonLayout.padding = new RectOffset(0, 0, 0, 0);
+        buttonLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        buttonLayout.constraintCount = 3;
 
-        _typeFilterButton = CreateButton(_buttonRowRect, "Type Filter ▼ (0/0)", ToggleTypeFilterPanel, out _typeFilterButtonLabel, 230f);
+        _typeFilterButton = CreateButton(_buttonRowRect, "Type Filter v (0/0)", ToggleTypeFilterPanel, out _typeFilterButtonLabel, 230f);
         CreateButton(_buttonRowRect, "All Types On", () =>
         {
             DebugConsoleManager manager = DebugConsoleManager.Instance;
@@ -288,15 +299,15 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         _leftPanelRect = CreatePanelRect(_contentRowRect, "HierarchyPanel", new Color(0.11f, 0.15f, 0.20f, 0.95f));
         AddOutline(_leftPanelRect.gameObject, new Color(0.25f, 0.30f, 0.40f, 1f));
-        BuildPanel(_leftPanelRect, "Scene Objects / Components", out _hierarchyScrollRect, out _hierarchyContent);
+        BuildPanel(_leftPanelRect, "Scene Objects / Components", out _hierarchyScrollRect, out _hierarchyContent, out _hierarchyScrollRoot);
 
         _dividerRect = CreatePanelRect(_contentRowRect, "Divider", new Color(0.23f, 0.27f, 0.35f, 1f));
 
         _rightPanelRect = CreatePanelRect(_contentRowRect, "LogPanel", new Color(0.11f, 0.15f, 0.20f, 0.95f));
         AddOutline(_rightPanelRect.gameObject, new Color(0.25f, 0.30f, 0.40f, 1f));
-        BuildPanel(_rightPanelRect, "Logs", out _logScrollRect, out _logContent);
+        BuildPanel(_rightPanelRect, "Logs", out _logScrollRect, out _logContent, out _logScrollRoot);
 
-        _footerRect = CreatePanelRect(_windowRoot, "Footer", new Color(0.05f, 0.08f, 0.12f, 0.98f));
+        _footerRect = CreatePanelRect(_leftPanelRect, "Footer", new Color(0.05f, 0.08f, 0.12f, 0.98f));
         AddOutline(_footerRect.gameObject, new Color(0.20f, 0.24f, 0.32f, 1f));
         CreateFooter();
     }
@@ -368,28 +379,22 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private void CreateFooter()
     {
-        RectTransform focusRect = CreateRect(_footerRect, "FocusArea");
-        SetRect(focusRect, 0f, 0f, 0.7f, 1f, 14f, 0f, -14f, 0f);
-
-        _focusLabel = CreateText(focusRect, "Focus : All", 22f, FontStyles.Bold, TextAlignmentOptions.Left);
-        Stretch(_focusLabel.rectTransform, 0f, 0f, 0f, 0f);
+        _focusLabel = CreateText(_footerRect, "Focus : All", 22f, FontStyles.Bold, TextAlignmentOptions.Left);
         _focusLabel.color = new Color(0.95f, 0.84f, 0.24f, 1f);
 
-        RectTransform countRect = CreateRect(_footerRect, "CountArea");
-        SetRect(countRect, 0.7f, 0f, 1f, 1f, 14f, 0f, -14f, 0f);
-
-        _countLabel = CreateText(countRect, "Count : 0", 22f, FontStyles.Bold, TextAlignmentOptions.Right);
-        Stretch(_countLabel.rectTransform, 0f, 0f, 0f, 0f);
+        _countLabel = CreateText(_footerRect, "Count : 0", 22f, FontStyles.Bold, TextAlignmentOptions.Right);
         _countLabel.color = new Color(0.95f, 0.84f, 0.24f, 1f);
+
+        UpdateFooterLayout();
     }
 
-    private void BuildPanel(RectTransform panelRoot, string title, out ScrollRect scrollRect, out RectTransform contentRoot)
+    private void BuildPanel(RectTransform panelRoot, string title, out ScrollRect scrollRect, out RectTransform contentRoot, out RectTransform scrollRoot)
     {
         RectTransform titleRect = CreateRect(panelRoot, "Title");
         SetTopRect(titleRect, 10f, 28f, 12f, 12f);
         CreateText(titleRect, title, 26f, FontStyles.Bold, TextAlignmentOptions.Left);
 
-        RectTransform scrollRoot = CreatePanelRect(panelRoot, "ScrollView", new Color(0.14f, 0.18f, 0.25f, 1f));
+        scrollRoot = CreatePanelRect(panelRoot, "ScrollView", new Color(0.14f, 0.18f, 0.25f, 1f));
         Stretch(scrollRoot, 12f, 12f, 44f, 12f);
 
         GameObject viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
@@ -439,31 +444,40 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             return;
 
         SetTopRect(_titleRect, 10f, 38f, 12f, 12f);
-        SetTopRect(_toggleRowRect, 56f, 30f, 12f, 12f);
-        SetTopRect(_buttonRowRect, 94f, 34f, 12f, 12f);
-        SetTopRect(_searchRowRect, 136f, 34f, 12f, 12f);
+        SetTopRect(_toggleRowRect, 56f, 64f, 12f, 12f);
+        SetTopRect(_buttonRowRect, 128f, 76f, 12f, 12f);
+        SetTopRect(_searchRowRect, 212f, 34f, 12f, 12f);
 
         float bodyTop;
         if (_showTypeFilterPanel)
         {
             _typeFilterPanelRect.gameObject.SetActive(true);
-            SetTopRect(_typeFilterPanelRect, 178f, 120f, 12f, 12f);
-            bodyTop = 308f;
+            SetTopRect(_typeFilterPanelRect, 254f, 120f, 12f, 12f);
+            bodyTop = 384f;
         }
         else
         {
             _typeFilterPanelRect.gameObject.SetActive(false);
-            bodyTop = 178f;
+            bodyTop = 254f;
         }
 
-        SetBottomRect(_footerRect, 12f, 46f, 12f, 12f);
-        Stretch(_contentRowRect, 12f, 12f, bodyTop, 68f);
+        Stretch(_contentRowRect, 12f, 12f, bodyTop, 12f);
 
         SetRect(_leftPanelRect, 0f, 0f, 0.36f, 1f, 0f, 0f, -6f, 0f);
         SetRect(_dividerRect, 0.36f, 0f, 0.36f, 1f, 0f, 0f, 4f, 0f);
         _dividerRect.sizeDelta = new Vector2(4f, 0f);
         SetRect(_rightPanelRect, 0.36f, 0f, 1f, 1f, 8f, 0f, 0f, 0f);
 
+        if (_footerRect != null)
+            SetBottomRect(_footerRect, 12f, GetFooterHeight(), 12f, 12f);
+
+        if (_hierarchyScrollRoot != null)
+            Stretch(_hierarchyScrollRoot, 12f, 12f, 44f, GetFooterHeight() + 18f);
+
+        if (_logScrollRoot != null)
+            Stretch(_logScrollRoot, 12f, 12f, 44f, 12f);
+
+        UpdateFooterLayout();
         UpdateTypeFilterButtonLabel();
     }
 
@@ -615,7 +629,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (hasVisibleComponents || hasVisibleChildren)
         {
             bool expanded = GetExpanded(gameObject.GetInstanceID());
-            CreateRowButton(row, expanded ? "▼" : "▶", () =>
+            CreateRowButton(row, expanded ? "-" : "+", () =>
             {
                 SetExpanded(gameObject.GetInstanceID(), !expanded);
                 RequestRebuild();
@@ -932,6 +946,35 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private void UpdateFooter()
     {
         _focusLabel.text = _focusState.GetFooterLabel(24);
+        UpdateFooterLayout();
+    }
+
+    private float GetFooterHeight()
+    {
+        return _leftPanelRect != null && _leftPanelRect.rect.width < 420f ? 74f : 42f;
+    }
+
+    private void UpdateFooterLayout()
+    {
+        if (_footerRect == null || _focusLabel == null || _countLabel == null)
+            return;
+
+        bool stacked = _leftPanelRect != null && _leftPanelRect.rect.width < 420f;
+
+        if (stacked)
+        {
+            SetRect(_focusLabel.rectTransform, 0f, 0.5f, 1f, 1f, 12f, 0f, -12f, 0f);
+            SetRect(_countLabel.rectTransform, 0f, 0f, 1f, 0.5f, 12f, 0f, -12f, 0f);
+            _focusLabel.alignment = TextAlignmentOptions.MidlineLeft;
+            _countLabel.alignment = TextAlignmentOptions.MidlineLeft;
+        }
+        else
+        {
+            SetRect(_focusLabel.rectTransform, 0f, 0f, 0.7f, 1f, 12f, 0f, -8f, 0f);
+            SetRect(_countLabel.rectTransform, 0.7f, 0f, 1f, 1f, 8f, 0f, -12f, 0f);
+            _focusLabel.alignment = TextAlignmentOptions.MidlineLeft;
+            _countLabel.alignment = TextAlignmentOptions.MidlineRight;
+        }
     }
 
     private void ToggleTypeFilterPanel()
@@ -952,7 +995,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
                 enabledCount++;
         }
 
-        string arrow = _showTypeFilterPanel ? "▼" : "▶";
+        string arrow = _showTypeFilterPanel ? "v" : ">";
         _typeFilterButtonLabel.text = $"Type Filter {arrow} ({enabledCount}/{_typeToggles.Count})";
     }
 
@@ -1051,7 +1094,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         textComponent.alignment = alignment;
         textComponent.color = new Color(0.92f, 0.95f, 0.98f, 1f);
         textComponent.enableWordWrapping = false;
-        textComponent.overflowMode = TextOverflowModes.Ellipsis;
+        textComponent.overflowMode = TextOverflowModes.Overflow;
         return textComponent;
     }
 
@@ -1072,25 +1115,38 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     {
         RectTransform root = CreateRect(parent, $"{label}_Toggle");
         LayoutElement layout = root.gameObject.AddComponent<LayoutElement>();
+        width = Mathf.Max(width, 36f + text.Length * 11f);
         layout.preferredWidth = width;
         layout.preferredHeight = 24f;
 
-        AddHorizontalLayout(root, 8f, 0, 0, 0, 0);
-
         Toggle toggle = root.gameObject.AddComponent<Toggle>();
 
-        Image box = CreateImage(root, "Box", new Color(0.16f, 0.20f, 0.28f, 1f));
-        RectTransform boxRect = box.rectTransform;
+        RectTransform boxRect = CreateRect(root, "Box");
+        boxRect.anchorMin = new Vector2(0f, 0.5f);
+        boxRect.anchorMax = new Vector2(0f, 0.5f);
+        boxRect.pivot = new Vector2(0f, 0.5f);
         boxRect.sizeDelta = new Vector2(18f, 18f);
+        boxRect.anchoredPosition = new Vector2(0f, 0f);
+
+        Image box = boxRect.gameObject.AddComponent<Image>();
+        box.color = new Color(0.16f, 0.20f, 0.28f, 1f);
         toggle.targetGraphic = box;
 
-        Image check = CreateImage(boxRect, "Checkmark", new Color(0.56f, 0.88f, 0.75f, 1f));
-        Stretch(check.rectTransform, 3f, -3f, 3f, -3f);
+        RectTransform checkRect = CreateRect(boxRect, "Checkmark");
+        Stretch(checkRect, 3f, 3f, 3f, 3f);
+        Image check = checkRect.gameObject.AddComponent<Image>();
+        check.color = new Color(0.56f, 0.88f, 0.75f, 1f);
         toggle.graphic = check;
 
-        TextMeshProUGUI labelText = CreateText(root, label, 20f, FontStyles.Normal, TextAlignmentOptions.Left);
-        LayoutElement labelLayout = labelText.gameObject.AddComponent<LayoutElement>();
-        labelLayout.preferredWidth = Mathf.Max(60f, width - 28f);
+        RectTransform labelRect = CreateRect(root, "LabelRect");
+        labelRect.anchorMin = new Vector2(0f, 0f);
+        labelRect.anchorMax = new Vector2(1f, 1f);
+        labelRect.offsetMin = new Vector2(28f, 0f);
+        labelRect.offsetMax = new Vector2(0f, 0f);
+
+        TextMeshProUGUI labelText = CreateText(labelRect, label, 20f, FontStyles.Normal, TextAlignmentOptions.Left);
+        Stretch(labelText.rectTransform, 0f, 0f, 0f, 0f);
+        labelText.overflowMode = TextOverflowModes.Overflow;
 
         toggle.onValueChanged.AddListener(value => callback?.Invoke(value));
         return toggle;
@@ -1105,12 +1161,14 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         Toggle toggle = root.gameObject.AddComponent<Toggle>();
 
-        Image box = CreateImage(root, "Box", new Color(0.16f, 0.20f, 0.28f, 1f));
-        Stretch(box.rectTransform, 0f, 0f, 0f, 0f);
+        Image box = root.gameObject.AddComponent<Image>();
+        box.color = new Color(0.16f, 0.20f, 0.28f, 1f);
         toggle.targetGraphic = box;
 
-        Image check = CreateImage(box.rectTransform, "Checkmark", new Color(0.56f, 0.88f, 0.75f, 1f));
-        Stretch(check.rectTransform, 4f, -4f, 4f, -4f);
+        RectTransform checkRect = CreateRect(root, "Checkmark");
+        Stretch(checkRect, 4f, 4f, 4f, 4f);
+        Image check = checkRect.gameObject.AddComponent<Image>();
+        check.color = new Color(0.56f, 0.88f, 0.75f, 1f);
         toggle.graphic = check;
 
         toggle.SetIsOnWithoutNotify(initialValue);
@@ -1137,8 +1195,10 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         button.colors = colors;
         button.onClick.AddListener(() => onClick?.Invoke());
 
-        label = CreateText(root, text, 19f, FontStyles.Normal, TextAlignmentOptions.Center);
-        Stretch(label.rectTransform, 6f, -6f, 2f, -2f);
+        label = CreateText(root, text, 18f, FontStyles.Normal, TextAlignmentOptions.Center);
+        Stretch(label.rectTransform, 6f, 6f, 2f, 2f);
+        label.enableWordWrapping = false;
+        label.overflowMode = TextOverflowModes.Overflow;
 
         return button;
     }
@@ -1166,7 +1226,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         button.onClick.AddListener(() => onClick?.Invoke());
 
         TextMeshProUGUI label = CreateText(root, text, 18f, FontStyles.Normal, TextAlignmentOptions.Left);
-        Stretch(label.rectTransform, 6f, -6f, 0f, 0f);
+        Stretch(label.rectTransform, 6f, 6f, 0f, 0f);
+        label.enableWordWrapping = false;
+        label.overflowMode = TextOverflowModes.Ellipsis;
 
         return button;
     }
