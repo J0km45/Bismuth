@@ -836,6 +836,14 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (targetGameObject == null)
             return;
 
+        SyncUnityHierarchySelection(targetGameObject);
+    }
+
+    private void SyncUnityHierarchySelection(GameObject targetGameObject)
+    {
+        if (targetGameObject == null)
+            return;
+
 #if UNITY_EDITOR
         UnityEditor.Selection.activeGameObject = targetGameObject;
         UnityEditor.EditorGUIUtility.PingObject(targetGameObject);
@@ -907,6 +915,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _focusedComponentName = string.Empty;
 
         PrepareSelectionExpansion(go.transform, true);
+        SyncUnityHierarchySelection(go);
     }
 
     private void ToggleComponentFocus(Component component)
@@ -928,6 +937,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _focusedComponentName = component.GetType().Name;
 
         PrepareSelectionExpansion(component.transform, true);
+        SyncUnityHierarchySelection(component.gameObject);
     }
 
     private void PrepareSelectionExpansion(Transform target, bool includeDetails)

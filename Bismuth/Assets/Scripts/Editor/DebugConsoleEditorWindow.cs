@@ -858,6 +858,14 @@ public class DebugConsoleEditorWindow : EditorWindow
         if (targetGameObject == null)
             return;
 
+        SyncUnityHierarchySelection(targetGameObject);
+    }
+
+    private void SyncUnityHierarchySelection(GameObject targetGameObject)
+    {
+        if (targetGameObject == null)
+            return;
+
         Selection.activeGameObject = targetGameObject;
         EditorGUIUtility.PingObject(targetGameObject);
     }
@@ -927,6 +935,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         _focusedComponentName = string.Empty;
 
         PrepareSelectionExpansion(go.transform, true);
+        SyncUnityHierarchySelection(go);
     }
 
     private void ToggleComponentFocus(Component component)
@@ -948,6 +957,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         _focusedComponentName = component.GetType().Name;
 
         PrepareSelectionExpansion(component.transform, true);
+        SyncUnityHierarchySelection(component.gameObject);
     }
 
     private void PrepareSelectionExpansion(Transform target, bool includeDetails)
