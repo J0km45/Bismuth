@@ -472,20 +472,6 @@ public class DebugConsoleEditorWindow : EditorWindow
         GUILayout.EndScrollView();
         GUILayout.EndVertical();
     }
-        else
-        {
-            GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(30f));
-            GUILayout.Space(footerHorizontalPadding);
-            float footerCountWidth = Mathf.Ceil(footerCountRequiredWidth) + 4f;
-            float footerLeftWidth = Mathf.Max(60f, panelWidth - footerCountWidth - (footerHorizontalPadding * 2f) - footerGap);
-            GUILayout.Label(new GUIContent(footerFocusDisplayText, footerFocusFullText), _footerLeftLabelStyle, GUILayout.Width(footerLeftWidth), GUILayout.MinHeight(22f));
-            GUILayout.Space(footerGap);
-            GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerRightLabelStyle, GUILayout.Width(footerCountWidth), GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.EndHorizontal();
-        }
-        GUILayout.EndVertical();
-    }
 
     private float GetHierarchyRowContentWidth(float panelWidth)
     {
