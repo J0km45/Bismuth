@@ -6,7 +6,6 @@ using UnityEngine.SceneManagement;
 
 public class RuntimeDebugConsoleWindow : MonoBehaviour
 {
-    private const string PrefKeyPrefix = "DebugConsole.RuntimeWindow";
     [SerializeField] private KeyCode _toggleKey = KeyCode.F1;
     [SerializeField] private bool _visible = false;
     [SerializeField] private Rect _windowRect = new Rect(20f, 20f, 1450f, 850f);
@@ -21,16 +20,18 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private string _hierarchySearch = string.Empty;
     private string _logSearch = string.Empty;
 
+    private const string HierarchySearchControlName = "DebugConsole_HierarchySearch";
+    private const string LogSearchControlName = "DebugConsole_LogSearch";
+    private IMECompositionMode _previousImeCompositionMode = IMECompositionMode.Auto;
+    private bool _imeCompositionCaptured;
+    private Rect _lastFocusedSearchFieldRect;
+
     private bool _showTypeFilterPanel;
 
-    private readonly DebugConsoleFocusState _focusState = new();
-    private readonly List<DebugEntry> _visibleEntriesCache = new();
-    private int _cachedManagerChangeVersion = -1;
-    private string _cachedHierarchySearch = string.Empty;
-    private string _cachedLogSearch = string.Empty;
-    private int _cachedFocusedGameObjectId = -1;
-    private int _cachedFocusedComponentId = -1;
-    private bool _viewStateDirty;
+    private int _focusedGameObjectId;
+    private int _focusedComponentId;
+    private string _focusedObjectName = string.Empty;
+    private string _focusedComponentName = string.Empty;
 
     private GUIStyle _titleStyle;
     private GUIStyle _boxStyle;
@@ -54,6 +55,16 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private Texture2D _solidTexture;
     private bool _stylesDirty = true;
 
+    private readonly Color _selectedObjectBg = new Color(0.98f, 0.80f, 0.18f, 1f);
+    private readonly Color _selectedComponentBg = new Color(0.84f, 0.64f, 0.14f, 1f);
+    private readonly Color _selectedParentBg = new Color(0.50f, 0.38f, 0.08f, 1f);
+    private readonly Color _objectFocusedRowBg = new Color(0.98f, 0.80f, 0.18f, 0.32f);
+    private readonly Color _parentFocusedRowBg = new Color(0.76f, 0.58f, 0.12f, 0.22f);
+    private readonly Color _componentFocusedRowBg = new Color(0.84f, 0.64f, 0.14f, 0.36f);
+    private readonly Color _selectedText = new Color(0.18f, 0.11f, 0.00f, 1f);
+    private readonly Color _selectedParentText = new Color(1.00f, 0.95f, 0.78f, 1f);
+    private readonly Color _toolbarInfoText = new Color(1.00f, 0.89f, 0.34f, 1f);
+    private readonly Color _footerInfoTextColor = new Color(0.96f, 0.84f, 0.22f, 1f);
 
     private const int MaxDisplayNameLength = 15;
     private const int FooterFocusSegmentMaxLength = 16;
@@ -83,54 +94,12 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         SceneManager.sceneLoaded += HandleSceneLoaded;
         _stylesDirty = true;
         _titleStyle = null;
-        LoadViewState();
     }
 
     private void OnDisable()
     {
-        FlushViewStateIfDirty(force: true);
         SceneManager.sceneLoaded -= HandleSceneLoaded;
-    }
-
-    private void LoadViewState()
-    {
-        _visible = DebugConsolePreferenceStore.GetBool($"{PrefKeyPrefix}.Visible", _visible);
-        _autoScroll = DebugConsolePreferenceStore.GetBool($"{PrefKeyPrefix}.AutoScroll", _autoScroll);
-        _hideTransform = DebugConsolePreferenceStore.GetBool($"{PrefKeyPrefix}.HideTransform", _hideTransform);
-        _collapsePreviousOnSelection = DebugConsolePreferenceStore.GetBool($"{PrefKeyPrefix}.CollapsePrev", _collapsePreviousOnSelection);
-        _showTypeFilterPanel = DebugConsolePreferenceStore.GetBool($"{PrefKeyPrefix}.ShowTypeFilterPanel", _showTypeFilterPanel);
-        _hierarchyPanelWidth = DebugConsolePreferenceStore.GetFloat($"{PrefKeyPrefix}.HierarchyPanelWidth", _hierarchyPanelWidth);
-        _windowRect = DebugConsolePreferenceStore.GetRect($"{PrefKeyPrefix}.WindowRect", _windowRect);
-    }
-
-    private void SaveViewState()
-    {
-        DebugConsolePreferenceStore.SetBool($"{PrefKeyPrefix}.Visible", _visible);
-        DebugConsolePreferenceStore.SetBool($"{PrefKeyPrefix}.AutoScroll", _autoScroll);
-        DebugConsolePreferenceStore.SetBool($"{PrefKeyPrefix}.HideTransform", _hideTransform);
-        DebugConsolePreferenceStore.SetBool($"{PrefKeyPrefix}.CollapsePrev", _collapsePreviousOnSelection);
-        DebugConsolePreferenceStore.SetBool($"{PrefKeyPrefix}.ShowTypeFilterPanel", _showTypeFilterPanel);
-        DebugConsolePreferenceStore.SetFloat($"{PrefKeyPrefix}.HierarchyPanelWidth", _hierarchyPanelWidth);
-        DebugConsolePreferenceStore.SetRect($"{PrefKeyPrefix}.WindowRect", _windowRect);
-        _viewStateDirty = false;
-    }
-
-    private void MarkViewStateDirty()
-    {
-        _viewStateDirty = true;
-    }
-
-    private void FlushViewStateIfDirty(bool force = false)
-    {
-        if (!_viewStateDirty && !force)
-            return;
-
-        SaveViewState();
-    }
-
-    private void InvalidateVisibleEntriesCache()
-    {
-        _cachedManagerChangeVersion = -1;
+        RestoreImeCompositionMode();
     }
 
     private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -149,23 +118,53 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (Input.GetKeyDown(_toggleKey))
         {
             _visible = !_visible;
-            if (_visible)
-                MarkViewStateDirty();
-            else
-                SaveViewState();
+
+            if (!_visible)
+                RestoreImeCompositionMode();
         }
     }
 
     private void OnGUI()
     {
         if (!_visible)
+        {
+            RestoreImeCompositionMode();
             return;
+        }
 
         InitStyles();
-        Rect previousRect = _windowRect;
         _windowRect = GUI.Window(91357, _windowRect, DrawWindow, "Runtime Debug Console");
-        if (previousRect != _windowRect)
-            MarkViewStateDirty();
+        UpdateImeCompositionState();
+    }
+
+    private void UpdateImeCompositionState()
+    {
+        string focusedControl = GUI.GetNameOfFocusedControl();
+        bool isSearchFocused = focusedControl == HierarchySearchControlName || focusedControl == LogSearchControlName;
+
+        if (isSearchFocused)
+        {
+            if (!_imeCompositionCaptured)
+            {
+                _previousImeCompositionMode = Input.imeCompositionMode;
+                _imeCompositionCaptured = true;
+            }
+
+            Input.imeCompositionMode = IMECompositionMode.On;
+            Input.compositionCursorPos = GUIUtility.GUIToScreenPoint(new Vector2(_lastFocusedSearchFieldRect.xMin + 6f, _lastFocusedSearchFieldRect.yMax - 4f));
+            return;
+        }
+
+        RestoreImeCompositionMode();
+    }
+
+    private void RestoreImeCompositionMode()
+    {
+        if (!_imeCompositionCaptured)
+            return;
+
+        Input.imeCompositionMode = _previousImeCompositionMode;
+        _imeCompositionCaptured = false;
     }
 
     private void InitStyles()
@@ -175,38 +174,137 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         _stylesDirty = false;
 
-        DebugConsoleStyleSet styles = DebugConsoleStyleFactory.Create(
-            GUI.skin.label,
-            GUI.skin.label,
-            GUI.skin.box,
-            GUI.skin.textField,
-            GUI.skin.button,
-            HierarchyRowHeight,
-            HierarchyFoldoutSize,
-            _solidTexture);
+        _titleStyle = new GUIStyle(GUI.skin.label)
+        {
+            fontStyle = FontStyle.Bold,
+            fontSize = 13,
+            wordWrap = false,
+            clipping = TextClipping.Clip
+        };
 
-        _titleStyle = styles.TitleStyle;
-        _boxStyle = styles.BoxStyle;
-        _richLabelStyle = styles.RichLabelStyle;
-        _dimLabelStyle = styles.DimLabelStyle;
-        _searchTextFieldStyle = styles.SearchTextFieldStyle;
-        _linkButtonStyle = styles.LinkButtonStyle;
-        _disabledButtonStyle = styles.DisabledButtonStyle;
-        _objectSelectedButtonStyle = styles.ObjectSelectedButtonStyle;
-        _componentSelectedButtonStyle = styles.ComponentSelectedButtonStyle;
-        _parentSelectedButtonStyle = styles.ParentSelectedButtonStyle;
-        _foldoutButtonStyle = styles.FoldoutButtonStyle;
-        _toolbarButtonStyle = styles.ToolbarButtonStyle;
-        _toolbarInfoLabelStyle = styles.ToolbarInfoLabelStyle;
-        _toolbarInfoRightLabelStyle = styles.ToolbarInfoRightLabelStyle;
-        _footerLeftLabelStyle = styles.FooterLeftLabelStyle;
-        _footerRightLabelStyle = styles.FooterRightLabelStyle;
-        _objectFocusedRowStyle = styles.ObjectFocusedRowStyle;
-        _objectParentFocusedRowStyle = styles.ObjectParentFocusedRowStyle;
-        _componentFocusedRowStyle = styles.ComponentFocusedRowStyle;
-        _solidTexture = styles.SolidTexture;
+        _boxStyle = new GUIStyle(GUI.skin.box)
+        {
+            alignment = TextAnchor.UpperLeft,
+            padding = new RectOffset(8, 8, 8, 8)
+        };
+
+        _richLabelStyle = new GUIStyle(GUI.skin.label)
+        {
+            richText = true,
+            wordWrap = true,
+            fontSize = 12
+        };
+
+        _dimLabelStyle = new GUIStyle(GUI.skin.label);
+        _dimLabelStyle.normal.textColor = new Color(0.6f, 0.6f, 0.6f);
+
+        _searchTextFieldStyle = new GUIStyle(GUI.skin.textField)
+        {
+            fontSize = 12
+        };
+
+        _linkButtonStyle = new GUIStyle(GUI.skin.button)
+        {
+            alignment = TextAnchor.MiddleLeft,
+            padding = new RectOffset(6, 6, 0, 0),
+            margin = new RectOffset(0, 0, 0, 0),
+            fixedHeight = HierarchyRowHeight,
+            fontStyle = FontStyle.Normal,
+            wordWrap = false,
+            clipping = TextClipping.Clip
+        };
+        Color normalButtonText = new Color(0.84f, 0.96f, 0.92f, 1f);
+        _linkButtonStyle.normal.textColor = normalButtonText;
+        _linkButtonStyle.hover.textColor = normalButtonText;
+        _linkButtonStyle.active.textColor = normalButtonText;
+        _linkButtonStyle.focused.textColor = normalButtonText;
+        _linkButtonStyle.onNormal.textColor = normalButtonText;
+        _linkButtonStyle.onHover.textColor = normalButtonText;
+        _linkButtonStyle.onActive.textColor = normalButtonText;
+        _linkButtonStyle.onFocused.textColor = normalButtonText;
+
+        _disabledButtonStyle = new GUIStyle(_linkButtonStyle);
+        _disabledButtonStyle.normal.textColor = new Color(0.55f, 0.55f, 0.55f);
+        _disabledButtonStyle.hover.textColor = _disabledButtonStyle.normal.textColor;
+        _disabledButtonStyle.active.textColor = _disabledButtonStyle.normal.textColor;
+
+        _foldoutButtonStyle = new GUIStyle(GUI.skin.button)
+        {
+            alignment = TextAnchor.MiddleCenter,
+            padding = new RectOffset(0, 0, 0, 0),
+            margin = new RectOffset(0, 0, 0, 0),
+            fixedWidth = HierarchyFoldoutSize,
+            fixedHeight = HierarchyRowHeight,
+            fontStyle = FontStyle.Bold
+        };
+
+        if (_solidTexture == null)
+        {
+            _solidTexture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+            _solidTexture.SetPixel(0, 0, Color.white);
+            _solidTexture.Apply();
+        }
+
+        _objectFocusedRowStyle = CreateRowStyle(_objectFocusedRowBg);
+        _objectParentFocusedRowStyle = CreateRowStyle(_parentFocusedRowBg);
+        _componentFocusedRowStyle = CreateRowStyle(_componentFocusedRowBg);
+
+        _objectSelectedButtonStyle = CreateButtonStyle(_selectedObjectBg, _selectedText, true, TextAnchor.MiddleLeft);
+        _parentSelectedButtonStyle = CreateButtonStyle(_selectedParentBg, _selectedParentText, true, TextAnchor.MiddleLeft);
+        _componentSelectedButtonStyle = CreateButtonStyle(_selectedComponentBg, _selectedText, true, TextAnchor.MiddleLeft);
+
+        _toolbarButtonStyle = new GUIStyle(GUI.skin.button)
+        {
+            alignment = TextAnchor.MiddleCenter
+        };
+
+        _toolbarInfoLabelStyle = new GUIStyle(GUI.skin.label)
+        {
+            alignment = TextAnchor.MiddleLeft,
+            wordWrap = false,
+            richText = false,
+            fontStyle = FontStyle.Bold
+        };
+        _toolbarInfoLabelStyle.normal.textColor = _toolbarInfoText;
+        _toolbarInfoLabelStyle.hover.textColor = _toolbarInfoText;
+        _toolbarInfoLabelStyle.active.textColor = _toolbarInfoText;
+        _toolbarInfoLabelStyle.focused.textColor = _toolbarInfoText;
+        _toolbarInfoLabelStyle.onNormal.textColor = _toolbarInfoText;
+        _toolbarInfoLabelStyle.onHover.textColor = _toolbarInfoText;
+        _toolbarInfoLabelStyle.onActive.textColor = _toolbarInfoText;
+        _toolbarInfoLabelStyle.onFocused.textColor = _toolbarInfoText;
+
+        _toolbarInfoRightLabelStyle = new GUIStyle(_toolbarInfoLabelStyle)
+        {
+            alignment = TextAnchor.MiddleRight
+        };
+
+        _footerLeftLabelStyle = new GUIStyle(GUI.skin.label)
+        {
+            alignment = TextAnchor.MiddleLeft,
+            wordWrap = false,
+            richText = false,
+            fontStyle = FontStyle.Bold
+        };
+        ApplyLabelTextColor(_footerLeftLabelStyle, _footerInfoTextColor);
+
+        _footerRightLabelStyle = new GUIStyle(_footerLeftLabelStyle)
+        {
+            alignment = TextAnchor.MiddleRight
+        };
     }
 
+    private void ApplyLabelTextColor(GUIStyle style, Color color)
+    {
+        style.normal.textColor = color;
+        style.hover.textColor = color;
+        style.active.textColor = color;
+        style.focused.textColor = color;
+        style.onNormal.textColor = color;
+        style.onHover.textColor = color;
+        style.onActive.textColor = color;
+        style.onFocused.textColor = color;
+    }
 
     private void DrawWindow(int windowId)
     {
@@ -223,12 +321,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         DrawTypeFilterPanel(manager);
 
         DrawResizablePanels(manager);
-        FlushViewStateIfDirty();
 
-        Rect previousRect = _windowRect;
         GUI.DragWindow(new Rect(0, 0, 10000, 24));
-        if (previousRect.position != _windowRect.position || previousRect.size != _windowRect.size)
-            MarkViewStateDirty();
     }
 
     private void DrawToolbar(DebugConsoleManager manager)
@@ -316,10 +410,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
                 bool next = GUILayout.Toggle(current, type.ToString(), GUILayout.Width(140f));
 
                 if (next != current)
-                {
                     manager.SetTypeEnabled(type, next);
-                    MarkViewStateDirty();
-                }
             }
 
             GUILayout.EndHorizontal();
@@ -386,48 +477,62 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private void DrawHierarchyPanel(DebugConsoleManager manager, float panelWidth)
     {
-        DebugConsoleHierarchyRenderContextShared context = new DebugConsoleHierarchyRenderContextShared
-        {
-            Manager = manager,
-            PanelWidth = panelWidth,
-            Scroll = _hierarchyScroll,
-            HierarchySearch = _hierarchySearch,
-            TitleStyle = _titleStyle,
-            BoxStyle = _boxStyle,
-            LinkButtonStyle = _linkButtonStyle,
-            FoldoutButtonStyle = _foldoutButtonStyle,
-            FooterLeftLabelStyle = _footerLeftLabelStyle,
-            FooterRightLabelStyle = _footerRightLabelStyle,
-            HierarchyRowHeight = HierarchyRowHeight,
-            HierarchyToggleSize = HierarchyToggleSize,
-            HierarchyFoldoutSize = HierarchyFoldoutSize,
-            HierarchyRowContentRightReserve = HierarchyRowContentRightReserve,
-            MaxHierarchyIndentPenalty = MaxHierarchyIndentPenalty,
-            ExpandedComponents = _expandedComponents,
-            ExpandedChildren = _expandedChildren,
-            GetVisibleEntryCount = () => GetVisibleEntryCount(manager),
-            GetFocusLabel = GetFocusLabel,
-            GetFooterFocusLabel = GetFooterFocusLabel,
-            ShouldShowGameObject = ShouldShowGameObject,
-            HasVisibleComponents = HasVisibleComponents,
-            HasVisibleChildren = HasVisibleChildren,
-            HasMatchingComponent = HasMatchingComponent,
-            ShouldShowComponent = ShouldShowComponent,
-            IsObjectFocused = IsObjectFocused,
-            IsFocusedObjectParent = IsFocusedObjectParent,
-            IsComponentFocused = IsComponentFocused,
-            GetHierarchyRowStyle = GetHierarchyRowStyle,
-            GetObjectButtonStyle = GetObjectButtonStyle,
-            GetComponentButtonStyle = GetComponentButtonStyle,
-            GetDisplayName = GetDisplayName,
-            ToggleGameObjectFocus = ToggleGameObjectFocus,
-            ToggleComponentFocus = ToggleComponentFocus,
-            ToggleExpandedSet = ToggleExpandedSet,
-            SaveState = MarkViewStateDirty
-        };
+        GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("Scene Objects / Components", _titleStyle, GUILayout.ExpandWidth(true));
+        GUILayout.EndHorizontal();
 
-        DebugConsoleHierarchyRendererShared.Draw(context);
-        _hierarchyScroll = context.Scroll;
+        _hierarchyScroll = GUILayout.BeginScrollView(_hierarchyScroll);
+
+        Scene activeScene = SceneManager.GetActiveScene();
+        GameObject[] roots = activeScene.GetRootGameObjects();
+
+        for (int i = 0; i < roots.Length; i++)
+            DrawGameObjectNode(manager, roots[i], 0, panelWidth);
+
+        GUILayout.EndScrollView();
+
+        GUILayout.Space(4f);
+        string footerFocusFullText = GetFocusLabel();
+        string footerFocusDisplayText = GetFooterFocusLabel();
+        string footerCountText = $"Count : {GetVisibleEntryCount(manager)}";
+        float footerHorizontalPadding = 10f;
+        float footerGap = 12f;
+        float footerFocusRequiredWidth = _footerLeftLabelStyle.CalcSize(new GUIContent(footerFocusDisplayText)).x;
+        float footerCountRequiredWidth = _footerRightLabelStyle.CalcSize(new GUIContent(footerCountText)).x;
+        bool useTwoLineFooter = panelWidth < footerFocusRequiredWidth + footerCountRequiredWidth + (footerHorizontalPadding * 2f) + footerGap;
+
+        if (useTwoLineFooter)
+        {
+            GUILayout.BeginVertical(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(52f));
+
+            GUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
+            GUILayout.Space(footerHorizontalPadding);
+            GUILayout.Label(new GUIContent(footerFocusDisplayText, footerFocusFullText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
+            GUILayout.Space(footerHorizontalPadding);
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
+            GUILayout.Space(footerHorizontalPadding);
+            GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
+            GUILayout.Space(footerHorizontalPadding);
+            GUILayout.EndHorizontal();
+
+            GUILayout.EndVertical();
+        }
+        else
+        {
+            GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(30f));
+            GUILayout.Space(footerHorizontalPadding);
+            float footerCountWidth = Mathf.Ceil(footerCountRequiredWidth) + 4f;
+            float footerLeftWidth = Mathf.Max(60f, panelWidth - footerCountWidth - (footerHorizontalPadding * 2f) - footerGap);
+            GUILayout.Label(new GUIContent(footerFocusDisplayText, footerFocusFullText), _footerLeftLabelStyle, GUILayout.Width(footerLeftWidth), GUILayout.MinHeight(22f));
+            GUILayout.Space(footerGap);
+            GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerRightLabelStyle, GUILayout.Width(footerCountWidth), GUILayout.MinHeight(22f));
+            GUILayout.Space(footerHorizontalPadding);
+            GUILayout.EndHorizontal();
+        }
+        GUILayout.EndVertical();
     }
 
     private float GetHierarchyRowContentWidth(float panelWidth)
@@ -494,10 +599,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         bool nextObjectEnabled = GUILayout.Toggle(objectEnabled, GUIContent.none, GUILayout.Width(HierarchyToggleSize), GUILayout.Height(HierarchyRowHeight));
         if (nextObjectEnabled != objectEnabled)
-        {
             manager.SetGameObjectEnabled(go, nextObjectEnabled);
-            MarkViewStateDirty();
-        }
 
         GUIStyle objectStyle = GetObjectButtonStyle(objectEnabled, isObjectFocused, isComponentParentFocused);
         GUIContent objectContent = new GUIContent(GetDisplayName(go.name), go.name);
@@ -543,10 +645,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
                 bool componentEnabled = manager.GetComponentEnabled(component);
                 bool nextComponentEnabled = GUILayout.Toggle(componentEnabled, GUIContent.none, GUILayout.Width(HierarchyToggleSize), GUILayout.Height(HierarchyRowHeight));
                 if (nextComponentEnabled != componentEnabled)
-                {
                     manager.SetComponentEnabled(component, nextComponentEnabled);
-                    MarkViewStateDirty();
-                }
 
                 GUIStyle componentStyle = GetComponentButtonStyle(objectEnabled, isComponentFocused);
                 GUIContent componentContent = new GUIContent(GetDisplayName(component.GetType().Name), component.GetType().Name);
@@ -590,31 +689,41 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     {
-        DebugConsoleLogRenderContextShared context = new DebugConsoleLogRenderContextShared
-        {
-            PanelWidth = panelWidth,
-            Scroll = _logScroll,
-            AutoScroll = _autoScroll,
-            LastLogContentHeight = _lastLogContentHeight,
-            LastLogViewportHeight = _lastLogViewportHeight,
-            LastMaxLogScrollY = _lastMaxLogScrollY,
-            SelectedLogIndex = _selectedLogIndex,
-            Entries = GetVisibleEntries(manager),
-            TitleStyle = _titleStyle,
-            BoxStyle = _boxStyle,
-            RichLabelStyle = _richLabelStyle,
-            GetFocusSuffix = GetFocusSuffix,
-            ShouldDisplayEntry = _ => true,
-            FocusEntry = FocusEntry,
-            OpenEntryScript = OpenEntryScript
-        };
+        GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
+        GUILayout.BeginHorizontal();
+        GUILayout.Label(new GUIContent($"Logs {GetFocusSuffix()}", $"Logs {GetFocusSuffix()}"), _titleStyle, GUILayout.ExpandWidth(true));
+        GUILayout.EndHorizontal();
 
-        DebugConsoleLogRendererShared.Draw(context);
-        _logScroll = context.Scroll;
-        _lastLogContentHeight = context.LastLogContentHeight;
-        _lastLogViewportHeight = context.LastLogViewportHeight;
-        _lastMaxLogScrollY = context.LastMaxLogScrollY;
-        _selectedLogIndex = context.SelectedLogIndex;
+        bool wasNearBottom = IsNearBottom(_lastMaxLogScrollY);
+        float contentHeight = 0f;
+        float logContentWidth = GetLogContentWidth(panelWidth);
+
+        _logScroll = GUILayout.BeginScrollView(_logScroll);
+
+        IReadOnlyList<DebugEntry> entries = manager.Entries;
+        for (int i = 0; i < entries.Count; i++)
+        {
+            DebugEntry entry = entries[i];
+
+            if (!ShouldDisplayEntry(manager, entry))
+                continue;
+
+            float drawnHeight = DrawLogEntry(entry, i, logContentWidth);
+            contentHeight += drawnHeight + 4f;
+            GUILayout.Space(4f);
+        }
+
+        GUILayout.EndScrollView();
+
+        Rect scrollRect = GUILayoutUtility.GetLastRect();
+        _lastLogViewportHeight = scrollRect.height;
+        _lastLogContentHeight = contentHeight + 8f;
+        _lastMaxLogScrollY = Mathf.Max(0f, _lastLogContentHeight - _lastLogViewportHeight);
+
+        if (Event.current.type == EventType.Repaint && (_autoScroll || wasNearBottom || IsNearBottom(_lastMaxLogScrollY)))
+            _logScroll.y = _lastMaxLogScrollY + 4f;
+
+        GUILayout.EndVertical();
     }
 
     private float DrawLogEntry(DebugEntry entry, int index, float contentWidth)
@@ -754,26 +863,22 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (entry.Context is GameObject go)
         {
             targetGameObject = go;
-            _focusState.FocusGameObject(go.GetInstanceID(), go.name);
+            _focusedGameObjectId = go.GetInstanceID();
+            _focusedComponentId = 0;
+            _focusedObjectName = go.name;
+            _focusedComponentName = string.Empty;
             PrepareSelectionExpansion(go.transform, true);
-            InvalidateVisibleEntriesCache();
         }
         else if (entry.Context is Component component)
         {
             targetGameObject = component.gameObject;
-            _focusState.FocusComponent(component.gameObject.GetInstanceID(), component.GetInstanceID(), component.gameObject.name, component.GetType().Name);
+            _focusedGameObjectId = component.gameObject.GetInstanceID();
+            _focusedComponentId = component.GetInstanceID();
+            _focusedObjectName = component.gameObject.name;
+            _focusedComponentName = component.GetType().Name;
             PrepareSelectionExpansion(component.transform, true);
-            InvalidateVisibleEntriesCache();
         }
 
-        if (targetGameObject == null)
-            return;
-
-        SyncUnityHierarchySelection(targetGameObject);
-    }
-
-    private void SyncUnityHierarchySelection(GameObject targetGameObject)
-    {
         if (targetGameObject == null)
             return;
 
@@ -811,14 +916,14 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (!manager.IsAllowed(entry.Type, entry.GameObjectId, entry.ComponentId))
             return false;
 
-        if (_focusState.HasComponentFocus)
+        if (_focusedComponentId != 0)
         {
-            if (entry.ComponentId != _focusState.FocusedComponentId)
+            if (entry.ComponentId != _focusedComponentId)
                 return false;
         }
-        else if (_focusState.HasGameObjectFocus)
+        else if (_focusedGameObjectId != 0)
         {
-            if (entry.GameObjectId != _focusState.FocusedGameObjectId)
+            if (entry.GameObjectId != _focusedGameObjectId)
                 return false;
         }
 
@@ -836,17 +941,18 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         int id = go.GetInstanceID();
 
-        if (_focusState.IsObjectFocused(id))
+        if (_focusedGameObjectId == id && _focusedComponentId == 0)
         {
             ClearFocus();
             return;
         }
 
-        _focusState.FocusGameObject(id, go.name);
+        _focusedGameObjectId = id;
+        _focusedComponentId = 0;
+        _focusedObjectName = go.name;
+        _focusedComponentName = string.Empty;
 
         PrepareSelectionExpansion(go.transform, true);
-        InvalidateVisibleEntriesCache();
-        SyncUnityHierarchySelection(go);
     }
 
     private void ToggleComponentFocus(Component component)
@@ -856,17 +962,18 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         int componentId = component.GetInstanceID();
 
-        if (_focusState.IsComponentFocused(componentId))
+        if (_focusedComponentId == componentId)
         {
             ClearFocus();
             return;
         }
 
-        _focusState.FocusComponent(component.gameObject.GetInstanceID(), componentId, component.gameObject.name, component.GetType().Name);
+        _focusedGameObjectId = component.gameObject.GetInstanceID();
+        _focusedComponentId = componentId;
+        _focusedObjectName = component.gameObject.name;
+        _focusedComponentName = component.GetType().Name;
 
         PrepareSelectionExpansion(component.transform, true);
-        InvalidateVisibleEntriesCache();
-        SyncUnityHierarchySelection(component.gameObject);
     }
 
     private void PrepareSelectionExpansion(Transform target, bool includeDetails)
@@ -923,23 +1030,109 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private void ClearFocus()
     {
-        _focusState.Clear();
-        InvalidateVisibleEntriesCache();
+        _focusedGameObjectId = 0;
+        _focusedComponentId = 0;
+        _focusedObjectName = string.Empty;
+        _focusedComponentName = string.Empty;
     }
 
     private string GetFocusLabel()
     {
-        return _focusState.GetLabel();
+        if (_focusedComponentId != 0)
+            return $"Focus : {_focusedObjectName}/{_focusedComponentName}";
+
+        if (_focusedGameObjectId != 0)
+            return $"Focus : {_focusedObjectName} (All Components)";
+
+        return "Focus : All";
     }
 
     private string GetFooterFocusLabel()
     {
-        return _focusState.GetFooterLabel(FooterFocusSegmentMaxLength);
+        if (_focusedComponentId != 0)
+        {
+            string objectName = TrimFooterFocusSegment(_focusedObjectName);
+            string componentName = TrimFooterFocusSegment(_focusedComponentName);
+
+            if (string.Equals(_focusedObjectName, _focusedComponentName, StringComparison.Ordinal))
+                return $"Focus : {objectName}";
+
+            return $"Focus : {objectName} / {componentName}";
+        }
+
+        if (_focusedGameObjectId != 0)
+            return $"Focus : {TrimFooterFocusSegment(_focusedObjectName)}";
+
+        return "Focus : All";
+    }
+
+    private string TrimFooterFocusSegment(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        return value.Length > FooterFocusSegmentMaxLength
+            ? value.Substring(0, FooterFocusSegmentMaxLength) + "..."
+            : value;
     }
 
     private string GetFocusSuffix()
     {
-        return _focusState.GetSuffix();
+        if (_focusedComponentId != 0)
+            return $"({_focusedObjectName}/{_focusedComponentName})";
+
+        if (_focusedGameObjectId != 0)
+            return $"({_focusedObjectName})";
+
+        return string.Empty;
+    }
+
+    private GUIStyle CreateRowStyle(Color backgroundColor)
+    {
+        Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        texture.SetPixel(0, 0, backgroundColor);
+        texture.Apply();
+
+        return new GUIStyle(GUI.skin.box)
+        {
+            normal = { background = texture },
+            border = new RectOffset(0, 0, 0, 0),
+            margin = new RectOffset(0, 0, 1, 1),
+            padding = new RectOffset(3, 3, 1, 1),
+            alignment = TextAnchor.MiddleLeft
+        };
+    }
+
+    private GUIStyle CreateButtonStyle(Color backgroundColor, Color textColor, bool bold, TextAnchor alignment)
+    {
+        Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        texture.SetPixel(0, 0, backgroundColor);
+        texture.Apply();
+
+        GUIStyle style = new GUIStyle(_linkButtonStyle)
+        {
+            alignment = alignment,
+            fontStyle = bold ? FontStyle.Bold : FontStyle.Normal,
+            fixedHeight = HierarchyRowHeight
+        };
+
+        style.normal.background = texture;
+        style.hover.background = texture;
+        style.active.background = texture;
+        style.focused.background = texture;
+        style.onNormal.background = texture;
+        style.onHover.background = texture;
+        style.onActive.background = texture;
+        style.onFocused.background = texture;
+        style.normal.textColor = textColor;
+        style.hover.textColor = textColor;
+        style.active.textColor = textColor;
+        style.focused.textColor = textColor;
+        style.onNormal.textColor = textColor;
+        style.onHover.textColor = textColor;
+        style.onActive.textColor = textColor;
+        style.onFocused.textColor = textColor;
+        return style;
     }
 
     private GUIStyle GetHierarchyRowStyle(bool isObjectFocused, bool isComponentParentFocused, bool isComponentFocused)
@@ -958,17 +1151,17 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private bool IsFocusedObjectParent(int gameObjectId)
     {
-        return _focusState.IsFocusedObjectParent(gameObjectId);
+        return _focusedGameObjectId == gameObjectId && _focusedComponentId != 0;
     }
 
     private bool IsObjectFocused(int gameObjectId)
     {
-        return _focusState.IsObjectFocused(gameObjectId);
+        return _focusedGameObjectId == gameObjectId && _focusedComponentId == 0;
     }
 
     private bool IsComponentFocused(int componentId)
     {
-        return _focusState.IsComponentFocused(componentId);
+        return _focusedComponentId == componentId;
     }
 
     private GUIStyle GetObjectButtonStyle(bool objectEnabled, bool isObjectFocused, bool isComponentParentFocused)
@@ -1104,121 +1297,75 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     {
         bool global = GUILayout.Toggle(manager.GlobalEnabled, "Global", GUILayout.Width(80f));
         if (global != manager.GlobalEnabled)
-        {
             manager.GlobalEnabled = global;
-            InvalidateVisibleEntriesCache();
-            MarkViewStateDirty();
-        }
 
         bool mirror = GUILayout.Toggle(manager.MirrorToUnityConsole, "Mirror Unity", GUILayout.Width(110f));
         if (mirror != manager.MirrorToUnityConsole)
-        {
             manager.MirrorToUnityConsole = mirror;
-            MarkViewStateDirty();
-        }
 
         bool autoScroll = GUILayout.Toggle(_autoScroll, "Auto Scroll", GUILayout.Width(100f));
         if (autoScroll != _autoScroll)
-        {
             _autoScroll = autoScroll;
-            MarkViewStateDirty();
-        }
 
         bool hideTransform = GUILayout.Toggle(_hideTransform, "Hide Transform", GUILayout.Width(120f));
         if (hideTransform != _hideTransform)
-        {
             _hideTransform = hideTransform;
-            MarkViewStateDirty();
-        }
 
         bool collapsePrevious = GUILayout.Toggle(_collapsePreviousOnSelection, "Collapse Prev", GUILayout.Width(120f));
         if (collapsePrevious != _collapsePreviousOnSelection)
-        {
             _collapsePreviousOnSelection = collapsePrevious;
-            MarkViewStateDirty();
-        }
     }
 
     private void DrawToolbarActionGroup(DebugConsoleManager manager, string typeButtonLabel)
     {
         if (GUILayout.Button(typeButtonLabel, _toolbarButtonStyle, GUILayout.Width(160f)))
-        {
             _showTypeFilterPanel = !_showTypeFilterPanel;
-            MarkViewStateDirty();
-        }
 
         if (GUILayout.Button("All Types On", GUILayout.Width(100f)))
-        {
             manager.SetAllTypes(true);
-            InvalidateVisibleEntriesCache();
-            MarkViewStateDirty();
-        }
 
         if (GUILayout.Button("All Types Off", GUILayout.Width(100f)))
-        {
             manager.SetAllTypes(false);
-            InvalidateVisibleEntriesCache();
-            MarkViewStateDirty();
-        }
-
-        if (GUILayout.Button("Reset Filters", GUILayout.Width(110f)))
-            ResetFilterState(manager);
 
         if (GUILayout.Button("Clear Logs", GUILayout.Width(100f)))
-        {
             manager.ClearLogs();
-            InvalidateVisibleEntriesCache();
-        }
 
         if (GUILayout.Button("Clear Focus", GUILayout.Width(100f)))
             ClearFocus();
-    }
-
-    private void ResetFilterState(DebugConsoleManager manager)
-    {
-        if (manager == null)
-            return;
-
-        manager.ResetAllFiltersToDefault();
-        _hierarchySearch = string.Empty;
-        _logSearch = string.Empty;
-        _selectedLogIndex = -1;
-        _expandedComponents.Clear();
-        _expandedChildren.Clear();
-        ClearFocus();
-        GUI.FocusControl(null);
-        InvalidateVisibleEntriesCache();
-        MarkViewStateDirty();
     }
 
     private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
     {
         GUILayout.Label(GetFocusLabel(), _toolbarInfoLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(expanded ? 34f : 18f));
         GUILayout.Space(8f);
-        GUILayout.Label($"Count : {GetVisibleEntryCount(manager)}", _toolbarInfoLabelStyle, GUILayout.Width(expanded ? 120f : 110f), GUILayout.MinHeight(expanded ? 34f : 18f));
+        GUILayout.Label($"Count : {manager.Entries.Count}", _toolbarInfoLabelStyle, GUILayout.Width(expanded ? 120f : 110f), GUILayout.MinHeight(expanded ? 34f : 18f));
     }
 
     private void DrawHierarchySearchField(float fieldWidth, float labelWidth)
     {
         GUILayout.Label("Hierarchy Search", GUILayout.Width(labelWidth));
-        string nextSearch = GUILayout.TextField(_hierarchySearch, _searchTextFieldStyle, GUILayout.Width(fieldWidth));
-        if (!string.Equals(nextSearch, _hierarchySearch, StringComparison.Ordinal))
-        {
-            _hierarchySearch = nextSearch;
-            InvalidateVisibleEntriesCache();
-        }
+        GUI.SetNextControlName(HierarchySearchControlName);
+        _hierarchySearch = GUILayout.TextField(_hierarchySearch, _searchTextFieldStyle, GUILayout.Width(fieldWidth));
+
+        if (GUI.GetNameOfFocusedControl() == HierarchySearchControlName)
+            _lastFocusedSearchFieldRect = GUILayoutUtility.GetLastRect();
     }
 
     private void DrawLogSearchField(float labelWidth)
     {
         GUILayout.Label("Log Search", GUILayout.Width(labelWidth));
+        GUI.SetNextControlName(LogSearchControlName);
         _logSearch = GUILayout.TextField(_logSearch, _searchTextFieldStyle, GUILayout.ExpandWidth(true));
+
+        if (GUI.GetNameOfFocusedControl() == LogSearchControlName)
+            _lastFocusedSearchFieldRect = GUILayoutUtility.GetLastRect();
 
         if (GUILayout.Button("Clear Search", GUILayout.Width(100f)))
         {
             _hierarchySearch = string.Empty;
             _logSearch = string.Empty;
             GUI.FocusControl(null);
+            RestoreImeCompositionMode();
         }
     }
 
@@ -1248,39 +1395,16 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private int GetVisibleEntryCount(DebugConsoleManager manager)
     {
-        return GetVisibleEntries(manager).Count;
-    }
-
-    private IReadOnlyList<DebugEntry> GetVisibleEntries(DebugConsoleManager manager)
-    {
-        if (manager == null)
-            return Array.Empty<DebugEntry>();
-
-        if (_cachedManagerChangeVersion == manager.ChangeVersion &&
-            string.Equals(_cachedHierarchySearch, _hierarchySearch, StringComparison.Ordinal) &&
-            string.Equals(_cachedLogSearch, _logSearch, StringComparison.Ordinal) &&
-            _cachedFocusedGameObjectId == _focusState.FocusedGameObjectId &&
-            _cachedFocusedComponentId == _focusState.FocusedComponentId)
-        {
-            return _visibleEntriesCache;
-        }
-
-        _visibleEntriesCache.Clear();
+        int count = 0;
         IReadOnlyList<DebugEntry> entries = manager.Entries;
 
         for (int i = 0; i < entries.Count; i++)
         {
-            DebugEntry entry = entries[i];
-            if (ShouldDisplayEntry(manager, entry))
-                _visibleEntriesCache.Add(entry);
+            if (ShouldDisplayEntry(manager, entries[i]))
+                count++;
         }
 
-        _cachedManagerChangeVersion = manager.ChangeVersion;
-        _cachedHierarchySearch = _hierarchySearch;
-        _cachedLogSearch = _logSearch;
-        _cachedFocusedGameObjectId = _focusState.FocusedGameObjectId;
-        _cachedFocusedComponentId = _focusState.FocusedComponentId;
-        return _visibleEntriesCache;
+        return count;
     }
 
     private void UpdateHierarchyButtonWidths()
