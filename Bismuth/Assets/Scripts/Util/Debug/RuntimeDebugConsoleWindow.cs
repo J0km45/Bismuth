@@ -1,679 +1,491 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Globalization;
-using UnityEngine;
-using UnityEngine.SceneManagement;
 using TMPro;
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class RuntimeDebugConsoleWindow : MonoBehaviour
 {
     [SerializeField] private KeyCode _toggleKey = KeyCode.F1;
-    [SerializeField] private bool _visible = false;
-    [SerializeField] private Rect _windowRect = new Rect(20f, 20f, 1450f, 850f);
+    [SerializeField] private bool _visible;
     [SerializeField] private bool _autoScroll = true;
     [SerializeField] private bool _hideTransform = true;
     [SerializeField] private bool _collapsePreviousOnSelection = true;
-    [SerializeField] private bool _blockGameplayInputWhenVisible = true;
+    [SerializeField] private bool _blockInput = true;
 
-    private Vector2 _hierarchyScroll;
-    private Vector2 _logScroll;
-    private Vector2 _typeFilterScroll;
+    private const int SortOrder = 32000;
+    private const float RebuildInterval = 0.25f;
+    private const string FontFallbackName = "Arial";
 
+    public static bool IsRuntimeConsoleVisible { get; private set; }
+    public static bool ShouldBlockGameplayInput => Instance != null && Instance._visible && Instance._blockInput;
+    public static RuntimeDebugConsoleWindow Instance { get; private set; }
+
+    private Canvas _canvas;
+    private CanvasScaler _canvasScaler;
+    private GraphicRaycaster _graphicRaycaster;
+    private CanvasGroup _canvasGroup;
+    private Image _screenBlocker;
+    private RectTransform _windowRoot;
+
+    private Toggle _globalToggle;
+    private Toggle _mirrorToggle;
+    private Toggle _autoScrollToggle;
+    private Toggle _hideTransformToggle;
+    private Toggle _collapsePrevToggle;
+    private Toggle _blockInputToggle;
+
+    private Button _typeFilterToggleButton;
+    private RectTransform _typeFilterPanel;
+    private TextMeshProUGUI _typeFilterToggleLabel;
+
+    private TMP_InputField _hierarchySearchInput;
+    private TMP_InputField _logSearchInput;
+
+    private ScrollRect _hierarchyScrollRect;
+    private RectTransform _hierarchyContent;
+    private ScrollRect _logScrollRect;
+    private RectTransform _logContent;
+
+    private TextMeshProUGUI _focusLabel;
+    private TextMeshProUGUI _countLabel;
+    private TextMeshProUGUI _titleLabel;
+    private Button _clearSearchButton;
+
+    private TMP_FontAsset _runtimeFontAsset;
+    private bool _showTypeFilterPanel = true;
+    private bool _pendingAutoScroll;
+    private float _nextRebuildTime;
+    private int _lastManagerVersion = -1;
     private string _hierarchySearch = string.Empty;
     private string _logSearch = string.Empty;
 
-    private RuntimeDebugConsoleSearchOverlay _searchOverlay;
-    private Rect _hierarchySearchScreenRect;
-    private Rect _logSearchScreenRect;
+    private readonly DebugConsoleFocusState _focusState = new();
+    private readonly Dictionary<int, bool> _expandedObjectState = new();
+    private readonly Dictionary<DebugType, Toggle> _typeToggleMap = new();
 
-    private bool _showTypeFilterPanel;
-
-    private int _focusedGameObjectId;
-    private int _focusedComponentId;
-    private string _focusedObjectName = string.Empty;
-    private string _focusedComponentName = string.Empty;
-
-    private GUIStyle _titleStyle;
-    private GUIStyle _boxStyle;
-    private GUIStyle _richLabelStyle;
-    private GUIStyle _dimLabelStyle;
-    private GUIStyle _searchTextFieldStyle;
-    private GUIStyle _linkButtonStyle;
-    private GUIStyle _disabledButtonStyle;
-    private GUIStyle _objectSelectedButtonStyle;
-    private GUIStyle _componentSelectedButtonStyle;
-    private GUIStyle _parentSelectedButtonStyle;
-    private GUIStyle _foldoutButtonStyle;
-    private GUIStyle _toolbarButtonStyle;
-    private GUIStyle _toolbarInfoLabelStyle;
-    private GUIStyle _toolbarInfoRightLabelStyle;
-    private GUIStyle _footerLeftLabelStyle;
-    private GUIStyle _footerRightLabelStyle;
-    private GUIStyle _objectFocusedRowStyle;
-    private GUIStyle _objectParentFocusedRowStyle;
-    private GUIStyle _componentFocusedRowStyle;
-    private Texture2D _solidTexture;
-    private bool _stylesDirty = true;
-
-    private readonly Color _selectedObjectBg = new Color(0.98f, 0.80f, 0.18f, 1f);
-    private readonly Color _selectedComponentBg = new Color(0.84f, 0.64f, 0.14f, 1f);
-    private readonly Color _selectedParentBg = new Color(0.50f, 0.38f, 0.08f, 1f);
-    private readonly Color _objectFocusedRowBg = new Color(0.98f, 0.80f, 0.18f, 0.32f);
-    private readonly Color _parentFocusedRowBg = new Color(0.76f, 0.58f, 0.12f, 0.22f);
-    private readonly Color _componentFocusedRowBg = new Color(0.84f, 0.64f, 0.14f, 0.36f);
-    private readonly Color _selectedText = new Color(0.18f, 0.11f, 0.00f, 1f);
-    private readonly Color _selectedParentText = new Color(1.00f, 0.95f, 0.78f, 1f);
-    private readonly Color _toolbarInfoText = new Color(1.00f, 0.89f, 0.34f, 1f);
-    private readonly Color _footerInfoTextColor = new Color(0.96f, 0.84f, 0.22f, 1f);
-
-    private const int MaxDisplayNameLength = 15;
-    private const int FooterFocusSegmentMaxLength = 16;
-    private const float HierarchyRowHeight = 22f;
-    private const float HierarchyToggleSize = 18f;
-    private const float HierarchyFoldoutSize = 18f;
-    private const float PanelSplitterWidth = 6f;
-    private const float MaxHierarchyIndentPenalty = 24f;
-    private const float MinHierarchyPanelWidth = 220f;
-    private const float MinLogPanelWidth = 220f;
-    private const float HierarchyRowContentRightReserve = 18f;
-
-    [SerializeField] private float _hierarchyPanelWidth = 480f;
-    private bool _isDraggingPanelSplitter;
-
-    private float _lastLogContentHeight;
-    private float _lastLogViewportHeight;
-    private float _lastMaxLogScrollY;
-
-    private readonly HashSet<int> _expandedComponents = new();
-    private readonly HashSet<int> _expandedChildren = new();
-
-    private int _selectedLogIndex = -1;
-
-    private bool _gameplayInputBlocked;
-#if ENABLE_INPUT_SYSTEM
-    private readonly Dictionary<PlayerInput, bool> _capturedPlayerInputStates = new();
-#endif
-
-    private void OnEnable()
+    private void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(this);
+            return;
+        }
+
+        Instance = this;
+        BuildRuntimeUI();
+        SetVisible(_visible);
+        EnsureEventSystemExists();
+
         SceneManager.sceneLoaded += HandleSceneLoaded;
-        _stylesDirty = true;
-        _titleStyle = null;
-        EnsureSearchOverlay();
-        ApplyRuntimeInteractionState();
     }
 
-    private void OnDisable()
+    private void OnDestroy()
     {
+        if (Instance == this)
+            Instance = null;
+
         SceneManager.sceneLoaded -= HandleSceneLoaded;
-        ApplyGameplayInputBlock(false);
-
-        if (_searchOverlay != null)
-        {
-            _searchOverlay.SetInputBlockerVisible(false);
-            _searchOverlay.SetVisible(false);
-        }
-    }
-
-    private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
-    {
-        _stylesDirty = true;
-        _titleStyle = null;
-        _expandedComponents.Clear();
-        _expandedChildren.Clear();
-        _selectedLogIndex = -1;
-        _hierarchyScroll = Vector2.zero;
-        ClearFocus();
-
-        if (_searchOverlay != null)
-        {
-            _searchOverlay.SetInputBlockerVisible(false);
-            _searchOverlay.SetVisible(false);
-        }
-
-        ApplyGameplayInputBlock(false);
-        ApplyRuntimeInteractionState();
     }
 
     private void Update()
     {
         if (Input.GetKeyDown(_toggleKey))
-        {
-            _visible = !_visible;
-
-            if (!_visible && _searchOverlay != null)
-            {
-                _searchOverlay.SetInputBlockerVisible(false);
-                _searchOverlay.SetVisible(false);
-            }
-
-            ApplyRuntimeInteractionState();
-        }
-    }
-
-    private void OnGUI()
-    {
-        EnsureSearchOverlay();
+            SetVisible(!_visible);
 
         if (!_visible)
-        {
-            if (_searchOverlay != null)
-            {
-                _searchOverlay.SetInputBlockerVisible(false);
-                _searchOverlay.SetVisible(false);
-            }
-
-            ApplyGameplayInputBlock(false);
-            return;
-        }
-
-        _hierarchySearch = _searchOverlay != null ? _searchOverlay.HierarchyText : _hierarchySearch;
-        _logSearch = _searchOverlay != null ? _searchOverlay.LogText : _logSearch;
-        _hierarchySearchScreenRect = Rect.zero;
-        _logSearchScreenRect = Rect.zero;
-
-        InitStyles();
-        _windowRect = GUI.Window(91357, _windowRect, DrawWindow, "Runtime Debug Console");
-
-        UpdateSearchOverlayLayout();
-        ApplyRuntimeInteractionState();
-    }
-
-    
-
-    
-
-    private void EnsureSearchOverlay()
-    {
-        if (_searchOverlay != null)
             return;
 
-        _searchOverlay = GetComponentInChildren<RuntimeDebugConsoleSearchOverlay>(true);
+        EnsureEventSystemExists();
 
-        if (_searchOverlay == null)
-        {
-            GameObject overlayObject = new GameObject("RuntimeDebugConsoleSearchOverlay");
-            overlayObject.transform.SetParent(transform, false);
-            _searchOverlay = overlayObject.AddComponent<RuntimeDebugConsoleSearchOverlay>();
-        }
-
-        _searchOverlay.Initialize();
-    }
-
-    private void UpdateSearchOverlayLayout()
-    {
-        if (_searchOverlay == null)
-            return;
-
-        bool showOverlay = _visible;
-        _searchOverlay.SetVisible(showOverlay);
-
-        if (!showOverlay)
-            return;
-
-        _searchOverlay.SetHierarchyRect(_hierarchySearchScreenRect);
-        _searchOverlay.SetLogRect(_logSearchScreenRect);
-        _searchOverlay.SetTexts(_hierarchySearch, _logSearch);
-    }
-
-    private Rect ToScreenRect(Rect guiRect)
-    {
-        Vector2 topLeft = GUIUtility.GUIToScreenPoint(new Vector2(guiRect.xMin, guiRect.yMin));
-        return new Rect(topLeft.x, topLeft.y, guiRect.width, guiRect.height);
-    }
-
-    private void ApplyRuntimeInteractionState()
-    {
-        bool shouldShowOverlay = _visible;
-        bool shouldBlockGameplayInput = _visible && _blockGameplayInputWhenVisible;
-
-        if (_searchOverlay != null)
-        {
-            _searchOverlay.SetVisible(shouldShowOverlay);
-            _searchOverlay.SetInputBlockerVisible(shouldBlockGameplayInput);
-        }
-
-        ApplyGameplayInputBlock(shouldBlockGameplayInput);
-    }
-
-    private void ApplyGameplayInputBlock(bool shouldBlock)
-    {
-        if (_gameplayInputBlocked == shouldBlock)
-            return;
-
-        _gameplayInputBlocked = shouldBlock;
-
-#if ENABLE_INPUT_SYSTEM
-        if (shouldBlock)
-        {
-            _capturedPlayerInputStates.Clear();
-
-            PlayerInput[] playerInputs = FindObjectsByType<PlayerInput>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-            for (int i = 0; i < playerInputs.Length; i++)
-            {
-                PlayerInput playerInput = playerInputs[i];
-                if (playerInput == null)
-                    continue;
-
-                _capturedPlayerInputStates[playerInput] = playerInput.enabled;
-                if (playerInput.enabled)
-                    playerInput.enabled = false;
-            }
-        }
-        else
-        {
-            foreach (KeyValuePair<PlayerInput, bool> pair in _capturedPlayerInputStates)
-            {
-                if (pair.Key != null)
-                    pair.Key.enabled = pair.Value;
-            }
-
-            _capturedPlayerInputStates.Clear();
-        }
-#endif
-    }
-
-
-    private void InitStyles()
-    {
-        if (!_stylesDirty && _titleStyle != null)
-            return;
-
-        _stylesDirty = false;
-
-        _titleStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontStyle = FontStyle.Bold,
-            fontSize = 13,
-            wordWrap = false,
-            clipping = TextClipping.Clip
-        };
-
-        _boxStyle = new GUIStyle(GUI.skin.box)
-        {
-            alignment = TextAnchor.UpperLeft,
-            padding = new RectOffset(8, 8, 8, 8)
-        };
-
-        _richLabelStyle = new GUIStyle(GUI.skin.label)
-        {
-            richText = true,
-            wordWrap = true,
-            fontSize = 12
-        };
-
-        _dimLabelStyle = new GUIStyle(GUI.skin.label);
-        _dimLabelStyle.normal.textColor = new Color(0.6f, 0.6f, 0.6f);
-
-        _searchTextFieldStyle = new GUIStyle(GUI.skin.textField)
-        {
-            fontSize = 12
-        };
-
-        _linkButtonStyle = new GUIStyle(GUI.skin.button)
-        {
-            alignment = TextAnchor.MiddleLeft,
-            padding = new RectOffset(6, 6, 0, 0),
-            margin = new RectOffset(0, 0, 0, 0),
-            fixedHeight = HierarchyRowHeight,
-            fontStyle = FontStyle.Normal,
-            wordWrap = false,
-            clipping = TextClipping.Clip
-        };
-        Color normalButtonText = new Color(0.84f, 0.96f, 0.92f, 1f);
-        _linkButtonStyle.normal.textColor = normalButtonText;
-        _linkButtonStyle.hover.textColor = normalButtonText;
-        _linkButtonStyle.active.textColor = normalButtonText;
-        _linkButtonStyle.focused.textColor = normalButtonText;
-        _linkButtonStyle.onNormal.textColor = normalButtonText;
-        _linkButtonStyle.onHover.textColor = normalButtonText;
-        _linkButtonStyle.onActive.textColor = normalButtonText;
-        _linkButtonStyle.onFocused.textColor = normalButtonText;
-
-        _disabledButtonStyle = new GUIStyle(_linkButtonStyle);
-        _disabledButtonStyle.normal.textColor = new Color(0.55f, 0.55f, 0.55f);
-        _disabledButtonStyle.hover.textColor = _disabledButtonStyle.normal.textColor;
-        _disabledButtonStyle.active.textColor = _disabledButtonStyle.normal.textColor;
-
-        _foldoutButtonStyle = new GUIStyle(GUI.skin.button)
-        {
-            alignment = TextAnchor.MiddleCenter,
-            padding = new RectOffset(0, 0, 0, 0),
-            margin = new RectOffset(0, 0, 0, 0),
-            fixedWidth = HierarchyFoldoutSize,
-            fixedHeight = HierarchyRowHeight,
-            fontStyle = FontStyle.Bold
-        };
-
-        if (_solidTexture == null)
-        {
-            _solidTexture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
-            _solidTexture.SetPixel(0, 0, Color.white);
-            _solidTexture.Apply();
-        }
-
-        _objectFocusedRowStyle = CreateRowStyle(_objectFocusedRowBg);
-        _objectParentFocusedRowStyle = CreateRowStyle(_parentFocusedRowBg);
-        _componentFocusedRowStyle = CreateRowStyle(_componentFocusedRowBg);
-
-        _objectSelectedButtonStyle = CreateButtonStyle(_selectedObjectBg, _selectedText, true, TextAnchor.MiddleLeft);
-        _parentSelectedButtonStyle = CreateButtonStyle(_selectedParentBg, _selectedParentText, true, TextAnchor.MiddleLeft);
-        _componentSelectedButtonStyle = CreateButtonStyle(_selectedComponentBg, _selectedText, true, TextAnchor.MiddleLeft);
-
-        _toolbarButtonStyle = new GUIStyle(GUI.skin.button)
-        {
-            alignment = TextAnchor.MiddleCenter
-        };
-
-        _toolbarInfoLabelStyle = new GUIStyle(GUI.skin.label)
-        {
-            alignment = TextAnchor.MiddleLeft,
-            wordWrap = false,
-            richText = false,
-            fontStyle = FontStyle.Bold
-        };
-        _toolbarInfoLabelStyle.normal.textColor = _toolbarInfoText;
-        _toolbarInfoLabelStyle.hover.textColor = _toolbarInfoText;
-        _toolbarInfoLabelStyle.active.textColor = _toolbarInfoText;
-        _toolbarInfoLabelStyle.focused.textColor = _toolbarInfoText;
-        _toolbarInfoLabelStyle.onNormal.textColor = _toolbarInfoText;
-        _toolbarInfoLabelStyle.onHover.textColor = _toolbarInfoText;
-        _toolbarInfoLabelStyle.onActive.textColor = _toolbarInfoText;
-        _toolbarInfoLabelStyle.onFocused.textColor = _toolbarInfoText;
-
-        _toolbarInfoRightLabelStyle = new GUIStyle(_toolbarInfoLabelStyle)
-        {
-            alignment = TextAnchor.MiddleRight
-        };
-
-        _footerLeftLabelStyle = new GUIStyle(GUI.skin.label)
-        {
-            alignment = TextAnchor.MiddleLeft,
-            wordWrap = false,
-            richText = false,
-            fontStyle = FontStyle.Bold
-        };
-        ApplyLabelTextColor(_footerLeftLabelStyle, _footerInfoTextColor);
-
-        _footerRightLabelStyle = new GUIStyle(_footerLeftLabelStyle)
-        {
-            alignment = TextAnchor.MiddleRight
-        };
-    }
-
-    private void ApplyLabelTextColor(GUIStyle style, Color color)
-    {
-        style.normal.textColor = color;
-        style.hover.textColor = color;
-        style.active.textColor = color;
-        style.focused.textColor = color;
-        style.onNormal.textColor = color;
-        style.onHover.textColor = color;
-        style.onActive.textColor = color;
-        style.onFocused.textColor = color;
-    }
-
-    private void DrawWindow(int windowId)
-    {
         DebugConsoleManager manager = DebugConsoleManager.Instance;
         if (manager == null)
-        {
-            GUILayout.Label("DebugConsoleManager가 없습니다.");
-            GUI.DragWindow(new Rect(0, 0, 10000, 20));
             return;
+
+        bool needsRebuild = false;
+
+        if (_lastManagerVersion != manager.ChangeVersion)
+        {
+            _lastManagerVersion = manager.ChangeVersion;
+            SyncManagerStateToUI(manager);
+            needsRebuild = true;
+            _pendingAutoScroll = _autoScroll;
         }
 
-        DrawToolbar(manager);
-        DrawSearchBar();
-        DrawTypeFilterPanel(manager);
-
-        DrawResizablePanels(manager);
-
-        GUI.DragWindow(new Rect(0, 0, 10000, 24));
-    }
-
-    private void DrawToolbar(DebugConsoleManager manager)
-    {
-        float availableWidth = GetTopAreaWidth();
-        int layoutLevel = GetTopLayoutLevel(availableWidth);
-
-        int enabledCount = GetEnabledTypeCount(manager);
-        int totalCount = Enum.GetValues(typeof(DebugType)).Length;
-        string typeButtonLabel = _showTypeFilterPanel
-            ? $"Type Filter ▲ ({enabledCount}/{totalCount})"
-            : $"Type Filter ▼ ({enabledCount}/{totalCount})";
-
-        if (layoutLevel == 1)
+        if (Time.unscaledTime >= _nextRebuildTime)
         {
-            GUILayout.BeginHorizontal(GUILayout.MinHeight(28f));
-            DrawToolbarToggleGroup(manager);
-            GUILayout.Space(8f);
-            DrawToolbarActionGroup(manager, typeButtonLabel);
-            GUILayout.EndHorizontal();
-            return;
+            needsRebuild = true;
+            _nextRebuildTime = Time.unscaledTime + RebuildInterval;
         }
 
-        GUILayout.BeginHorizontal(GUILayout.MinHeight(28f));
-        DrawToolbarToggleGroup(manager);
-        GUILayout.EndHorizontal();
-
-        GUILayout.BeginHorizontal(GUILayout.MinHeight(28f));
-        DrawToolbarActionGroup(manager, typeButtonLabel);
-        GUILayout.EndHorizontal();
+        if (needsRebuild)
+            RebuildUIContents(manager);
     }
 
-    private void DrawSearchBar()
+    private void LateUpdate()
     {
-        float availableWidth = GetTopAreaWidth();
-
-        if (availableWidth >= 760f)
-        {
-            GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
-            float hierarchyWidth = Mathf.Clamp((availableWidth - 330f) * 0.42f, 160f, 320f);
-            DrawHierarchySearchField(hierarchyWidth, 105f);
-            GUILayout.Space(12f);
-            DrawLogSearchField(75f);
-            GUILayout.EndHorizontal();
+        if (!_visible || !_pendingAutoScroll || _logScrollRect == null)
             return;
-        }
 
-        GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
-        DrawHierarchySearchField(Mathf.Max(160f, availableWidth - 130f), 105f);
-        GUILayout.EndHorizontal();
-
-        GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
-        DrawLogSearchField(75f);
-        GUILayout.EndHorizontal();
+        Canvas.ForceUpdateCanvases();
+        _logScrollRect.verticalNormalizedPosition = 0f;
+        _pendingAutoScroll = false;
     }
 
-    private void DrawTypeFilterPanel(DebugConsoleManager manager)
+    private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        if (!_showTypeFilterPanel)
-            return;
+        _expandedObjectState.Clear();
+        _focusState.Clear();
+        _nextRebuildTime = 0f;
+        _lastManagerVersion = -1;
+    }
 
-        GUILayout.BeginVertical(_boxStyle);
-        GUILayout.Label("DebugType Filter", _titleStyle);
+    private void BuildRuntimeUI()
+    {
+        _runtimeFontAsset = CreateDynamicFontAsset();
 
-        _typeFilterScroll = GUILayout.BeginScrollView(_typeFilterScroll, GUILayout.Height(88f));
+        GameObject canvasObject = new GameObject("RuntimeDebugConsoleCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(CanvasGroup));
+        canvasObject.transform.SetParent(transform, false);
 
-        DebugType[] types = (DebugType[])Enum.GetValues(typeof(DebugType));
-        const int columns = 4;
+        _canvas = canvasObject.GetComponent<Canvas>();
+        _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        _canvas.overrideSorting = true;
+        _canvas.sortingOrder = SortOrder;
 
-        for (int row = 0; row < types.Length; row += columns)
+        _canvasScaler = canvasObject.GetComponent<CanvasScaler>();
+        _canvasScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        _canvasScaler.referenceResolution = new Vector2(1920f, 1080f);
+        _canvasScaler.matchWidthOrHeight = 0.5f;
+
+        _graphicRaycaster = canvasObject.GetComponent<GraphicRaycaster>();
+        _canvasGroup = canvasObject.GetComponent<CanvasGroup>();
+
+        RectTransform canvasRect = canvasObject.GetComponent<RectTransform>();
+        canvasRect.anchorMin = Vector2.zero;
+        canvasRect.anchorMax = Vector2.one;
+        canvasRect.offsetMin = Vector2.zero;
+        canvasRect.offsetMax = Vector2.zero;
+
+        _screenBlocker = CreateImage("ScreenBlocker", canvasRect, new Color(0f, 0f, 0f, 0.28f));
+        RectTransform blockerRect = _screenBlocker.rectTransform;
+        Stretch(blockerRect, 0f, 0f, 0f, 0f);
+
+        Image windowBackground = CreateImage("WindowRoot", canvasRect, new Color(0.16f, 0.21f, 0.30f, 0.98f));
+        _windowRoot = windowBackground.rectTransform;
+        Stretch(_windowRoot, 40f, -40f, 40f, -40f);
+        SetImageBorder(windowBackground, new Color(0.74f, 0.76f, 0.81f, 1f));
+
+        VerticalLayoutGroup rootLayout = _windowRoot.gameObject.AddComponent<VerticalLayoutGroup>();
+        rootLayout.padding = new RectOffset(12, 12, 10, 10);
+        rootLayout.spacing = 8f;
+        rootLayout.childControlWidth = true;
+        rootLayout.childControlHeight = false;
+        rootLayout.childForceExpandWidth = true;
+        rootLayout.childForceExpandHeight = false;
+
+        ContentSizeFitter rootFitter = _windowRoot.gameObject.AddComponent<ContentSizeFitter>();
+        rootFitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
+        rootFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+        _titleLabel = CreateText("Title", _windowRoot, "Runtime Debug Console", 28f, FontStyles.Bold, TextAlignmentOptions.Center);
+        LayoutElement titleLayout = _titleLabel.gameObject.AddComponent<LayoutElement>();
+        titleLayout.preferredHeight = 34f;
+
+        RectTransform toggleRow = CreateHorizontalRow("ToggleRow", _windowRoot, 8f, 34f);
+        _globalToggle = CreateHeaderToggle(toggleRow, "Global", value =>
         {
-            GUILayout.BeginHorizontal();
+            DebugConsoleManager manager = DebugConsoleManager.Instance;
+            if (manager == null)
+                return;
 
-            for (int col = 0; col < columns; col++)
+            manager.GlobalEnabled = value;
+            RequestRebuild();
+        });
+
+        _mirrorToggle = CreateHeaderToggle(toggleRow, "Mirror Unity", value =>
+        {
+            DebugConsoleManager manager = DebugConsoleManager.Instance;
+            if (manager == null)
+                return;
+
+            manager.MirrorToUnityConsole = value;
+            RequestRebuild();
+        });
+
+        _autoScrollToggle = CreateHeaderToggle(toggleRow, "Auto Scroll", value => _autoScroll = value);
+        _hideTransformToggle = CreateHeaderToggle(toggleRow, "Hide Transform", value =>
+        {
+            _hideTransform = value;
+            RequestRebuild();
+        });
+
+        _collapsePrevToggle = CreateHeaderToggle(toggleRow, "Collapse Prev", value => _collapsePreviousOnSelection = value);
+        _blockInputToggle = CreateHeaderToggle(toggleRow, "Block Input", value => ApplyBlockInput(value));
+
+        RectTransform buttonRow = CreateHorizontalRow("ButtonRow", _windowRoot, 8f, 36f);
+        _typeFilterToggleButton = CreateButton(buttonRow, "Type Filter ▼", ToggleTypeFilterPanel, out _typeFilterToggleLabel);
+        CreateButton(buttonRow, "All Types On", () =>
+        {
+            DebugConsoleManager manager = DebugConsoleManager.Instance;
+            if (manager == null)
+                return;
+
+            manager.SetAllTypes(true);
+            SyncManagerStateToUI(manager);
+            RequestRebuild();
+        });
+
+        CreateButton(buttonRow, "All Types Off", () =>
+        {
+            DebugConsoleManager manager = DebugConsoleManager.Instance;
+            if (manager == null)
+                return;
+
+            manager.SetAllTypes(false);
+            SyncManagerStateToUI(manager);
+            RequestRebuild();
+        });
+
+        CreateButton(buttonRow, "Clear Logs", () =>
+        {
+            DebugConsoleManager manager = DebugConsoleManager.Instance;
+            if (manager == null)
+                return;
+
+            manager.ClearLogs();
+            RequestRebuild();
+        });
+
+        CreateButton(buttonRow, "Clear Focus", () =>
+        {
+            _focusState.Clear();
+            RequestRebuild();
+        });
+
+        RectTransform searchRow = CreateHorizontalRow("SearchRow", _windowRoot, 10f, 34f);
+        CreateLabeledInput(searchRow, "Hierarchy Search", out _hierarchySearchInput, value =>
+        {
+            _hierarchySearch = value ?? string.Empty;
+            RequestRebuild();
+        }, 0.33f);
+
+        CreateLabeledInput(searchRow, "Log Search", out _logSearchInput, value =>
+        {
+            _logSearch = value ?? string.Empty;
+            RequestRebuild();
+        }, 0.55f);
+
+        _clearSearchButton = CreateButton(searchRow, "Clear Search", () =>
+        {
+            _hierarchySearch = string.Empty;
+            _logSearch = string.Empty;
+            _hierarchySearchInput.SetTextWithoutNotify(string.Empty);
+            _logSearchInput.SetTextWithoutNotify(string.Empty);
+            RequestRebuild();
+        }, 150f);
+
+        _typeFilterPanel = CreatePanel("TypeFilterPanel", _windowRoot, new Color(0.10f, 0.14f, 0.18f, 0.75f));
+        GridLayoutGroup gridLayout = _typeFilterPanel.gameObject.AddComponent<GridLayoutGroup>();
+        gridLayout.cellSize = new Vector2(240f, 30f);
+        gridLayout.spacing = new Vector2(8f, 8f);
+        gridLayout.padding = new RectOffset(12, 12, 12, 12);
+        gridLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        gridLayout.constraintCount = 4;
+        LayoutElement typePanelLayout = _typeFilterPanel.gameObject.AddComponent<LayoutElement>();
+        typePanelLayout.preferredHeight = 108f;
+
+        CreateTypeToggles(_typeFilterPanel);
+
+        RectTransform contentRow = CreateHorizontalRow("ContentRow", _windowRoot, 10f, -1f);
+        LayoutElement contentLayout = contentRow.gameObject.AddComponent<LayoutElement>();
+        contentLayout.flexibleHeight = 1f;
+        contentLayout.minHeight = 300f;
+
+        RectTransform hierarchyPanel = CreatePanel("HierarchyPanel", contentRow, new Color(0.10f, 0.14f, 0.18f, 0.78f));
+        LayoutElement hierarchyLayout = hierarchyPanel.gameObject.AddComponent<LayoutElement>();
+        hierarchyLayout.flexibleWidth = 0.42f;
+        hierarchyLayout.flexibleHeight = 1f;
+
+        RectTransform logPanel = CreatePanel("LogPanel", contentRow, new Color(0.10f, 0.14f, 0.18f, 0.78f));
+        LayoutElement logLayout = logPanel.gameObject.AddComponent<LayoutElement>();
+        logLayout.flexibleWidth = 0.58f;
+        logLayout.flexibleHeight = 1f;
+
+        BuildPane(hierarchyPanel, "Scene Objects / Components", out _hierarchyScrollRect, out _hierarchyContent);
+        BuildPane(logPanel, "Logs", out _logScrollRect, out _logContent);
+
+        RectTransform footerRow = CreateHorizontalRow("FooterRow", _windowRoot, 8f, 42f);
+        Image footerBackground = footerRow.gameObject.AddComponent<Image>();
+        footerBackground.color = new Color(0.05f, 0.07f, 0.10f, 0.95f);
+
+        _focusLabel = CreateText("FocusLabel", footerRow, "Focus : All", 22f, FontStyles.Bold, TextAlignmentOptions.Left);
+        LayoutElement footerLeftLayout = _focusLabel.gameObject.AddComponent<LayoutElement>();
+        footerLeftLayout.flexibleWidth = 1f;
+
+        _countLabel = CreateText("CountLabel", footerRow, "Count : 0", 22f, FontStyles.Bold, TextAlignmentOptions.Right);
+        LayoutElement footerRightLayout = _countLabel.gameObject.AddComponent<LayoutElement>();
+        footerRightLayout.minWidth = 140f;
+    }
+
+    private void BuildPane(RectTransform panelRoot, string title, out ScrollRect scrollRect, out RectTransform contentRoot)
+    {
+        VerticalLayoutGroup layout = panelRoot.gameObject.AddComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(10, 10, 10, 10);
+        layout.spacing = 8f;
+        layout.childControlWidth = true;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+
+        CreateText("Title", panelRoot, title, 26f, FontStyles.Bold, TextAlignmentOptions.Left);
+
+        GameObject scrollObject = new GameObject("ScrollView", typeof(RectTransform), typeof(Image), typeof(Mask), typeof(ScrollRect));
+        scrollObject.transform.SetParent(panelRoot, false);
+        RectTransform scrollRectTransform = scrollObject.GetComponent<RectTransform>();
+        LayoutElement layoutElement = scrollObject.AddComponent<LayoutElement>();
+        layoutElement.flexibleHeight = 1f;
+        layoutElement.minHeight = 200f;
+
+        Image scrollBackground = scrollObject.GetComponent<Image>();
+        scrollBackground.color = new Color(0.14f, 0.18f, 0.25f, 1f);
+        Mask mask = scrollObject.GetComponent<Mask>();
+        mask.showMaskGraphic = false;
+
+        scrollRect = scrollObject.GetComponent<ScrollRect>();
+        scrollRect.horizontal = false;
+        scrollRect.vertical = true;
+        scrollRect.scrollSensitivity = 25f;
+
+        GameObject viewportObject = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+        viewportObject.transform.SetParent(scrollObject.transform, false);
+        RectTransform viewportRect = viewportObject.GetComponent<RectTransform>();
+        Stretch(viewportRect, 0f, 0f, 0f, 0f);
+        Image viewportImage = viewportObject.GetComponent<Image>();
+        viewportImage.color = new Color(0f, 0f, 0f, 0.001f);
+        Mask viewportMask = viewportObject.GetComponent<Mask>();
+        viewportMask.showMaskGraphic = false;
+
+        GameObject contentObject = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        contentObject.transform.SetParent(viewportObject.transform, false);
+        contentRoot = contentObject.GetComponent<RectTransform>();
+        contentRoot.anchorMin = new Vector2(0f, 1f);
+        contentRoot.anchorMax = new Vector2(1f, 1f);
+        contentRoot.pivot = new Vector2(0.5f, 1f);
+        contentRoot.anchoredPosition = Vector2.zero;
+        contentRoot.sizeDelta = new Vector2(0f, 0f);
+
+        VerticalLayoutGroup contentLayout = contentObject.GetComponent<VerticalLayoutGroup>();
+        contentLayout.padding = new RectOffset(8, 8, 8, 8);
+        contentLayout.spacing = 4f;
+        contentLayout.childControlWidth = true;
+        contentLayout.childControlHeight = false;
+        contentLayout.childForceExpandWidth = true;
+        contentLayout.childForceExpandHeight = false;
+
+        ContentSizeFitter fitter = contentObject.GetComponent<ContentSizeFitter>();
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+        scrollRect.viewport = viewportRect;
+        scrollRect.content = contentRoot;
+    }
+
+    private void CreateTypeToggles(RectTransform root)
+    {
+        _typeToggleMap.Clear();
+        Array values = Enum.GetValues(typeof(DebugType));
+        for (int i = 0; i < values.Length; i++)
+        {
+            DebugType type = (DebugType)values.GetValue(i);
+            Toggle toggle = CreateTypeToggle(root, type.ToString(), isOn =>
             {
-                int index = row + col;
-                if (index >= types.Length)
-                {
-                    GUILayout.FlexibleSpace();
-                    continue;
-                }
+                DebugConsoleManager manager = DebugConsoleManager.Instance;
+                if (manager == null)
+                    return;
 
-                DebugType type = types[index];
-                bool current = manager.GetTypeEnabled(type);
-                bool next = GUILayout.Toggle(current, type.ToString(), GUILayout.Width(140f));
-
-                if (next != current)
-                    manager.SetTypeEnabled(type, next);
-            }
-
-            GUILayout.EndHorizontal();
+                manager.SetTypeEnabled(type, isOn);
+                UpdateTypeFilterButtonLabel();
+                RequestRebuild();
+            });
+            _typeToggleMap[type] = toggle;
         }
-
-        GUILayout.EndScrollView();
-        GUILayout.EndVertical();
     }
 
-    private void DrawResizablePanels(DebugConsoleManager manager)
+    private void ToggleTypeFilterPanel()
     {
-        float contentWidth = Mathf.Max(620f, _windowRect.width - 24f);
-        float maxHierarchyPanelWidth = Mathf.Max(MinHierarchyPanelWidth, contentWidth - MinLogPanelWidth - PanelSplitterWidth);
-
-        if (_hierarchyPanelWidth <= 0f)
-            _hierarchyPanelWidth = contentWidth * 0.42f;
-
-        _hierarchyPanelWidth = Mathf.Clamp(_hierarchyPanelWidth, MinHierarchyPanelWidth, maxHierarchyPanelWidth);
-        float logPanelWidth = Mathf.Max(MinLogPanelWidth, contentWidth - _hierarchyPanelWidth - PanelSplitterWidth);
-
-        GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
-        DrawHierarchyPanel(manager, _hierarchyPanelWidth);
-        DrawPanelSplitter(contentWidth);
-        DrawLogPanel(manager, logPanelWidth);
-        GUILayout.EndHorizontal();
+        _showTypeFilterPanel = !_showTypeFilterPanel;
+        _typeFilterPanel.gameObject.SetActive(_showTypeFilterPanel);
+        _typeFilterToggleLabel.text = _showTypeFilterPanel ? "Type Filter ▼" : "Type Filter ▶";
+        LayoutRebuilder.ForceRebuildLayoutImmediate(_windowRoot);
     }
 
-    private void DrawPanelSplitter(float contentWidth)
+    private void ApplyBlockInput(bool value)
     {
-        Rect splitterRect = GUILayoutUtility.GetRect(PanelSplitterWidth, 10f, GUILayout.Width(PanelSplitterWidth), GUILayout.ExpandHeight(true));
-        Event current = Event.current;
-        bool hovered = splitterRect.Contains(current.mousePosition);
+        _blockInput = value;
+        if (_screenBlocker != null)
+            _screenBlocker.raycastTarget = _visible && value;
+    }
 
-        if (current.type == EventType.MouseDown && current.button == 0 && hovered)
+    private void SetVisible(bool visible)
+    {
+        _visible = visible;
+        IsRuntimeConsoleVisible = visible;
+
+        if (_canvas == null)
+            return;
+
+        _canvas.enabled = visible;
+        _canvasGroup.alpha = visible ? 1f : 0f;
+        _canvasGroup.blocksRaycasts = visible;
+        _canvasGroup.interactable = visible;
+
+        if (_screenBlocker != null)
+            _screenBlocker.raycastTarget = visible && _blockInput;
+
+        if (visible)
         {
-            _isDraggingPanelSplitter = true;
-            current.Use();
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
+            EnsureEventSystemExists();
+            RequestRebuild(true);
         }
-
-        if (_isDraggingPanelSplitter && current.type == EventType.MouseDrag)
-        {
-            float maxHierarchyPanelWidth = Mathf.Max(MinHierarchyPanelWidth, contentWidth - MinLogPanelWidth - PanelSplitterWidth);
-            _hierarchyPanelWidth = Mathf.Clamp(_hierarchyPanelWidth + current.delta.x, MinHierarchyPanelWidth, maxHierarchyPanelWidth);
-            current.Use();
-        }
-
-        if (_isDraggingPanelSplitter && (current.type == EventType.MouseUp || current.rawType == EventType.MouseUp))
-        {
-            _isDraggingPanelSplitter = false;
-            current.Use();
-        }
-
-        Color previousColor = GUI.color;
-        if (_isDraggingPanelSplitter)
-            GUI.color = new Color(1.00f, 0.86f, 0.32f, 0.95f);
-        else if (hovered)
-            GUI.color = new Color(0.95f, 0.92f, 0.72f, 0.55f);
-        else
-            GUI.color = new Color(0.80f, 0.80f, 0.80f, 0.20f);
-
-        GUI.Box(splitterRect, GUIContent.none);
-        GUI.color = previousColor;
     }
 
-    private void DrawHierarchyPanel(DebugConsoleManager manager, float panelWidth)
+    private void RequestRebuild(bool forceImmediate = false)
     {
-        GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
-        GUILayout.BeginHorizontal();
-        GUILayout.Label("Scene Objects / Components", _titleStyle, GUILayout.ExpandWidth(true));
-        GUILayout.EndHorizontal();
+        _nextRebuildTime = 0f;
 
-        _hierarchyScroll = GUILayout.BeginScrollView(_hierarchyScroll);
+        if (!forceImmediate || !_visible || DebugConsoleManager.Instance == null)
+            return;
 
-        Scene activeScene = SceneManager.GetActiveScene();
-        GameObject[] roots = activeScene.GetRootGameObjects();
-
-        for (int i = 0; i < roots.Length; i++)
-            DrawGameObjectNode(manager, roots[i], 0, panelWidth);
-
-        GUILayout.EndScrollView();
-
-        GUILayout.Space(4f);
-        string footerFocusFullText = GetFocusLabel();
-        string footerFocusDisplayText = GetFooterFocusLabel();
-        string footerCountText = $"Count : {GetVisibleEntryCount(manager)}";
-        float footerHorizontalPadding = 10f;
-        float footerGap = 12f;
-        float footerFocusRequiredWidth = _footerLeftLabelStyle.CalcSize(new GUIContent(footerFocusDisplayText)).x;
-        float footerCountRequiredWidth = _footerRightLabelStyle.CalcSize(new GUIContent(footerCountText)).x;
-        bool useTwoLineFooter = panelWidth < footerFocusRequiredWidth + footerCountRequiredWidth + (footerHorizontalPadding * 2f) + footerGap;
-
-        if (useTwoLineFooter)
-        {
-            GUILayout.BeginVertical(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(52f));
-
-            GUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.Label(new GUIContent(footerFocusDisplayText, footerFocusFullText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.EndHorizontal();
-
-            GUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.EndHorizontal();
-
-            GUILayout.EndVertical();
-        }
-        else
-        {
-            GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(30f));
-            GUILayout.Space(footerHorizontalPadding);
-            float footerCountWidth = Mathf.Ceil(footerCountRequiredWidth) + 4f;
-            float footerLeftWidth = Mathf.Max(60f, panelWidth - footerCountWidth - (footerHorizontalPadding * 2f) - footerGap);
-            GUILayout.Label(new GUIContent(footerFocusDisplayText, footerFocusFullText), _footerLeftLabelStyle, GUILayout.Width(footerLeftWidth), GUILayout.MinHeight(22f));
-            GUILayout.Space(footerGap);
-            GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerRightLabelStyle, GUILayout.Width(footerCountWidth), GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.EndHorizontal();
-        }
-        GUILayout.EndVertical();
+        RebuildUIContents(DebugConsoleManager.Instance);
     }
 
-    private float GetHierarchyRowContentWidth(float panelWidth)
+    private void RebuildUIContents(DebugConsoleManager manager)
     {
-        float width = panelWidth;
-        width -= _boxStyle.padding.left + _boxStyle.padding.right;
-        width -= HierarchyRowContentRightReserve;
-        return Mathf.Max(140f, width);
+        if (manager == null)
+            return;
+
+        RebuildHierarchyPane(manager);
+        RebuildLogPane(manager);
+        UpdateFooterLabels();
+
+        Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(_windowRoot);
     }
 
-    private float GetHierarchyTextButtonWidth(float rowContentWidth, float leadingSpace, bool reserveToggle, bool reserveFoldout)
+    private void RebuildHierarchyPane(DebugConsoleManager manager)
     {
-        float width = rowContentWidth;
-        width -= Mathf.Min(leadingSpace, MaxHierarchyIndentPenalty);
+        ClearChildren(_hierarchyContent);
 
-        if (reserveToggle)
-            width -= HierarchyToggleSize + 4f;
-
-        if (reserveFoldout)
-            width -= HierarchyFoldoutSize + 4f;
-
-        return Mathf.Max(92f, width);
+        List<GameObject> roots = GetSceneRootObjects();
+        for (int i = 0; i < roots.Count; i++)
+            AddGameObjectRowRecursive(_hierarchyContent, roots[i], 0, manager);
     }
 
-    private float GetLogContentWidth(float panelWidth)
-    {
-        return Mathf.Max(140f, panelWidth - _boxStyle.padding.left - _boxStyle.padding.right - 58f);
-    }
-
-    private void DrawGameObjectNode(DebugConsoleManager manager, GameObject go, int depth, float panelWidth)
+    private void AddGameObjectRowRecursive(RectTransform parent, GameObject go, int depth, DebugConsoleManager manager)
     {
         if (go == null)
             return;
@@ -681,341 +493,202 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (!ShouldShowGameObject(go))
             return;
 
-        int id = go.GetInstanceID();
-        bool objectEnabled = manager.GetGameObjectEnabled(go);
+        RectTransform row = CreateHorizontalRow($"ObjectRow_{go.GetInstanceID()}", parent, 4f, 30f);
+        Image rowBackground = row.gameObject.AddComponent<Image>();
+        rowBackground.color = GetObjectRowColor(go.GetInstanceID());
 
-        Component[] components = go.GetComponents<Component>();
-        bool hasVisibleComponents = HasVisibleComponents(components);
-        bool hasVisibleChildren = HasVisibleChildren(go);
-        bool hasDetails = hasVisibleComponents || hasVisibleChildren;
+        LayoutGroup rowLayout = row.GetComponent<HorizontalLayoutGroup>();
+        rowLayout.padding = new RectOffset(6 + depth * 18, 6, 2, 2);
 
-        bool detailsExpanded = _expandedComponents.Contains(id);
-        bool childrenExpanded = _expandedChildren.Contains(id);
-
-        bool searchActive = !string.IsNullOrWhiteSpace(_hierarchySearch);
-        bool forceOpenDetails = searchActive && (HasMatchingComponent(go, _hierarchySearch) || HasVisibleChildren(go));
-        bool forceOpenChildren = searchActive && HasVisibleChildren(go);
-
-        bool isObjectFocused = IsObjectFocused(id);
-        bool isComponentParentFocused = IsFocusedObjectParent(id);
-        bool showDetails = hasDetails && (detailsExpanded || forceOpenDetails);
-        bool showChildren = hasVisibleChildren && (childrenExpanded || forceOpenChildren);
-
-        float objectLeadingSpace = depth * 18f;
-        float rowContentWidth = GetHierarchyRowContentWidth(panelWidth);
-
-        GUILayout.BeginVertical(GetHierarchyRowStyle(isObjectFocused, isComponentParentFocused, false), GUILayout.Width(rowContentWidth));
-        GUILayout.BeginHorizontal(GUILayout.Width(rowContentWidth), GUILayout.Height(HierarchyRowHeight));
-        GUILayout.Space(objectLeadingSpace);
-
-        bool nextObjectEnabled = GUILayout.Toggle(objectEnabled, GUIContent.none, GUILayout.Width(HierarchyToggleSize), GUILayout.Height(HierarchyRowHeight));
-        if (nextObjectEnabled != objectEnabled)
-            manager.SetGameObjectEnabled(go, nextObjectEnabled);
-
-        GUIStyle objectStyle = GetObjectButtonStyle(objectEnabled, isObjectFocused, isComponentParentFocused);
-        GUIContent objectContent = new GUIContent(GetDisplayName(go.name), go.name);
-        float objectButtonWidth = GetHierarchyTextButtonWidth(rowContentWidth, objectLeadingSpace, true, true);
-        if (GUILayout.Button(objectContent, objectStyle, GUILayout.Width(objectButtonWidth), GUILayout.Height(HierarchyRowHeight)))
-            ToggleGameObjectFocus(go);
-
-        if (hasDetails)
+        Toggle objectToggle = CreateInlineToggle(row, manager.GetGameObjectEnabled(go), value =>
         {
-            string foldoutLabel = showDetails ? "▾" : "▸";
-            if (GUILayout.Button(foldoutLabel, _foldoutButtonStyle, GUILayout.Width(HierarchyFoldoutSize), GUILayout.Height(HierarchyRowHeight)))
-                ToggleExpandedSet(_expandedComponents, id);
+            manager.SetGameObjectEnabled(go, value);
+            RequestRebuild();
+        });
+
+        objectToggle.transform.SetAsFirstSibling();
+
+        bool hasChildren = HasVisibleChildren(go);
+        bool hasComponents = HasVisibleComponents(go);
+        bool hasExpandTarget = hasChildren || hasComponents;
+
+        Button labelButton = CreateRowButton(row, TrimName(go.name), () =>
+        {
+            HandleObjectSelected(go);
+        }, TextAlignmentOptions.Left, true);
+
+        LayoutElement labelLayout = labelButton.gameObject.GetComponent<LayoutElement>();
+        labelLayout.flexibleWidth = 1f;
+
+        if (hasExpandTarget)
+        {
+            bool expanded = GetExpanded(go.GetInstanceID());
+            CreateRowButton(row, expanded ? "▼" : "▶", () =>
+            {
+                SetExpanded(go.GetInstanceID(), !GetExpanded(go.GetInstanceID()));
+                RequestRebuild();
+            }, TextAlignmentOptions.Center, false, 32f);
         }
         else
         {
-            GUILayout.Space(HierarchyFoldoutSize);
+            LayoutElement spacer = new GameObject("ExpandSpacer", typeof(RectTransform), typeof(LayoutElement)).GetComponent<LayoutElement>();
+            spacer.transform.SetParent(row, false);
+            spacer.preferredWidth = 32f;
         }
 
-        GUILayout.EndHorizontal();
-        GUILayout.EndVertical();
-
-        if (!showDetails)
+        if (!GetExpanded(go.GetInstanceID()))
             return;
 
-        if (hasVisibleComponents)
+        Component[] components = go.GetComponents<Component>();
+        for (int i = 0; i < components.Length; i++)
         {
-            bool previousEnabled = GUI.enabled;
-            GUI.enabled = objectEnabled;
+            Component component = components[i];
+            if (component == null)
+                continue;
 
-            float componentLeadingSpace = (depth + 1) * 18f + HierarchyToggleSize + 8f;
+            if (_hideTransform && component is Transform)
+                continue;
 
-            foreach (Component component in components)
-            {
-                if (!ShouldShowComponent(component, go.name))
-                    continue;
+            if (!ShouldShowComponent(component))
+                continue;
 
-                bool isComponentFocused = IsComponentFocused(component.GetInstanceID());
-
-                GUILayout.BeginVertical(GetHierarchyRowStyle(false, false, isComponentFocused), GUILayout.Width(rowContentWidth));
-                GUILayout.BeginHorizontal(GUILayout.Width(rowContentWidth), GUILayout.Height(HierarchyRowHeight));
-                GUILayout.Space(componentLeadingSpace);
-
-                bool componentEnabled = manager.GetComponentEnabled(component);
-                bool nextComponentEnabled = GUILayout.Toggle(componentEnabled, GUIContent.none, GUILayout.Width(HierarchyToggleSize), GUILayout.Height(HierarchyRowHeight));
-                if (nextComponentEnabled != componentEnabled)
-                    manager.SetComponentEnabled(component, nextComponentEnabled);
-
-                GUIStyle componentStyle = GetComponentButtonStyle(objectEnabled, isComponentFocused);
-                GUIContent componentContent = new GUIContent(GetDisplayName(component.GetType().Name), component.GetType().Name);
-                float componentButtonWidth = GetHierarchyTextButtonWidth(rowContentWidth, componentLeadingSpace, true, true);
-                if (GUILayout.Button(componentContent, componentStyle, GUILayout.Width(componentButtonWidth), GUILayout.Height(HierarchyRowHeight)))
-                    ToggleComponentFocus(component);
-
-                GUILayout.Space(HierarchyFoldoutSize);
-                GUILayout.EndHorizontal();
-                GUILayout.EndVertical();
-            }
-
-            GUI.enabled = previousEnabled;
+            AddComponentRow(parent, go, component, depth + 1, manager);
         }
 
-        if (hasVisibleChildren)
+        for (int childIndex = 0; childIndex < go.transform.childCount; childIndex++)
         {
-            float childLeadingSpace = (depth + 1) * 18f + HierarchyToggleSize + 8f + HierarchyToggleSize;
+            Transform child = go.transform.GetChild(childIndex);
+            if (child == null)
+                continue;
 
-            GUILayout.BeginHorizontal(GUILayout.Width(rowContentWidth), GUILayout.Height(HierarchyRowHeight));
-            GUILayout.Space((depth + 1) * 18f + HierarchyToggleSize + 8f);
-            GUILayout.Space(HierarchyToggleSize);
-
-            float childButtonWidth = GetHierarchyTextButtonWidth(rowContentWidth, childLeadingSpace, true, true);
-            if (GUILayout.Button(new GUIContent("하위 오브젝트", "하위 오브젝트"), _linkButtonStyle, GUILayout.Width(childButtonWidth), GUILayout.Height(HierarchyRowHeight)))
-                ToggleExpandedSet(_expandedChildren, id);
-
-            string childFoldoutLabel = showChildren ? "▾" : "▸";
-            if (GUILayout.Button(childFoldoutLabel, _foldoutButtonStyle, GUILayout.Width(HierarchyFoldoutSize), GUILayout.Height(HierarchyRowHeight)))
-                ToggleExpandedSet(_expandedChildren, id);
-
-            GUILayout.EndHorizontal();
-
-            if (showChildren)
-            {
-                for (int i = 0; i < go.transform.childCount; i++)
-                    DrawGameObjectNode(manager, go.transform.GetChild(i).gameObject, depth + 1, panelWidth);
-            }
+            AddGameObjectRowRecursive(parent, child.gameObject, depth + 1, manager);
         }
     }
 
-    private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
+    private void AddComponentRow(RectTransform parent, GameObject owner, Component component, int depth, DebugConsoleManager manager)
     {
-        GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
-        GUILayout.BeginHorizontal();
-        GUILayout.Label(new GUIContent($"Logs {GetFocusSuffix()}", $"Logs {GetFocusSuffix()}"), _titleStyle, GUILayout.ExpandWidth(true));
-        GUILayout.EndHorizontal();
+        RectTransform row = CreateHorizontalRow($"ComponentRow_{component.GetInstanceID()}", parent, 4f, 28f);
+        Image rowBackground = row.gameObject.AddComponent<Image>();
+        rowBackground.color = _focusState.IsComponentFocused(component.GetInstanceID())
+            ? new Color(0.73f, 0.58f, 0.15f, 0.72f)
+            : new Color(0.32f, 0.24f, 0.08f, 0.30f);
 
-        bool wasNearBottom = IsNearBottom(_lastMaxLogScrollY);
-        float contentHeight = 0f;
-        float logContentWidth = GetLogContentWidth(panelWidth);
+        LayoutGroup rowLayout = row.GetComponent<HorizontalLayoutGroup>();
+        rowLayout.padding = new RectOffset(18 + depth * 18, 6, 2, 2);
 
-        _logScroll = GUILayout.BeginScrollView(_logScroll);
+        CreateInlineToggle(row, manager.GetComponentEnabled(component), value =>
+        {
+            manager.SetComponentEnabled(component, value);
+            RequestRebuild();
+        });
+
+        Button labelButton = CreateRowButton(row, TrimName(component.GetType().Name), () =>
+        {
+            HandleComponentSelected(owner, component);
+        }, TextAlignmentOptions.Left, true);
+
+        LayoutElement labelLayout = labelButton.gameObject.GetComponent<LayoutElement>();
+        labelLayout.flexibleWidth = 1f;
+
+        LayoutElement spacer = new GameObject("EndSpacer", typeof(RectTransform), typeof(LayoutElement)).GetComponent<LayoutElement>();
+        spacer.transform.SetParent(row, false);
+        spacer.preferredWidth = 32f;
+    }
+
+    private void HandleObjectSelected(GameObject go)
+    {
+        if (go == null)
+            return;
+
+        if (_collapsePreviousOnSelection)
+            _expandedObjectState.Clear();
+
+        _focusState.FocusGameObject(go.GetInstanceID(), go.name);
+        SetExpanded(go.GetInstanceID(), true);
+        RequestRebuild();
+    }
+
+    private void HandleComponentSelected(GameObject owner, Component component)
+    {
+        if (owner == null || component == null)
+            return;
+
+        if (_collapsePreviousOnSelection)
+            _expandedObjectState.Clear();
+
+        _focusState.FocusComponent(owner.GetInstanceID(), component.GetInstanceID(), owner.name, component.GetType().Name);
+        SetExpanded(owner.GetInstanceID(), true);
+        RequestRebuild();
+    }
+
+    private void RebuildLogPane(DebugConsoleManager manager)
+    {
+        ClearChildren(_logContent);
 
         IReadOnlyList<DebugEntry> entries = manager.Entries;
+        int visibleCount = 0;
         for (int i = 0; i < entries.Count; i++)
         {
             DebugEntry entry = entries[i];
-
             if (!ShouldDisplayEntry(manager, entry))
                 continue;
 
-            float drawnHeight = DrawLogEntry(entry, i, logContentWidth);
-            contentHeight += drawnHeight + 4f;
-            GUILayout.Space(4f);
+            visibleCount++;
+            AddLogEntryRow(_logContent, entry);
         }
 
-        GUILayout.EndScrollView();
-
-        Rect scrollRect = GUILayoutUtility.GetLastRect();
-        _lastLogViewportHeight = scrollRect.height;
-        _lastLogContentHeight = contentHeight + 8f;
-        _lastMaxLogScrollY = Mathf.Max(0f, _lastLogContentHeight - _lastLogViewportHeight);
-
-        if (Event.current.type == EventType.Repaint && (_autoScroll || wasNearBottom || IsNearBottom(_lastMaxLogScrollY)))
-            _logScroll.y = _lastMaxLogScrollY + 4f;
-
-        GUILayout.EndVertical();
+        _countLabel.text = $"Count : {visibleCount}";
     }
 
-    private float DrawLogEntry(DebugEntry entry, int index, float contentWidth)
+    private void AddLogEntryRow(RectTransform parent, DebugEntry entry)
     {
-        GUIContent content = new GUIContent(entry.RichText);
-        float estimatedWidth = Mathf.Max(140f, contentWidth);
-        float height = _richLabelStyle.CalcHeight(content, estimatedWidth);
+        RectTransform row = CreateVerticalRow($"LogRow_{parent.childCount}", parent, 2f);
+        Image background = row.gameObject.AddComponent<Image>();
+        background.color = GetLogRowColor(entry.Level);
 
-        Rect rect = GUILayoutUtility.GetRect(0f, height + 14f, GUILayout.ExpandWidth(true));
+        Button button = row.gameObject.AddComponent<Button>();
+        ColorBlock colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(1f, 1f, 1f, 0.08f);
+        colors.pressedColor = new Color(1f, 1f, 1f, 0.12f);
+        colors.selectedColor = new Color(1f, 1f, 1f, 0.08f);
+        button.colors = colors;
+        button.transition = Selectable.Transition.ColorTint;
+        button.onClick.AddListener(() => FocusFromEntry(entry));
 
-        Color previousColor = GUI.color;
-        if (index == _selectedLogIndex)
-            GUI.color = new Color(0.75f, 0.85f, 1f, 1f);
+        string header = $"[{entry.Time}] [{entry.Type}] {entry.SourceName}";
+        string footer = string.IsNullOrEmpty(entry.MemberName)
+            ? entry.Message
+            : $"{entry.Message}\n{entry.MemberName}:{entry.LineNumber}";
 
-        GUI.Box(rect, GUIContent.none);
-        GUI.color = previousColor;
+        TextMeshProUGUI headerText = CreateText("Header", row, header, 18f, FontStyles.Bold, TextAlignmentOptions.Left);
+        headerText.color = ColorFromHex(entry.ColorHex, new Color(0.92f, 0.94f, 0.96f, 1f));
+        headerText.enableWordWrapping = true;
 
-        Rect labelRect = new Rect(rect.x + 6f, rect.y + 6f, Mathf.Max(0f, rect.width - 12f), rect.height - 12f);
-        GUI.Label(labelRect, content, _richLabelStyle);
+        TextMeshProUGUI messageText = CreateText("Message", row, footer, 17f, FontStyles.Normal, TextAlignmentOptions.Left);
+        messageText.color = new Color(0.90f, 0.94f, 0.96f, 1f);
+        messageText.enableWordWrapping = true;
 
-        if (Event.current.type == EventType.MouseDown &&
-            Event.current.button == 0 &&
-            rect.Contains(Event.current.mousePosition))
-        {
-            _selectedLogIndex = index;
-            FocusEntry(entry);
-
-            if (Event.current.clickCount >= 2)
-                OpenEntryScript(entry);
-
-            Event.current.Use();
-        }
-
-        return rect.height;
+        LayoutElement layout = row.gameObject.AddComponent<LayoutElement>();
+        layout.minHeight = 54f;
     }
 
-    private void OpenEntryScript(DebugEntry entry)
-    {
-#if UNITY_EDITOR
-        if (!TryGetEntryScriptLocation(entry, out UnityEditor.MonoScript script, out int lineNumber, out int columnNumber))
-            return;
-
-        UnityEditor.AssetDatabase.OpenAsset(script, Mathf.Max(1, lineNumber), Mathf.Max(1, columnNumber));
-#endif
-    }
-
-#if UNITY_EDITOR
-    private bool TryGetEntryScriptLocation(DebugEntry entry, out UnityEditor.MonoScript script, out int lineNumber, out int columnNumber)
-    {
-        script = null;
-        lineNumber = 1;
-        columnNumber = 1;
-
-        if (entry == null || string.IsNullOrWhiteSpace(entry.CallerFilePath))
-            return false;
-
-        lineNumber = Mathf.Max(1, entry.LineNumber);
-        columnNumber = Mathf.Max(1, entry.CallerColumn);
-
-        if (TryConvertCallerPathToAssetPath(entry.CallerFilePath, out string assetPath))
-        {
-            script = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEditor.MonoScript>(assetPath);
-            if (script != null)
-                return true;
-        }
-
-        return TryFindScriptByFileName(entry.CallerFilePath, out script);
-    }
-
-    private bool TryConvertCallerPathToAssetPath(string callerFilePath, out string assetPath)
-    {
-        assetPath = string.Empty;
-
-        if (string.IsNullOrWhiteSpace(callerFilePath))
-            return false;
-
-        string normalizedPath = callerFilePath.Replace('\\', '/');
-
-        int assetsIndex = normalizedPath.LastIndexOf("/Assets/", StringComparison.OrdinalIgnoreCase);
-        if (assetsIndex >= 0)
-        {
-            assetPath = normalizedPath.Substring(assetsIndex + 1);
-            return true;
-        }
-
-        int packagesIndex = normalizedPath.LastIndexOf("/Packages/", StringComparison.OrdinalIgnoreCase);
-        if (packagesIndex >= 0)
-        {
-            assetPath = normalizedPath.Substring(packagesIndex + 1);
-            return true;
-        }
-
-        string projectAssetsPath = Application.dataPath.Replace('\\', '/');
-        if (normalizedPath.StartsWith(projectAssetsPath, StringComparison.OrdinalIgnoreCase))
-        {
-            assetPath = "Assets" + normalizedPath.Substring(projectAssetsPath.Length);
-            return true;
-        }
-
-        return false;
-    }
-
-    private bool TryFindScriptByFileName(string callerFilePath, out UnityEditor.MonoScript script)
-    {
-        script = null;
-
-        string fileName = Path.GetFileNameWithoutExtension(callerFilePath);
-        if (string.IsNullOrWhiteSpace(fileName))
-            return false;
-
-        string[] guids = UnityEditor.AssetDatabase.FindAssets($"{fileName} t:MonoScript");
-        for (int i = 0; i < guids.Length; i++)
-        {
-            string assetPath = UnityEditor.AssetDatabase.GUIDToAssetPath(guids[i]);
-            if (!string.Equals(Path.GetFileNameWithoutExtension(assetPath), fileName, StringComparison.Ordinal))
-                continue;
-
-            UnityEditor.MonoScript found = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEditor.MonoScript>(assetPath);
-            if (found == null)
-                continue;
-
-            script = found;
-            return true;
-        }
-
-        return false;
-    }
-#endif
-
-    private void FocusEntry(DebugEntry entry)
+    private void FocusFromEntry(DebugEntry entry)
     {
         if (entry == null)
             return;
 
-        GameObject targetGameObject = null;
-
-        if (entry.Context is GameObject go)
+        if (entry.ComponentId != 0 && entry.Context is Component component)
         {
-            targetGameObject = go;
-            _focusedGameObjectId = go.GetInstanceID();
-            _focusedComponentId = 0;
-            _focusedObjectName = go.name;
-            _focusedComponentName = string.Empty;
-            PrepareSelectionExpansion(go.transform, true);
-        }
-        else if (entry.Context is Component component)
-        {
-            targetGameObject = component.gameObject;
-            _focusedGameObjectId = component.gameObject.GetInstanceID();
-            _focusedComponentId = component.GetInstanceID();
-            _focusedObjectName = component.gameObject.name;
-            _focusedComponentName = component.GetType().Name;
-            PrepareSelectionExpansion(component.transform, true);
+            HandleComponentSelected(component.gameObject, component);
+            return;
         }
 
-        if (targetGameObject == null)
-            return;
-
-#if UNITY_EDITOR
-        UnityEditor.Selection.activeGameObject = targetGameObject;
-        UnityEditor.EditorGUIUtility.PingObject(targetGameObject);
-#endif
-    }
-
-    private void ExpandSelectionPath(Transform target, bool includeTargetDetails)
-    {
-        Transform current = target;
-
-        if (current == null)
-            return;
-
-        if (includeTargetDetails)
-            _expandedComponents.Add(current.gameObject.GetInstanceID());
-
-        while (current.parent != null)
+        if (entry.GameObjectId != 0)
         {
-            Transform parent = current.parent;
-            int parentId = parent.gameObject.GetInstanceID();
-            _expandedComponents.Add(parentId);
-            _expandedChildren.Add(parentId);
-            current = parent;
+            GameObject target = FindGameObjectByInstanceId(entry.GameObjectId);
+            if (target != null)
+                HandleObjectSelected(target);
         }
     }
 
@@ -1027,291 +700,21 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (!manager.IsAllowed(entry.Type, entry.GameObjectId, entry.ComponentId))
             return false;
 
-        if (_focusedComponentId != 0)
-        {
-            if (entry.ComponentId != _focusedComponentId)
-                return false;
-        }
-        else if (_focusedGameObjectId != 0)
-        {
-            if (entry.GameObjectId != _focusedGameObjectId)
-                return false;
-        }
+        if (_focusState.HasComponentFocus && entry.ComponentId != _focusState.FocusedComponentId)
+            return false;
+
+        if (_focusState.HasGameObjectFocus && !_focusState.HasComponentFocus && entry.GameObjectId != _focusState.FocusedGameObjectId)
+            return false;
 
         if (string.IsNullOrWhiteSpace(_logSearch))
             return true;
 
-        string searchPool = $"{entry.Message} {entry.SourceName} {entry.MemberName} {entry.Type} {entry.Time}";
-        return ContainsIgnoreCase(searchPool, _logSearch);
-    }
-
-    private void ToggleGameObjectFocus(GameObject go)
-    {
-        if (go == null)
-            return;
-
-        int id = go.GetInstanceID();
-
-        if (_focusedGameObjectId == id && _focusedComponentId == 0)
-        {
-            ClearFocus();
-            return;
-        }
-
-        _focusedGameObjectId = id;
-        _focusedComponentId = 0;
-        _focusedObjectName = go.name;
-        _focusedComponentName = string.Empty;
-
-        PrepareSelectionExpansion(go.transform, true);
-    }
-
-    private void ToggleComponentFocus(Component component)
-    {
-        if (component == null)
-            return;
-
-        int componentId = component.GetInstanceID();
-
-        if (_focusedComponentId == componentId)
-        {
-            ClearFocus();
-            return;
-        }
-
-        _focusedGameObjectId = component.gameObject.GetInstanceID();
-        _focusedComponentId = componentId;
-        _focusedObjectName = component.gameObject.name;
-        _focusedComponentName = component.GetType().Name;
-
-        PrepareSelectionExpansion(component.transform, true);
-    }
-
-    private void PrepareSelectionExpansion(Transform target, bool includeDetails)
-    {
-        if (target == null)
-            return;
-
-        if (_collapsePreviousOnSelection)
-            PreserveExpansionWithinTopLevelRoot(target);
-
-        ExpandSelectionPath(target, includeDetails);
-    }
-
-    private void PreserveExpansionWithinTopLevelRoot(Transform target)
-    {
-        Transform topLevelRoot = GetTopLevelRoot(target);
-
-        if (topLevelRoot == null)
-        {
-            _expandedComponents.Clear();
-            _expandedChildren.Clear();
-            return;
-        }
-
-        HashSet<int> allowedIds = new HashSet<int>();
-        CollectSubtreeIds(topLevelRoot, allowedIds);
-
-        _expandedComponents.RemoveWhere(id => !allowedIds.Contains(id));
-        _expandedChildren.RemoveWhere(id => !allowedIds.Contains(id));
-    }
-
-    private Transform GetTopLevelRoot(Transform target)
-    {
-        if (target == null)
-            return null;
-
-        Transform current = target;
-        while (current.parent != null)
-            current = current.parent;
-
-        return current;
-    }
-
-    private void CollectSubtreeIds(Transform node, HashSet<int> ids)
-    {
-        if (node == null || ids == null)
-            return;
-
-        ids.Add(node.gameObject.GetInstanceID());
-
-        for (int i = 0; i < node.childCount; i++)
-            CollectSubtreeIds(node.GetChild(i), ids);
-    }
-
-    private void ClearFocus()
-    {
-        _focusedGameObjectId = 0;
-        _focusedComponentId = 0;
-        _focusedObjectName = string.Empty;
-        _focusedComponentName = string.Empty;
-    }
-
-    private string GetFocusLabel()
-    {
-        if (_focusedComponentId != 0)
-            return $"Focus : {_focusedObjectName}/{_focusedComponentName}";
-
-        if (_focusedGameObjectId != 0)
-            return $"Focus : {_focusedObjectName} (All Components)";
-
-        return "Focus : All";
-    }
-
-    private string GetFooterFocusLabel()
-    {
-        if (_focusedComponentId != 0)
-        {
-            string objectName = TrimFooterFocusSegment(_focusedObjectName);
-            string componentName = TrimFooterFocusSegment(_focusedComponentName);
-
-            if (string.Equals(_focusedObjectName, _focusedComponentName, StringComparison.Ordinal))
-                return $"Focus : {objectName}";
-
-            return $"Focus : {objectName} / {componentName}";
-        }
-
-        if (_focusedGameObjectId != 0)
-            return $"Focus : {TrimFooterFocusSegment(_focusedObjectName)}";
-
-        return "Focus : All";
-    }
-
-    private string TrimFooterFocusSegment(string value)
-    {
-        if (string.IsNullOrEmpty(value))
-            return string.Empty;
-
-        return value.Length > FooterFocusSegmentMaxLength
-            ? value.Substring(0, FooterFocusSegmentMaxLength) + "..."
-            : value;
-    }
-
-    private string GetFocusSuffix()
-    {
-        if (_focusedComponentId != 0)
-            return $"({_focusedObjectName}/{_focusedComponentName})";
-
-        if (_focusedGameObjectId != 0)
-            return $"({_focusedObjectName})";
-
-        return string.Empty;
-    }
-
-    private GUIStyle CreateRowStyle(Color backgroundColor)
-    {
-        Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
-        texture.SetPixel(0, 0, backgroundColor);
-        texture.Apply();
-
-        return new GUIStyle(GUI.skin.box)
-        {
-            normal = { background = texture },
-            border = new RectOffset(0, 0, 0, 0),
-            margin = new RectOffset(0, 0, 1, 1),
-            padding = new RectOffset(3, 3, 1, 1),
-            alignment = TextAnchor.MiddleLeft
-        };
-    }
-
-    private GUIStyle CreateButtonStyle(Color backgroundColor, Color textColor, bool bold, TextAnchor alignment)
-    {
-        Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
-        texture.SetPixel(0, 0, backgroundColor);
-        texture.Apply();
-
-        GUIStyle style = new GUIStyle(_linkButtonStyle)
-        {
-            alignment = alignment,
-            fontStyle = bold ? FontStyle.Bold : FontStyle.Normal,
-            fixedHeight = HierarchyRowHeight
-        };
-
-        style.normal.background = texture;
-        style.hover.background = texture;
-        style.active.background = texture;
-        style.focused.background = texture;
-        style.onNormal.background = texture;
-        style.onHover.background = texture;
-        style.onActive.background = texture;
-        style.onFocused.background = texture;
-        style.normal.textColor = textColor;
-        style.hover.textColor = textColor;
-        style.active.textColor = textColor;
-        style.focused.textColor = textColor;
-        style.onNormal.textColor = textColor;
-        style.onHover.textColor = textColor;
-        style.onActive.textColor = textColor;
-        style.onFocused.textColor = textColor;
-        return style;
-    }
-
-    private GUIStyle GetHierarchyRowStyle(bool isObjectFocused, bool isComponentParentFocused, bool isComponentFocused)
-    {
-        if (isComponentFocused)
-            return _componentFocusedRowStyle;
-
-        if (isObjectFocused)
-            return _objectFocusedRowStyle;
-
-        if (isComponentParentFocused)
-            return _objectParentFocusedRowStyle;
-
-        return GUIStyle.none;
-    }
-
-    private bool IsFocusedObjectParent(int gameObjectId)
-    {
-        return _focusedGameObjectId == gameObjectId && _focusedComponentId != 0;
-    }
-
-    private bool IsObjectFocused(int gameObjectId)
-    {
-        return _focusedGameObjectId == gameObjectId && _focusedComponentId == 0;
-    }
-
-    private bool IsComponentFocused(int componentId)
-    {
-        return _focusedComponentId == componentId;
-    }
-
-    private GUIStyle GetObjectButtonStyle(bool objectEnabled, bool isObjectFocused, bool isComponentParentFocused)
-    {
-        if (isObjectFocused)
-            return _objectSelectedButtonStyle;
-
-        if (isComponentParentFocused)
-            return _parentSelectedButtonStyle;
-
-        return objectEnabled ? _linkButtonStyle : _disabledButtonStyle;
-    }
-
-    private GUIStyle GetComponentButtonStyle(bool objectEnabled, bool isComponentFocused)
-    {
-        if (isComponentFocused)
-            return _componentSelectedButtonStyle;
-
-        return objectEnabled ? _linkButtonStyle : _disabledButtonStyle;
-    }
-
-    private void ToggleExpandedSet(HashSet<int> set, int id)
-    {
-        if (set.Contains(id))
-            set.Remove(id);
-        else
-            set.Add(id);
-    }
-
-    private int GetEnabledTypeCount(DebugConsoleManager manager)
-    {
-        int count = 0;
-        foreach (DebugType type in Enum.GetValues(typeof(DebugType)))
-        {
-            if (manager.GetTypeEnabled(type))
-                count++;
-        }
-
-        return count;
+        string keyword = _logSearch.Trim();
+        return Contains(entry.Message, keyword)
+               || Contains(entry.SourceName, keyword)
+               || Contains(entry.MemberName, keyword)
+               || Contains(entry.Type.ToString(), keyword)
+               || Contains(entry.Time, keyword);
     }
 
     private bool ShouldShowGameObject(GameObject go)
@@ -1322,272 +725,558 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (string.IsNullOrWhiteSpace(_hierarchySearch))
             return true;
 
-        if (ContainsIgnoreCase(go.name, _hierarchySearch))
+        string keyword = _hierarchySearch.Trim();
+        if (Contains(go.name, keyword))
             return true;
 
-        if (HasMatchingComponent(go, _hierarchySearch))
-            return true;
-
-        for (int i = 0; i < go.transform.childCount; i++)
+        Component[] components = go.GetComponents<Component>();
+        for (int i = 0; i < components.Length; i++)
         {
-            if (ShouldShowGameObject(go.transform.GetChild(i).gameObject))
+            Component component = components[i];
+            if (component == null)
+                continue;
+
+            if (_hideTransform && component is Transform)
+                continue;
+
+            if (Contains(component.GetType().Name, keyword))
+                return true;
+        }
+
+        for (int childIndex = 0; childIndex < go.transform.childCount; childIndex++)
+        {
+            Transform child = go.transform.GetChild(childIndex);
+            if (child != null && ShouldShowGameObject(child.gameObject))
                 return true;
         }
 
         return false;
+    }
+
+    private bool ShouldShowComponent(Component component)
+    {
+        if (component == null)
+            return false;
+
+        if (string.IsNullOrWhiteSpace(_hierarchySearch))
+            return true;
+
+        string keyword = _hierarchySearch.Trim();
+        return Contains(component.GetType().Name, keyword)
+               || Contains(component.gameObject.name, keyword);
     }
 
     private bool HasVisibleChildren(GameObject go)
     {
         for (int i = 0; i < go.transform.childCount; i++)
         {
-            if (ShouldShowGameObject(go.transform.GetChild(i).gameObject))
+            Transform child = go.transform.GetChild(i);
+            if (child != null && ShouldShowGameObject(child.gameObject))
                 return true;
         }
 
         return false;
     }
 
-    private bool HasVisibleComponents(Component[] components)
-    {
-        if (components == null || components.Length == 0)
-            return false;
-
-        foreach (Component component in components)
-        {
-            if (component == null)
-                continue;
-
-            if (_hideTransform && component is Transform)
-                continue;
-
-            return true;
-        }
-
-        return false;
-    }
-
-    private bool HasMatchingComponent(GameObject go, string query)
+    private bool HasVisibleComponents(GameObject go)
     {
         Component[] components = go.GetComponents<Component>();
-
-        foreach (Component component in components)
+        for (int i = 0; i < components.Length; i++)
         {
+            Component component = components[i];
             if (component == null)
                 continue;
 
             if (_hideTransform && component is Transform)
                 continue;
 
-            if (ContainsIgnoreCase(component.GetType().Name, query))
+            if (ShouldShowComponent(component))
                 return true;
         }
 
         return false;
     }
 
-    private bool ShouldShowComponent(Component component, string ownerName)
+    private bool GetExpanded(int instanceId)
     {
-        if (component == null)
-            return false;
-
-        if (_hideTransform && component is Transform)
-            return false;
-
-        if (string.IsNullOrWhiteSpace(_hierarchySearch))
-            return true;
-
-        if (ContainsIgnoreCase(ownerName, _hierarchySearch))
-            return true;
-
-        return ContainsIgnoreCase(component.GetType().Name, _hierarchySearch);
+        return _expandedObjectState.TryGetValue(instanceId, out bool expanded) && expanded;
     }
 
-
-    private void DrawToolbarToggleGroup(DebugConsoleManager manager)
+    private void SetExpanded(int instanceId, bool expanded)
     {
-        bool global = GUILayout.Toggle(manager.GlobalEnabled, "Global", GUILayout.Width(80f));
-        if (global != manager.GlobalEnabled)
-            manager.GlobalEnabled = global;
-
-        bool mirror = GUILayout.Toggle(manager.MirrorToUnityConsole, "Mirror Unity", GUILayout.Width(110f));
-        if (mirror != manager.MirrorToUnityConsole)
-            manager.MirrorToUnityConsole = mirror;
-
-        bool autoScroll = GUILayout.Toggle(_autoScroll, "Auto Scroll", GUILayout.Width(100f));
-        if (autoScroll != _autoScroll)
-            _autoScroll = autoScroll;
-
-        bool hideTransform = GUILayout.Toggle(_hideTransform, "Hide Transform", GUILayout.Width(120f));
-        if (hideTransform != _hideTransform)
-            _hideTransform = hideTransform;
-
-        bool collapsePrevious = GUILayout.Toggle(_collapsePreviousOnSelection, "Collapse Prev", GUILayout.Width(120f));
-        if (collapsePrevious != _collapsePreviousOnSelection)
-            _collapsePreviousOnSelection = collapsePrevious;
-
-        bool blockInput = GUILayout.Toggle(_blockGameplayInputWhenVisible, "Block Input", GUILayout.Width(110f));
-        if (blockInput != _blockGameplayInputWhenVisible)
-        {
-            _blockGameplayInputWhenVisible = blockInput;
-            ApplyRuntimeInteractionState();
-        }
+        _expandedObjectState[instanceId] = expanded;
     }
 
-    private void DrawToolbarActionGroup(DebugConsoleManager manager, string typeButtonLabel)
+    private void SyncManagerStateToUI(DebugConsoleManager manager)
     {
-        if (GUILayout.Button(typeButtonLabel, _toolbarButtonStyle, GUILayout.Width(160f)))
-            _showTypeFilterPanel = !_showTypeFilterPanel;
-
-        if (GUILayout.Button("All Types On", GUILayout.Width(100f)))
-            manager.SetAllTypes(true);
-
-        if (GUILayout.Button("All Types Off", GUILayout.Width(100f)))
-            manager.SetAllTypes(false);
-
-        if (GUILayout.Button("Clear Logs", GUILayout.Width(100f)))
-            manager.ClearLogs();
-
-        if (GUILayout.Button("Clear Focus", GUILayout.Width(100f)))
-            ClearFocus();
-    }
-
-    private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
-    {
-        GUILayout.Label(GetFocusLabel(), _toolbarInfoLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(expanded ? 34f : 18f));
-        GUILayout.Space(8f);
-        GUILayout.Label($"Count : {manager.Entries.Count}", _toolbarInfoLabelStyle, GUILayout.Width(expanded ? 120f : 110f), GUILayout.MinHeight(expanded ? 34f : 18f));
-    }
-
-    private void DrawHierarchySearchField(float fieldWidth, float labelWidth)
-    {
-        GUILayout.Label("Hierarchy Search", GUILayout.Width(labelWidth));
-
-        Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, 24f, GUILayout.Width(fieldWidth), GUILayout.Height(24f));
-        if (Event.current.type == EventType.Repaint)
-            _searchTextFieldStyle.Draw(fieldRect, GUIContent.none, false, false, false, false);
-
-        _hierarchySearchScreenRect = ToScreenRect(fieldRect);
-
-    }
-
-    private void DrawLogSearchField(float labelWidth)
-    {
-        GUILayout.Label("Log Search", GUILayout.Width(labelWidth));
-
-        Rect fieldRect = GUILayoutUtility.GetRect(10f, 24f, GUILayout.ExpandWidth(true), GUILayout.Height(24f));
-        if (Event.current.type == EventType.Repaint)
-            _searchTextFieldStyle.Draw(fieldRect, GUIContent.none, false, false, false, false);
-
-        _logSearchScreenRect = ToScreenRect(fieldRect);
-
-
-        if (GUILayout.Button("Clear Search", GUILayout.Width(100f)))
-        {
-            _hierarchySearch = string.Empty;
-            _logSearch = string.Empty;
-
-            if (_searchOverlay != null)
-                _searchOverlay.ClearTexts();
-        }
-    }
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    private float GetTopAreaWidth()
-    {
-        return Mathf.Max(320f, _windowRect.width - 36f);
-    }
-
-    private int GetTopLayoutLevel(float availableWidth)
-    {
-        if (availableWidth >= 1500f)
-            return 1;
-
-        if (availableWidth >= 980f)
-            return 2;
-
-        return 3;
-    }
-
-    private float GetSearchFieldWidth(float availableWidth, bool stacked)
-    {
-        if (stacked)
-            return Mathf.Max(180f, availableWidth - 130f);
-
-        return Mathf.Clamp((availableWidth * 0.28f), 180f, 280f);
-    }
-
-    private int GetVisibleEntryCount(DebugConsoleManager manager)
-    {
-        int count = 0;
-        IReadOnlyList<DebugEntry> entries = manager.Entries;
-
-        for (int i = 0; i < entries.Count; i++)
-        {
-            if (ShouldDisplayEntry(manager, entries[i]))
-                count++;
-        }
-
-        return count;
-    }
-
-    private void UpdateHierarchyButtonWidths()
-    {
-    }
-
-    private void CollectHierarchyButtonWidths(GameObject go, ref float maxNameWidth)
-    {
-        if (go == null || !ShouldShowGameObject(go))
+        if (manager == null)
             return;
 
-        maxNameWidth = Mathf.Max(maxNameWidth, _linkButtonStyle.CalcSize(new GUIContent($"▶ {GetDisplayName(go.name)}")).x);
+        SetToggleValueWithoutNotify(_globalToggle, manager.GlobalEnabled);
+        SetToggleValueWithoutNotify(_mirrorToggle, manager.MirrorToUnityConsole);
+        SetToggleValueWithoutNotify(_autoScrollToggle, _autoScroll);
+        SetToggleValueWithoutNotify(_hideTransformToggle, _hideTransform);
+        SetToggleValueWithoutNotify(_collapsePrevToggle, _collapsePreviousOnSelection);
+        SetToggleValueWithoutNotify(_blockInputToggle, _blockInput);
 
-        Component[] components = go.GetComponents<Component>();
-        foreach (Component component in components)
+        foreach (KeyValuePair<DebugType, Toggle> pair in _typeToggleMap)
+            SetToggleValueWithoutNotify(pair.Value, manager.GetTypeEnabled(pair.Key));
+
+        UpdateTypeFilterButtonLabel();
+    }
+
+    private void UpdateTypeFilterButtonLabel()
+    {
+        if (_typeFilterToggleLabel == null)
+            return;
+
+        int enabledCount = 0;
+        foreach (KeyValuePair<DebugType, Toggle> pair in _typeToggleMap)
         {
-            if (!ShouldShowComponent(component, go.name))
-                continue;
-
-            maxNameWidth = Mathf.Max(maxNameWidth, _linkButtonStyle.CalcSize(new GUIContent($"▶ {GetDisplayName(component.GetType().Name)}")).x);
+            if (pair.Value != null && pair.Value.isOn)
+                enabledCount++;
         }
 
-        for (int i = 0; i < go.transform.childCount; i++)
-            CollectHierarchyButtonWidths(go.transform.GetChild(i).gameObject, ref maxNameWidth);
+        string arrow = _showTypeFilterPanel ? "▼" : "▶";
+        _typeFilterToggleLabel.text = $"Type Filter {arrow} ({enabledCount}/{_typeToggleMap.Count})";
     }
 
-    private string GetDisplayName(string source)
+    private void UpdateFooterLabels()
     {
-        if (string.IsNullOrEmpty(source))
-            return "(Null)";
-
-        return source.Length > MaxDisplayNameLength ? source.Substring(0, MaxDisplayNameLength) + "..." : source;
+        _focusLabel.text = _focusState.GetFooterLabel(20);
     }
 
-    private bool IsNearBottom(float maxScrollY)
+    private List<GameObject> GetSceneRootObjects()
     {
-        if (maxScrollY <= 0f)
+        List<GameObject> roots = new List<GameObject>();
+        for (int sceneIndex = 0; sceneIndex < SceneManager.sceneCount; sceneIndex++)
+        {
+            Scene scene = SceneManager.GetSceneAt(sceneIndex);
+            if (!scene.IsValid() || !scene.isLoaded)
+                continue;
+
+            roots.AddRange(scene.GetRootGameObjects());
+        }
+
+        return roots;
+    }
+
+    private GameObject FindGameObjectByInstanceId(int instanceId)
+    {
+        List<GameObject> roots = GetSceneRootObjects();
+        for (int i = 0; i < roots.Count; i++)
+        {
+            GameObject result = FindGameObjectRecursive(roots[i].transform, instanceId);
+            if (result != null)
+                return result;
+        }
+
+        return null;
+    }
+
+    private GameObject FindGameObjectRecursive(Transform current, int instanceId)
+    {
+        if (current == null)
+            return null;
+
+        if (current.gameObject.GetInstanceID() == instanceId)
+            return current.gameObject;
+
+        for (int i = 0; i < current.childCount; i++)
+        {
+            GameObject result = FindGameObjectRecursive(current.GetChild(i), instanceId);
+            if (result != null)
+                return result;
+        }
+
+        return null;
+    }
+
+    private void EnsureEventSystemExists()
+    {
+        if (EventSystem.current != null)
+            return;
+
+        GameObject eventSystemObject = new GameObject("EventSystem", typeof(EventSystem));
+        DontDestroyOnLoad(eventSystemObject);
+
+        Type inputSystemModuleType = Type.GetType("UnityEngine.InputSystem.UI.InputSystemUIInputModule, Unity.InputSystem");
+        if (inputSystemModuleType != null)
+            eventSystemObject.AddComponent(inputSystemModuleType);
+        else
+            eventSystemObject.AddComponent<StandaloneInputModule>();
+    }
+
+    private TMP_FontAsset CreateDynamicFontAsset()
+    {
+        string[] fontCandidates =
+        {
+            "Malgun Gothic",
+            "맑은 고딕",
+            "Noto Sans CJK KR",
+            "Noto Sans KR",
+            "Arial Unicode MS",
+            FontFallbackName
+        };
+
+        Font sourceFont = Font.CreateDynamicFontFromOSFont(fontCandidates, 32);
+        if (sourceFont == null)
+            sourceFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
+
+        return TMP_FontAsset.CreateFontAsset(sourceFont, 90, 9, UnityEngine.TextCore.LowLevel.GlyphRenderMode.SDFAA, 1024, 1024, AtlasPopulationMode.Dynamic, true);
+    }
+
+    private RectTransform CreateHorizontalRow(string name, Transform parent, float spacing, float preferredHeight)
+    {
+        GameObject rowObject = new GameObject(name, typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+        rowObject.transform.SetParent(parent, false);
+        RectTransform rect = rowObject.GetComponent<RectTransform>();
+
+        HorizontalLayoutGroup layout = rowObject.GetComponent<HorizontalLayoutGroup>();
+        layout.spacing = spacing;
+        layout.childAlignment = TextAnchor.MiddleLeft;
+        layout.childControlWidth = false;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+
+        LayoutElement layoutElement = rowObject.GetComponent<LayoutElement>();
+        if (preferredHeight > 0f)
+            layoutElement.preferredHeight = preferredHeight;
+
+        return rect;
+    }
+
+    private RectTransform CreateVerticalRow(string name, Transform parent, float spacing)
+    {
+        GameObject rowObject = new GameObject(name, typeof(RectTransform), typeof(VerticalLayoutGroup));
+        rowObject.transform.SetParent(parent, false);
+        RectTransform rect = rowObject.GetComponent<RectTransform>();
+
+        VerticalLayoutGroup layout = rowObject.GetComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(8, 8, 6, 6);
+        layout.spacing = spacing;
+        layout.childAlignment = TextAnchor.UpperLeft;
+        layout.childControlWidth = true;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+
+        return rect;
+    }
+
+    private RectTransform CreatePanel(string name, Transform parent, Color color)
+    {
+        GameObject panelObject = new GameObject(name, typeof(RectTransform), typeof(Image));
+        panelObject.transform.SetParent(parent, false);
+        Image image = panelObject.GetComponent<Image>();
+        image.color = color;
+        return image.rectTransform;
+    }
+
+    private Image CreateImage(string name, Transform parent, Color color)
+    {
+        GameObject imageObject = new GameObject(name, typeof(RectTransform), typeof(Image));
+        imageObject.transform.SetParent(parent, false);
+        Image image = imageObject.GetComponent<Image>();
+        image.color = color;
+        return image;
+    }
+
+    private TextMeshProUGUI CreateText(string name, Transform parent, string text, float fontSize, FontStyles fontStyle, TextAlignmentOptions alignment)
+    {
+        GameObject textObject = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(parent, false);
+        TextMeshProUGUI textComponent = textObject.GetComponent<TextMeshProUGUI>();
+        textComponent.font = _runtimeFontAsset;
+        textComponent.text = text;
+        textComponent.fontSize = fontSize;
+        textComponent.fontStyle = fontStyle;
+        textComponent.alignment = alignment;
+        textComponent.color = new Color(0.90f, 0.94f, 0.96f, 1f);
+        textComponent.enableWordWrapping = false;
+        textComponent.overflowMode = TextOverflowModes.Ellipsis;
+        return textComponent;
+    }
+
+    private Toggle CreateHeaderToggle(Transform parent, string label, Action<bool> callback)
+    {
+        Toggle toggle = CreateTypeToggle(parent, label, callback, 170f, 30f);
+        LayoutElement layout = toggle.gameObject.GetComponent<LayoutElement>();
+        layout.preferredWidth = 170f;
+        return toggle;
+    }
+
+    private Toggle CreateTypeToggle(Transform parent, string label, Action<bool> callback, float preferredWidth = 200f, float preferredHeight = 30f)
+    {
+        GameObject root = new GameObject(label + "Toggle", typeof(RectTransform), typeof(LayoutElement), typeof(Toggle));
+        root.transform.SetParent(parent, false);
+
+        LayoutElement layout = root.GetComponent<LayoutElement>();
+        layout.preferredWidth = preferredWidth;
+        layout.preferredHeight = preferredHeight;
+
+        HorizontalLayoutGroup row = root.AddComponent<HorizontalLayoutGroup>();
+        row.spacing = 6f;
+        row.padding = new RectOffset(2, 2, 2, 2);
+        row.childAlignment = TextAnchor.MiddleLeft;
+        row.childControlWidth = false;
+        row.childControlHeight = false;
+        row.childForceExpandWidth = false;
+        row.childForceExpandHeight = false;
+
+        Toggle toggle = root.GetComponent<Toggle>();
+
+        Image background = CreateImage("Background", root.transform, new Color(0.14f, 0.18f, 0.25f, 1f));
+        RectTransform backgroundRect = background.rectTransform;
+        backgroundRect.sizeDelta = new Vector2(20f, 20f);
+        toggle.targetGraphic = background;
+
+        Image checkmark = CreateImage("Checkmark", background.transform, new Color(0.56f, 0.88f, 0.75f, 1f));
+        Stretch(checkmark.rectTransform, 3f, -3f, 3f, -3f);
+        toggle.graphic = checkmark;
+
+        TextMeshProUGUI labelText = CreateText("Label", root.transform, label, 19f, FontStyles.Normal, TextAlignmentOptions.Left);
+        LayoutElement labelLayout = labelText.gameObject.AddComponent<LayoutElement>();
+        labelLayout.preferredWidth = preferredWidth - 28f;
+        labelText.enableWordWrapping = false;
+
+        toggle.onValueChanged.AddListener(value => callback?.Invoke(value));
+        return toggle;
+    }
+
+    private Toggle CreateInlineToggle(Transform parent, bool initialValue, Action<bool> callback)
+    {
+        GameObject root = new GameObject("InlineToggle", typeof(RectTransform), typeof(LayoutElement), typeof(Toggle));
+        root.transform.SetParent(parent, false);
+        LayoutElement layout = root.GetComponent<LayoutElement>();
+        layout.preferredWidth = 22f;
+        layout.preferredHeight = 22f;
+
+        Toggle toggle = root.GetComponent<Toggle>();
+        Image background = CreateImage("Background", root.transform, new Color(0.15f, 0.19f, 0.24f, 1f));
+        Stretch(background.rectTransform, 0f, 0f, 0f, 0f);
+        toggle.targetGraphic = background;
+
+        Image checkmark = CreateImage("Checkmark", background.transform, new Color(0.56f, 0.88f, 0.75f, 1f));
+        Stretch(checkmark.rectTransform, 4f, -4f, 4f, -4f);
+        toggle.graphic = checkmark;
+
+        toggle.SetIsOnWithoutNotify(initialValue);
+        toggle.onValueChanged.AddListener(value => callback?.Invoke(value));
+        return toggle;
+    }
+
+    private Button CreateButton(Transform parent, string text, Action onClick, float width = 170f)
+    {
+        return CreateButton(parent, text, onClick, out _, width);
+    }
+
+    private Button CreateButton(Transform parent, string text, Action onClick, out TextMeshProUGUI label, float width = 170f)
+    {
+        GameObject buttonObject = new GameObject(text + "Button", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+        buttonObject.transform.SetParent(parent, false);
+
+        LayoutElement layout = buttonObject.GetComponent<LayoutElement>();
+        layout.preferredWidth = width;
+        layout.preferredHeight = 34f;
+
+        Image image = buttonObject.GetComponent<Image>();
+        image.color = new Color(0.22f, 0.28f, 0.37f, 1f);
+
+        Button button = buttonObject.GetComponent<Button>();
+        ColorBlock colors = button.colors;
+        colors.normalColor = image.color;
+        colors.highlightedColor = new Color(0.28f, 0.35f, 0.46f, 1f);
+        colors.pressedColor = new Color(0.18f, 0.24f, 0.31f, 1f);
+        colors.selectedColor = new Color(0.28f, 0.35f, 0.46f, 1f);
+        button.colors = colors;
+        button.onClick.AddListener(() => onClick?.Invoke());
+
+        label = CreateText("Label", buttonObject.transform, text, 18f, FontStyles.Normal, TextAlignmentOptions.Center);
+        Stretch(label.rectTransform, 6f, -6f, 2f, -2f);
+        label.text = text;
+        return button;
+    }
+
+    private Button CreateRowButton(Transform parent, string text, Action onClick, TextAlignmentOptions alignment, bool flexible, float width = 0f)
+    {
+        GameObject buttonObject = new GameObject(text + "Button", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+        buttonObject.transform.SetParent(parent, false);
+
+        Image image = buttonObject.GetComponent<Image>();
+        image.color = new Color(0.18f, 0.22f, 0.28f, 0.95f);
+
+        LayoutElement layout = buttonObject.GetComponent<LayoutElement>();
+        if (flexible)
+            layout.flexibleWidth = 1f;
+        else
+            layout.preferredWidth = width;
+        layout.preferredHeight = 24f;
+
+        Button button = buttonObject.GetComponent<Button>();
+        ColorBlock colors = button.colors;
+        colors.normalColor = image.color;
+        colors.highlightedColor = new Color(0.24f, 0.30f, 0.38f, 1f);
+        colors.pressedColor = new Color(0.15f, 0.19f, 0.24f, 1f);
+        colors.selectedColor = new Color(0.24f, 0.30f, 0.38f, 1f);
+        button.colors = colors;
+        button.onClick.AddListener(() => onClick?.Invoke());
+
+        TextMeshProUGUI label = CreateText("Label", buttonObject.transform, text, 18f, FontStyles.Normal, alignment);
+        Stretch(label.rectTransform, 6f, -6f, 0f, 0f);
+        label.enableWordWrapping = false;
+        label.overflowMode = TextOverflowModes.Ellipsis;
+        return button;
+    }
+
+    private void CreateLabeledInput(Transform parent, string label, out TMP_InputField inputField, Action<string> onValueChanged, float widthWeight)
+    {
+        GameObject containerObject = new GameObject(label + "Container", typeof(RectTransform), typeof(LayoutElement), typeof(HorizontalLayoutGroup));
+        containerObject.transform.SetParent(parent, false);
+        LayoutElement containerLayout = containerObject.GetComponent<LayoutElement>();
+        containerLayout.flexibleWidth = widthWeight;
+        containerLayout.preferredHeight = 34f;
+
+        HorizontalLayoutGroup row = containerObject.GetComponent<HorizontalLayoutGroup>();
+        row.spacing = 6f;
+        row.childAlignment = TextAnchor.MiddleLeft;
+        row.childControlWidth = false;
+        row.childControlHeight = true;
+        row.childForceExpandWidth = false;
+        row.childForceExpandHeight = false;
+
+        TextMeshProUGUI labelText = CreateText("Label", containerObject.transform, label, 19f, FontStyles.Normal, TextAlignmentOptions.Left);
+        LayoutElement labelLayout = labelText.gameObject.AddComponent<LayoutElement>();
+        labelLayout.preferredWidth = 150f;
+
+        inputField = CreateInputField(containerObject.transform, onValueChanged);
+        LayoutElement inputLayout = inputField.gameObject.GetComponent<LayoutElement>();
+        inputLayout.flexibleWidth = 1f;
+    }
+
+    private TMP_InputField CreateInputField(Transform parent, Action<string> onValueChanged)
+    {
+        GameObject root = new GameObject("InputField", typeof(RectTransform), typeof(Image), typeof(TMP_InputField), typeof(LayoutElement));
+        root.transform.SetParent(parent, false);
+
+        LayoutElement layout = root.GetComponent<LayoutElement>();
+        layout.preferredHeight = 34f;
+
+        Image background = root.GetComponent<Image>();
+        background.color = new Color(0.11f, 0.14f, 0.18f, 1f);
+
+        TMP_InputField inputField = root.GetComponent<TMP_InputField>();
+        inputField.lineType = TMP_InputField.LineType.SingleLine;
+        inputField.contentType = TMP_InputField.ContentType.Standard;
+        inputField.richText = false;
+        inputField.customCaretColor = true;
+        inputField.caretColor = new Color(0.83f, 0.96f, 0.92f, 1f);
+        inputField.selectionColor = new Color(0.24f, 0.40f, 0.36f, 0.95f);
+        inputField.shouldHideMobileInput = false;
+        inputField.resetOnDeActivation = false;
+        inputField.restoreOriginalTextOnEscape = false;
+        inputField.caretWidth = 2;
+
+        GameObject textArea = new GameObject("Text Area", typeof(RectTransform), typeof(RectMask2D));
+        textArea.transform.SetParent(root.transform, false);
+        RectTransform textAreaRect = textArea.GetComponent<RectTransform>();
+        Stretch(textAreaRect, 8f, -8f, 5f, -5f);
+
+        TextMeshProUGUI placeholder = CreateText("Placeholder", textArea.transform, string.Empty, 19f, FontStyles.Normal, TextAlignmentOptions.Left);
+        Stretch(placeholder.rectTransform, 0f, 0f, 0f, 0f);
+        placeholder.color = new Color(0.52f, 0.62f, 0.66f, 0.7f);
+
+        TextMeshProUGUI text = CreateText("Text", textArea.transform, string.Empty, 19f, FontStyles.Normal, TextAlignmentOptions.Left);
+        Stretch(text.rectTransform, 0f, 0f, 0f, 0f);
+        text.enableWordWrapping = false;
+        text.overflowMode = TextOverflowModes.Masking;
+
+        inputField.textViewport = textAreaRect;
+        inputField.textComponent = text;
+        inputField.placeholder = placeholder;
+        inputField.onValueChanged.AddListener(value => onValueChanged?.Invoke(value));
+        return inputField;
+    }
+
+    private void ClearChildren(RectTransform parent)
+    {
+        if (parent == null)
+            return;
+
+        for (int i = parent.childCount - 1; i >= 0; i--)
+            Destroy(parent.GetChild(i).gameObject);
+    }
+
+    private void SetToggleValueWithoutNotify(Toggle toggle, bool value)
+    {
+        if (toggle == null)
+            return;
+
+        toggle.SetIsOnWithoutNotify(value);
+    }
+
+    private Color GetObjectRowColor(int instanceId)
+    {
+        if (_focusState.IsObjectFocused(instanceId))
+            return new Color(0.85f, 0.67f, 0.18f, 0.78f);
+
+        if (_focusState.IsFocusedObjectParent(instanceId))
+            return new Color(0.58f, 0.46f, 0.13f, 0.66f);
+
+        return new Color(0.18f, 0.22f, 0.28f, 0.60f);
+    }
+
+    private Color GetLogRowColor(DebugLogLevel level)
+    {
+        switch (level)
+        {
+            case DebugLogLevel.Warning:
+                return new Color(0.38f, 0.28f, 0.06f, 0.90f);
+            case DebugLogLevel.Error:
+                return new Color(0.44f, 0.10f, 0.10f, 0.90f);
+            default:
+                return new Color(0.17f, 0.20f, 0.25f, 0.90f);
+        }
+    }
+
+    private bool Contains(string source, string keyword)
+    {
+        if (string.IsNullOrEmpty(keyword))
             return true;
 
-        float remaining = maxScrollY - _logScroll.y;
-        return remaining <= Mathf.Max(maxScrollY * 0.05f, 32f);
+        return !string.IsNullOrEmpty(source)
+               && source.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
-    private bool ContainsIgnoreCase(string source, string keyword)
+    private string TrimName(string value)
     {
-        if (string.IsNullOrEmpty(source) || string.IsNullOrEmpty(keyword))
-            return false;
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
 
-        return source.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0;
+        return value.Length > 36 ? value.Substring(0, 36) + "..." : value;
+    }
+
+    private Color ColorFromHex(string colorHex, Color fallback)
+    {
+        if (string.IsNullOrWhiteSpace(colorHex))
+            return fallback;
+
+        return ColorUtility.TryParseHtmlString(colorHex, out Color parsedColor) ? parsedColor : fallback;
+    }
+
+    private void Stretch(RectTransform rectTransform, float left, float right, float top, float bottom)
+    {
+        rectTransform.anchorMin = Vector2.zero;
+        rectTransform.anchorMax = Vector2.one;
+        rectTransform.offsetMin = new Vector2(left, top);
+        rectTransform.offsetMax = new Vector2(right, bottom);
+    }
+
+    private void SetImageBorder(Image image, Color borderColor)
+    {
+        Outline outline = image.gameObject.AddComponent<Outline>();
+        outline.effectColor = borderColor;
+        outline.effectDistance = new Vector2(1f, -1f);
     }
 }
