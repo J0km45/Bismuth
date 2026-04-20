@@ -2,7 +2,6 @@ using UnityEngine.TextCore.LowLevel;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.EventSystems;
 
 public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 {
@@ -16,7 +15,6 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
     private RectTransform _hierarchyRectTransform;
     private RectTransform _logRectTransform;
     private TMP_FontAsset _dynamicFontAsset;
-    private Image _inputBlocker;
 
     public string HierarchyText => _hierarchyInput != null ? _hierarchyInput.text : string.Empty;
     public string LogText => _logInput != null ? _logInput.text : string.Empty;
@@ -41,8 +39,6 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         _canvasRect.offsetMin = Vector2.zero;
         _canvasRect.offsetMax = Vector2.zero;
 
-        _inputBlocker = CreateInputBlocker();
-
         _dynamicFontAsset = CreateDynamicTMPFontAsset();
 
         _hierarchyInput = CreateInputField("HierarchySearchInput", out _hierarchyRectTransform);
@@ -63,27 +59,27 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 
         if (_logInput != null)
             _logInput.gameObject.SetActive(visible);
-
-    }
-
-    public void SetInputBlockerVisible(bool visible)
-    {
-        if (_inputBlocker == null)
-            return;
-
-        _inputBlocker.gameObject.SetActive(visible);
-        _inputBlocker.raycastTarget = visible;
     }
 
 
     public void FocusHierarchy()
     {
-        FocusInput(_hierarchyInput);
+        if (_hierarchyInput == null)
+            return;
+
+        _hierarchyInput.gameObject.SetActive(true);
+        _hierarchyInput.ActivateInputField();
+        _hierarchyInput.Select();
     }
 
     public void FocusLog()
     {
-        FocusInput(_logInput);
+        if (_logInput == null)
+            return;
+
+        _logInput.gameObject.SetActive(true);
+        _logInput.ActivateInputField();
+        _logInput.Select();
     }
     public void SetTexts(string hierarchyText, string logText)
     {
@@ -116,7 +112,6 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         ApplyScreenRect(_logRectTransform, screenRect);
     }
 
-
     private TMP_InputField CreateInputField(string objectName, out RectTransform rootRect)
     {
         GameObject root = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(TMP_InputField));
@@ -129,7 +124,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         rootRect.sizeDelta = new Vector2(240f, FieldHeight);
 
         Image background = root.GetComponent<Image>();
-        background.color = new Color(0f, 0f, 0f, 0.01f);
+        background.color = new Color(0.10f, 0.17f, 0.16f, 0.02f);
         background.raycastTarget = true;
 
         TMP_InputField inputField = root.GetComponent<TMP_InputField>();
@@ -163,68 +158,10 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         inputField.textComponent = text;
         inputField.placeholder = placeholder;
 
-        inputField.onSelect.AddListener(_ => FocusInput(inputField));
-
-        AddPointerFocusTrigger(root, inputField);
+        inputField.onSelect.AddListener(_ => inputField.ActivateInputField());
 
         return inputField;
     }
-
-    private Image CreateInputBlocker()
-    {
-        GameObject blockerObject = new GameObject("InputBlocker", typeof(RectTransform), typeof(Image));
-        blockerObject.transform.SetParent(transform, false);
-        blockerObject.transform.SetAsFirstSibling();
-
-        RectTransform blockerRect = blockerObject.GetComponent<RectTransform>();
-        blockerRect.anchorMin = Vector2.zero;
-        blockerRect.anchorMax = Vector2.one;
-        blockerRect.offsetMin = Vector2.zero;
-        blockerRect.offsetMax = Vector2.zero;
-
-        Image blocker = blockerObject.GetComponent<Image>();
-        blocker.color = new Color(0f, 0f, 0f, 0.001f);
-        blocker.raycastTarget = false;
-        blockerObject.SetActive(false);
-        return blocker;
-    }
-
-    private void AddPointerFocusTrigger(GameObject targetObject, TMP_InputField inputField)
-    {
-        EventTrigger eventTrigger = targetObject.GetComponent<EventTrigger>();
-        if (eventTrigger == null)
-            eventTrigger = targetObject.AddComponent<EventTrigger>();
-
-        EventTrigger.Entry pointerDownEntry = new EventTrigger.Entry
-        {
-            eventID = EventTriggerType.PointerDown
-        };
-        pointerDownEntry.callback.AddListener(_ => FocusInput(inputField));
-        eventTrigger.triggers.Add(pointerDownEntry);
-
-        EventTrigger.Entry selectEntry = new EventTrigger.Entry
-        {
-            eventID = EventTriggerType.Select
-        };
-        selectEntry.callback.AddListener(_ => FocusInput(inputField));
-        eventTrigger.triggers.Add(selectEntry);
-    }
-
-    private void FocusInput(TMP_InputField inputField)
-    {
-        if (inputField == null)
-            return;
-
-        inputField.gameObject.SetActive(true);
-
-        if (EventSystem.current != null)
-            EventSystem.current.SetSelectedGameObject(inputField.gameObject);
-
-        inputField.Select();
-        inputField.ActivateInputField();
-        inputField.MoveTextEnd(false);
-    }
-
 
     private TextMeshProUGUI CreateTextChild(Transform parent, string objectName, Color color)
     {
@@ -285,5 +222,4 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         rectTransform.anchoredPosition = new Vector2(screenRect.xMin, -screenRect.yMin);
         rectTransform.sizeDelta = new Vector2(screenRect.width, Mathf.Max(FieldHeight, screenRect.height));
     }
-
 }
