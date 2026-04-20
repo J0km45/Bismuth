@@ -536,37 +536,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         for (int i = 0; i < roots.Length; i++)
             DrawGameObjectNode(manager, roots[i], 0, panelWidth);
-
         GUILayout.EndScrollView();
-
-        GUILayout.Space(4f);
-        string footerFocusFullText = GetFocusLabel();
-        string footerFocusDisplayText = GetFooterFocusLabel();
-        string footerCountText = $"Count : {GetVisibleEntryCount(manager)}";
-        float footerHorizontalPadding = 10f;
-        float footerGap = 12f;
-        float footerFocusRequiredWidth = _footerLeftLabelStyle.CalcSize(new GUIContent(footerFocusDisplayText)).x;
-        float footerCountRequiredWidth = _footerRightLabelStyle.CalcSize(new GUIContent(footerCountText)).x;
-        bool useTwoLineFooter = panelWidth < footerFocusRequiredWidth + footerCountRequiredWidth + (footerHorizontalPadding * 2f) + footerGap;
-
-        if (useTwoLineFooter)
-        {
-            GUILayout.BeginVertical(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(52f));
-
-            GUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.Label(new GUIContent(footerFocusDisplayText, footerFocusFullText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.EndHorizontal();
-
-            GUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.EndHorizontal();
-
-            GUILayout.EndVertical();
-        }
+        GUILayout.EndVertical();
+    }
         else
         {
             GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(30f));

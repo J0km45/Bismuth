@@ -129,7 +129,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         rootRect.sizeDelta = new Vector2(240f, FieldHeight);
 
         Image background = root.GetComponent<Image>();
-        background.color = new Color(0.10f, 0.17f, 0.16f, 0.01f);
+        background.color = new Color(0.08f, 0.11f, 0.16f, 0.18f);
         background.raycastTarget = true;
 
         InputField inputField = root.GetComponent<InputField>();
@@ -154,7 +154,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         Text placeholder = CreateTextChild(textArea.transform, "Placeholder", new Color(0.46f, 0.60f, 0.58f, 0.95f));
         placeholder.text = string.Empty;
 
-        Text text = CreateTextChild(textArea.transform, "Text", new Color(0.82f, 0.95f, 0.91f, 1f));
+        Text text = CreateTextChild(textArea.transform, "Text", new Color(0.96f, 0.98f, 1f, 1f));
 
         inputField.textComponent = text;
         inputField.placeholder = placeholder;
