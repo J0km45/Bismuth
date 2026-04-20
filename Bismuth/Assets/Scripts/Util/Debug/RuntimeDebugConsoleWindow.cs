@@ -6,6 +6,7 @@ using UnityEngine.SceneManagement;
 
 public class RuntimeDebugConsoleWindow : MonoBehaviour
 {
+    private const string PrefKeyPrefix = "DebugConsole.RuntimeWindow";
     [SerializeField] private KeyCode _toggleKey = KeyCode.F1;
     [SerializeField] private bool _visible = false;
     [SerializeField] private Rect _windowRect = new Rect(20f, 20f, 1450f, 850f);
@@ -49,16 +50,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private Texture2D _solidTexture;
     private bool _stylesDirty = true;
 
-    private readonly Color _selectedObjectBg = new Color(0.98f, 0.80f, 0.18f, 1f);
-    private readonly Color _selectedComponentBg = new Color(0.84f, 0.64f, 0.14f, 1f);
-    private readonly Color _selectedParentBg = new Color(0.50f, 0.38f, 0.08f, 1f);
-    private readonly Color _objectFocusedRowBg = new Color(0.98f, 0.80f, 0.18f, 0.32f);
-    private readonly Color _parentFocusedRowBg = new Color(0.76f, 0.58f, 0.12f, 0.22f);
-    private readonly Color _componentFocusedRowBg = new Color(0.84f, 0.64f, 0.14f, 0.36f);
-    private readonly Color _selectedText = new Color(0.18f, 0.11f, 0.00f, 1f);
-    private readonly Color _selectedParentText = new Color(1.00f, 0.95f, 0.78f, 1f);
-    private readonly Color _toolbarInfoText = new Color(1.00f, 0.89f, 0.34f, 1f);
-    private readonly Color _footerInfoTextColor = new Color(0.96f, 0.84f, 0.22f, 1f);
 
     private const int MaxDisplayNameLength = 15;
     private const int FooterFocusSegmentMaxLength = 16;
@@ -88,11 +79,35 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         SceneManager.sceneLoaded += HandleSceneLoaded;
         _stylesDirty = true;
         _titleStyle = null;
+        LoadViewState();
     }
 
     private void OnDisable()
     {
+        SaveViewState();
         SceneManager.sceneLoaded -= HandleSceneLoaded;
+    }
+
+    private void LoadViewState()
+    {
+        _visible = DebugConsolePreferenceStore.GetBool($"{PrefKeyPrefix}.Visible", _visible);
+        _autoScroll = DebugConsolePreferenceStore.GetBool($"{PrefKeyPrefix}.AutoScroll", _autoScroll);
+        _hideTransform = DebugConsolePreferenceStore.GetBool($"{PrefKeyPrefix}.HideTransform", _hideTransform);
+        _collapsePreviousOnSelection = DebugConsolePreferenceStore.GetBool($"{PrefKeyPrefix}.CollapsePrev", _collapsePreviousOnSelection);
+        _showTypeFilterPanel = DebugConsolePreferenceStore.GetBool($"{PrefKeyPrefix}.ShowTypeFilterPanel", _showTypeFilterPanel);
+        _hierarchyPanelWidth = DebugConsolePreferenceStore.GetFloat($"{PrefKeyPrefix}.HierarchyPanelWidth", _hierarchyPanelWidth);
+        _windowRect = DebugConsolePreferenceStore.GetRect($"{PrefKeyPrefix}.WindowRect", _windowRect);
+    }
+
+    private void SaveViewState()
+    {
+        DebugConsolePreferenceStore.SetBool($"{PrefKeyPrefix}.Visible", _visible);
+        DebugConsolePreferenceStore.SetBool($"{PrefKeyPrefix}.AutoScroll", _autoScroll);
+        DebugConsolePreferenceStore.SetBool($"{PrefKeyPrefix}.HideTransform", _hideTransform);
+        DebugConsolePreferenceStore.SetBool($"{PrefKeyPrefix}.CollapsePrev", _collapsePreviousOnSelection);
+        DebugConsolePreferenceStore.SetBool($"{PrefKeyPrefix}.ShowTypeFilterPanel", _showTypeFilterPanel);
+        DebugConsolePreferenceStore.SetFloat($"{PrefKeyPrefix}.HierarchyPanelWidth", _hierarchyPanelWidth);
+        DebugConsolePreferenceStore.SetRect($"{PrefKeyPrefix}.WindowRect", _windowRect);
     }
 
     private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -109,7 +124,10 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private void Update()
     {
         if (Input.GetKeyDown(_toggleKey))
+        {
             _visible = !_visible;
+            SaveViewState();
+        }
     }
 
     private void OnGUI()
@@ -118,7 +136,10 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             return;
 
         InitStyles();
+        Rect previousRect = _windowRect;
         _windowRect = GUI.Window(91357, _windowRect, DrawWindow, "Runtime Debug Console");
+        if (previousRect != _windowRect)
+            SaveViewState();
     }
 
     private void InitStyles()
@@ -128,137 +149,38 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         _stylesDirty = false;
 
-        _titleStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontStyle = FontStyle.Bold,
-            fontSize = 13,
-            wordWrap = false,
-            clipping = TextClipping.Clip
-        };
+        DebugConsoleStyleSet styles = DebugConsoleStyleFactory.Create(
+            GUI.skin.label,
+            GUI.skin.label,
+            GUI.skin.box,
+            GUI.skin.textField,
+            GUI.skin.button,
+            HierarchyRowHeight,
+            HierarchyFoldoutSize,
+            _solidTexture);
 
-        _boxStyle = new GUIStyle(GUI.skin.box)
-        {
-            alignment = TextAnchor.UpperLeft,
-            padding = new RectOffset(8, 8, 8, 8)
-        };
-
-        _richLabelStyle = new GUIStyle(GUI.skin.label)
-        {
-            richText = true,
-            wordWrap = true,
-            fontSize = 12
-        };
-
-        _dimLabelStyle = new GUIStyle(GUI.skin.label);
-        _dimLabelStyle.normal.textColor = new Color(0.6f, 0.6f, 0.6f);
-
-        _searchTextFieldStyle = new GUIStyle(GUI.skin.textField)
-        {
-            fontSize = 12
-        };
-
-        _linkButtonStyle = new GUIStyle(GUI.skin.button)
-        {
-            alignment = TextAnchor.MiddleLeft,
-            padding = new RectOffset(6, 6, 0, 0),
-            margin = new RectOffset(0, 0, 0, 0),
-            fixedHeight = HierarchyRowHeight,
-            fontStyle = FontStyle.Normal,
-            wordWrap = false,
-            clipping = TextClipping.Clip
-        };
-        Color normalButtonText = new Color(0.84f, 0.96f, 0.92f, 1f);
-        _linkButtonStyle.normal.textColor = normalButtonText;
-        _linkButtonStyle.hover.textColor = normalButtonText;
-        _linkButtonStyle.active.textColor = normalButtonText;
-        _linkButtonStyle.focused.textColor = normalButtonText;
-        _linkButtonStyle.onNormal.textColor = normalButtonText;
-        _linkButtonStyle.onHover.textColor = normalButtonText;
-        _linkButtonStyle.onActive.textColor = normalButtonText;
-        _linkButtonStyle.onFocused.textColor = normalButtonText;
-
-        _disabledButtonStyle = new GUIStyle(_linkButtonStyle);
-        _disabledButtonStyle.normal.textColor = new Color(0.55f, 0.55f, 0.55f);
-        _disabledButtonStyle.hover.textColor = _disabledButtonStyle.normal.textColor;
-        _disabledButtonStyle.active.textColor = _disabledButtonStyle.normal.textColor;
-
-        _foldoutButtonStyle = new GUIStyle(GUI.skin.button)
-        {
-            alignment = TextAnchor.MiddleCenter,
-            padding = new RectOffset(0, 0, 0, 0),
-            margin = new RectOffset(0, 0, 0, 0),
-            fixedWidth = HierarchyFoldoutSize,
-            fixedHeight = HierarchyRowHeight,
-            fontStyle = FontStyle.Bold
-        };
-
-        if (_solidTexture == null)
-        {
-            _solidTexture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
-            _solidTexture.SetPixel(0, 0, Color.white);
-            _solidTexture.Apply();
-        }
-
-        _objectFocusedRowStyle = CreateRowStyle(_objectFocusedRowBg);
-        _objectParentFocusedRowStyle = CreateRowStyle(_parentFocusedRowBg);
-        _componentFocusedRowStyle = CreateRowStyle(_componentFocusedRowBg);
-
-        _objectSelectedButtonStyle = CreateButtonStyle(_selectedObjectBg, _selectedText, true, TextAnchor.MiddleLeft);
-        _parentSelectedButtonStyle = CreateButtonStyle(_selectedParentBg, _selectedParentText, true, TextAnchor.MiddleLeft);
-        _componentSelectedButtonStyle = CreateButtonStyle(_selectedComponentBg, _selectedText, true, TextAnchor.MiddleLeft);
-
-        _toolbarButtonStyle = new GUIStyle(GUI.skin.button)
-        {
-            alignment = TextAnchor.MiddleCenter
-        };
-
-        _toolbarInfoLabelStyle = new GUIStyle(GUI.skin.label)
-        {
-            alignment = TextAnchor.MiddleLeft,
-            wordWrap = false,
-            richText = false,
-            fontStyle = FontStyle.Bold
-        };
-        _toolbarInfoLabelStyle.normal.textColor = _toolbarInfoText;
-        _toolbarInfoLabelStyle.hover.textColor = _toolbarInfoText;
-        _toolbarInfoLabelStyle.active.textColor = _toolbarInfoText;
-        _toolbarInfoLabelStyle.focused.textColor = _toolbarInfoText;
-        _toolbarInfoLabelStyle.onNormal.textColor = _toolbarInfoText;
-        _toolbarInfoLabelStyle.onHover.textColor = _toolbarInfoText;
-        _toolbarInfoLabelStyle.onActive.textColor = _toolbarInfoText;
-        _toolbarInfoLabelStyle.onFocused.textColor = _toolbarInfoText;
-
-        _toolbarInfoRightLabelStyle = new GUIStyle(_toolbarInfoLabelStyle)
-        {
-            alignment = TextAnchor.MiddleRight
-        };
-
-        _footerLeftLabelStyle = new GUIStyle(GUI.skin.label)
-        {
-            alignment = TextAnchor.MiddleLeft,
-            wordWrap = false,
-            richText = false,
-            fontStyle = FontStyle.Bold
-        };
-        ApplyLabelTextColor(_footerLeftLabelStyle, _footerInfoTextColor);
-
-        _footerRightLabelStyle = new GUIStyle(_footerLeftLabelStyle)
-        {
-            alignment = TextAnchor.MiddleRight
-        };
+        _titleStyle = styles.TitleStyle;
+        _boxStyle = styles.BoxStyle;
+        _richLabelStyle = styles.RichLabelStyle;
+        _dimLabelStyle = styles.DimLabelStyle;
+        _searchTextFieldStyle = styles.SearchTextFieldStyle;
+        _linkButtonStyle = styles.LinkButtonStyle;
+        _disabledButtonStyle = styles.DisabledButtonStyle;
+        _objectSelectedButtonStyle = styles.ObjectSelectedButtonStyle;
+        _componentSelectedButtonStyle = styles.ComponentSelectedButtonStyle;
+        _parentSelectedButtonStyle = styles.ParentSelectedButtonStyle;
+        _foldoutButtonStyle = styles.FoldoutButtonStyle;
+        _toolbarButtonStyle = styles.ToolbarButtonStyle;
+        _toolbarInfoLabelStyle = styles.ToolbarInfoLabelStyle;
+        _toolbarInfoRightLabelStyle = styles.ToolbarInfoRightLabelStyle;
+        _footerLeftLabelStyle = styles.FooterLeftLabelStyle;
+        _footerRightLabelStyle = styles.FooterRightLabelStyle;
+        _objectFocusedRowStyle = styles.ObjectFocusedRowStyle;
+        _objectParentFocusedRowStyle = styles.ObjectParentFocusedRowStyle;
+        _componentFocusedRowStyle = styles.ComponentFocusedRowStyle;
+        _solidTexture = styles.SolidTexture;
     }
 
-    private void ApplyLabelTextColor(GUIStyle style, Color color)
-    {
-        style.normal.textColor = color;
-        style.hover.textColor = color;
-        style.active.textColor = color;
-        style.focused.textColor = color;
-        style.onNormal.textColor = color;
-        style.onHover.textColor = color;
-        style.onActive.textColor = color;
-        style.onFocused.textColor = color;
-    }
 
     private void DrawWindow(int windowId)
     {
@@ -276,7 +198,10 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         DrawResizablePanels(manager);
 
+        Rect previousRect = _windowRect;
         GUI.DragWindow(new Rect(0, 0, 10000, 24));
+        if (previousRect.position != _windowRect.position || previousRect.size != _windowRect.size)
+            SaveViewState();
     }
 
     private void DrawToolbar(DebugConsoleManager manager)
@@ -364,7 +289,10 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
                 bool next = GUILayout.Toggle(current, type.ToString(), GUILayout.Width(140f));
 
                 if (next != current)
+                {
                     manager.SetTypeEnabled(type, next);
+                    SaveViewState();
+                }
             }
 
             GUILayout.EndHorizontal();
@@ -553,7 +481,10 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         bool nextObjectEnabled = GUILayout.Toggle(objectEnabled, GUIContent.none, GUILayout.Width(HierarchyToggleSize), GUILayout.Height(HierarchyRowHeight));
         if (nextObjectEnabled != objectEnabled)
+        {
             manager.SetGameObjectEnabled(go, nextObjectEnabled);
+            SaveViewState();
+        }
 
         GUIStyle objectStyle = GetObjectButtonStyle(objectEnabled, isObjectFocused, isComponentParentFocused);
         GUIContent objectContent = new GUIContent(GetDisplayName(go.name), go.name);
@@ -599,7 +530,10 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
                 bool componentEnabled = manager.GetComponentEnabled(component);
                 bool nextComponentEnabled = GUILayout.Toggle(componentEnabled, GUIContent.none, GUILayout.Width(HierarchyToggleSize), GUILayout.Height(HierarchyRowHeight));
                 if (nextComponentEnabled != componentEnabled)
+                {
                     manager.SetComponentEnabled(component, nextComponentEnabled);
+                    SaveViewState();
+                }
 
                 GUIStyle componentStyle = GetComponentButtonStyle(objectEnabled, isComponentFocused);
                 GUIContent componentContent = new GUIContent(GetDisplayName(component.GetType().Name), component.GetType().Name);
@@ -1051,54 +985,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         return string.Empty;
     }
 
-    private GUIStyle CreateRowStyle(Color backgroundColor)
-    {
-        Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
-        texture.SetPixel(0, 0, backgroundColor);
-        texture.Apply();
-
-        return new GUIStyle(GUI.skin.box)
-        {
-            normal = { background = texture },
-            border = new RectOffset(0, 0, 0, 0),
-            margin = new RectOffset(0, 0, 1, 1),
-            padding = new RectOffset(3, 3, 1, 1),
-            alignment = TextAnchor.MiddleLeft
-        };
-    }
-
-    private GUIStyle CreateButtonStyle(Color backgroundColor, Color textColor, bool bold, TextAnchor alignment)
-    {
-        Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
-        texture.SetPixel(0, 0, backgroundColor);
-        texture.Apply();
-
-        GUIStyle style = new GUIStyle(_linkButtonStyle)
-        {
-            alignment = alignment,
-            fontStyle = bold ? FontStyle.Bold : FontStyle.Normal,
-            fixedHeight = HierarchyRowHeight
-        };
-
-        style.normal.background = texture;
-        style.hover.background = texture;
-        style.active.background = texture;
-        style.focused.background = texture;
-        style.onNormal.background = texture;
-        style.onHover.background = texture;
-        style.onActive.background = texture;
-        style.onFocused.background = texture;
-        style.normal.textColor = textColor;
-        style.hover.textColor = textColor;
-        style.active.textColor = textColor;
-        style.focused.textColor = textColor;
-        style.onNormal.textColor = textColor;
-        style.onHover.textColor = textColor;
-        style.onActive.textColor = textColor;
-        style.onFocused.textColor = textColor;
-        return style;
-    }
-
     private GUIStyle GetHierarchyRowStyle(bool isObjectFocused, bool isComponentParentFocused, bool isComponentFocused)
     {
         if (isComponentFocused)
@@ -1261,35 +1147,59 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     {
         bool global = GUILayout.Toggle(manager.GlobalEnabled, "Global", GUILayout.Width(80f));
         if (global != manager.GlobalEnabled)
+        {
             manager.GlobalEnabled = global;
+            SaveViewState();
+        }
 
         bool mirror = GUILayout.Toggle(manager.MirrorToUnityConsole, "Mirror Unity", GUILayout.Width(110f));
         if (mirror != manager.MirrorToUnityConsole)
+        {
             manager.MirrorToUnityConsole = mirror;
+            SaveViewState();
+        }
 
         bool autoScroll = GUILayout.Toggle(_autoScroll, "Auto Scroll", GUILayout.Width(100f));
         if (autoScroll != _autoScroll)
+        {
             _autoScroll = autoScroll;
+            SaveViewState();
+        }
 
         bool hideTransform = GUILayout.Toggle(_hideTransform, "Hide Transform", GUILayout.Width(120f));
         if (hideTransform != _hideTransform)
+        {
             _hideTransform = hideTransform;
+            SaveViewState();
+        }
 
         bool collapsePrevious = GUILayout.Toggle(_collapsePreviousOnSelection, "Collapse Prev", GUILayout.Width(120f));
         if (collapsePrevious != _collapsePreviousOnSelection)
+        {
             _collapsePreviousOnSelection = collapsePrevious;
+            SaveViewState();
+        }
     }
 
     private void DrawToolbarActionGroup(DebugConsoleManager manager, string typeButtonLabel)
     {
         if (GUILayout.Button(typeButtonLabel, _toolbarButtonStyle, GUILayout.Width(160f)))
+        {
             _showTypeFilterPanel = !_showTypeFilterPanel;
+            SaveViewState();
+        }
 
         if (GUILayout.Button("All Types On", GUILayout.Width(100f)))
+        {
             manager.SetAllTypes(true);
+            SaveViewState();
+        }
 
         if (GUILayout.Button("All Types Off", GUILayout.Width(100f)))
+        {
             manager.SetAllTypes(false);
+            SaveViewState();
+        }
 
         if (GUILayout.Button("Clear Logs", GUILayout.Width(100f)))
             manager.ClearLogs();

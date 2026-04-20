@@ -100,7 +100,7 @@ public static class DebugTool
 
         DebugConsoleManager manager = DebugConsoleManager.Instance;
 
-        if (manager != null && !manager.IsAllowed(type, gameObjectId, componentId))
+        if (manager != null && !manager.IsAllowed(type, context))
             return;
 
         string color = GetColor(type);
