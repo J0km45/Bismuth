@@ -1,20 +1,18 @@
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 {
     private const float FieldHeight = 24f;
+    private const int FontSize = 16;
 
     private Canvas _canvas;
     private RectTransform _canvasRect;
-    private TMP_InputField _hierarchyInput;
-    private TMP_InputField _logInput;
+    private InputField _hierarchyInput;
+    private InputField _logInput;
     private RectTransform _hierarchyRectTransform;
     private RectTransform _logRectTransform;
-
-    private string _lastHierarchyText = string.Empty;
-    private string _lastLogText = string.Empty;
+    private Font _dynamicFont;
 
     public string HierarchyText => _hierarchyInput != null ? _hierarchyInput.text : string.Empty;
     public string LogText => _logInput != null ? _logInput.text : string.Empty;
@@ -39,6 +37,8 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         _canvasRect.offsetMin = Vector2.zero;
         _canvasRect.offsetMax = Vector2.zero;
 
+        _dynamicFont = CreateDynamicFont();
+
         _hierarchyInput = CreateInputField("HierarchySearchInput", out _hierarchyRectTransform);
         _logInput = CreateInputField("LogSearchInput", out _logRectTransform);
 
@@ -61,21 +61,18 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 
     public void SetTexts(string hierarchyText, string logText)
     {
+        hierarchyText ??= string.Empty;
+        logText ??= string.Empty;
+
         if (_hierarchyInput != null && !_hierarchyInput.isFocused && _hierarchyInput.text != hierarchyText)
-            _hierarchyInput.SetTextWithoutNotify(hierarchyText ?? string.Empty);
+            _hierarchyInput.SetTextWithoutNotify(hierarchyText);
 
         if (_logInput != null && !_logInput.isFocused && _logInput.text != logText)
-            _logInput.SetTextWithoutNotify(logText ?? string.Empty);
-
-        _lastHierarchyText = hierarchyText ?? string.Empty;
-        _lastLogText = logText ?? string.Empty;
+            _logInput.SetTextWithoutNotify(logText);
     }
 
     public void ClearTexts()
     {
-        _lastHierarchyText = string.Empty;
-        _lastLogText = string.Empty;
-
         if (_hierarchyInput != null)
             _hierarchyInput.SetTextWithoutNotify(string.Empty);
 
@@ -93,9 +90,9 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         ApplyScreenRect(_logRectTransform, screenRect);
     }
 
-    private TMP_InputField CreateInputField(string objectName, out RectTransform rootRect)
+    private InputField CreateInputField(string objectName, out RectTransform rootRect)
     {
-        GameObject root = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(TMP_InputField));
+        GameObject root = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(InputField));
         root.transform.SetParent(transform, false);
 
         rootRect = root.GetComponent<RectTransform>();
@@ -105,52 +102,50 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         rootRect.sizeDelta = new Vector2(240f, FieldHeight);
 
         Image background = root.GetComponent<Image>();
-        background.color = new Color(0.10f, 0.17f, 0.16f, 0.96f);
+        background.color = new Color(0.10f, 0.17f, 0.16f, 0.02f);
         background.raycastTarget = true;
 
-        TMP_InputField inputField = root.GetComponent<TMP_InputField>();
-        inputField.lineType = TMP_InputField.LineType.SingleLine;
-        inputField.contentType = TMP_InputField.ContentType.Standard;
-        inputField.richText = false;
+        InputField inputField = root.GetComponent<InputField>();
+        inputField.lineType = InputField.LineType.SingleLine;
+        inputField.contentType = InputField.ContentType.Standard;
+        inputField.shouldHideMobileInput = false;
         inputField.caretWidth = 2;
         inputField.caretColor = new Color(0.78f, 0.93f, 0.89f, 1f);
         inputField.selectionColor = new Color(0.20f, 0.36f, 0.33f, 0.85f);
-        inputField.customCaretColor = true;
-        inputField.resetOnDeActivation = false;
-        inputField.restoreOriginalTextOnEscape = false;
 
-        TextMeshProUGUI text = CreateTextChild(root.transform, "Text", new Color(0.82f, 0.95f, 0.91f, 1f));
-        TextMeshProUGUI placeholder = CreateTextChild(root.transform, "Placeholder", new Color(0.46f, 0.60f, 0.58f, 0.95f));
+        RectTransform viewportRect;
+        Text text = CreateTextChild(root.transform, "Text", out viewportRect, new Color(0.82f, 0.95f, 0.91f, 1f));
+        Text placeholder = CreateTextChild(root.transform, "Placeholder", out _, new Color(0.46f, 0.60f, 0.58f, 0.95f));
         placeholder.text = string.Empty;
 
-        inputField.textViewport = text.rectTransform.parent as RectTransform;
         inputField.textComponent = text;
         inputField.placeholder = placeholder;
-        inputField.onValueChanged.AddListener(_ => CacheTexts());
-        inputField.onSelect.AddListener(_ => CacheTexts());
-        inputField.onDeselect.AddListener(_ => CacheTexts());
+        inputField.textViewport = viewportRect;
 
         return inputField;
     }
 
-    private TextMeshProUGUI CreateTextChild(Transform parent, string objectName, Color color)
+    private Text CreateTextChild(Transform parent, string objectName, out RectTransform viewportRect, Color color)
     {
-        GameObject viewport = parent.Find("Viewport")?.gameObject;
-
+        Transform viewport = parent.Find("Viewport");
         if (viewport == null)
         {
-            viewport = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D));
-            viewport.transform.SetParent(parent, false);
-
-            RectTransform viewportRect = viewport.GetComponent<RectTransform>();
+            GameObject viewportObject = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D));
+            viewportObject.transform.SetParent(parent, false);
+            viewportRect = viewportObject.GetComponent<RectTransform>();
             viewportRect.anchorMin = Vector2.zero;
             viewportRect.anchorMax = Vector2.one;
             viewportRect.offsetMin = new Vector2(8f, 3f);
             viewportRect.offsetMax = new Vector2(-8f, -3f);
+            viewport = viewportObject.transform;
+        }
+        else
+        {
+            viewportRect = viewport.GetComponent<RectTransform>();
         }
 
-        GameObject textObject = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI));
-        textObject.transform.SetParent(viewport.transform, false);
+        GameObject textObject = new GameObject(objectName, typeof(RectTransform), typeof(Text));
+        textObject.transform.SetParent(viewport, false);
 
         RectTransform textRect = textObject.GetComponent<RectTransform>();
         textRect.anchorMin = Vector2.zero;
@@ -158,23 +153,34 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         textRect.offsetMin = Vector2.zero;
         textRect.offsetMax = Vector2.zero;
 
-        TextMeshProUGUI tmp = textObject.GetComponent<TextMeshProUGUI>();
-        tmp.font = TMP_Settings.defaultFontAsset;
-        tmp.fontSize = 19f;
-        tmp.enableWordWrapping = false;
-        tmp.richText = false;
-        tmp.margin = Vector4.zero;
-        tmp.color = color;
-        tmp.alignment = TextAlignmentOptions.MidlineLeft;
-        tmp.extraPadding = false;
+        Text text = textObject.GetComponent<Text>();
+        text.font = _dynamicFont;
+        text.fontSize = FontSize;
+        text.supportRichText = false;
+        text.alignment = TextAnchor.MiddleLeft;
+        text.horizontalOverflow = HorizontalWrapMode.Overflow;
+        text.verticalOverflow = VerticalWrapMode.Truncate;
+        text.color = color;
 
-        return tmp;
+        return text;
     }
 
-    private void CacheTexts()
+    private Font CreateDynamicFont()
     {
-        _lastHierarchyText = _hierarchyInput != null ? _hierarchyInput.text : string.Empty;
-        _lastLogText = _logInput != null ? _logInput.text : string.Empty;
+        string[] candidates =
+        {
+            "Malgun Gothic",
+            "맑은 고딕",
+            "Noto Sans CJK KR",
+            "Arial Unicode MS",
+            "Arial"
+        };
+
+        Font font = Font.CreateDynamicFontFromOSFont(candidates, FontSize);
+        if (font == null)
+            font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+        return font;
     }
 
     private void ApplyScreenRect(RectTransform rectTransform, Rect screenRect)
