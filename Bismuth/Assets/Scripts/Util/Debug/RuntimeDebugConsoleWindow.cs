@@ -5,6 +5,9 @@ using System.Globalization;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using TMPro;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 public class RuntimeDebugConsoleWindow : MonoBehaviour
 {
@@ -14,6 +17,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     [SerializeField] private bool _autoScroll = true;
     [SerializeField] private bool _hideTransform = true;
     [SerializeField] private bool _collapsePreviousOnSelection = true;
+    [SerializeField] private bool _blockGameplayInputWhenVisible = true;
 
     private Vector2 _hierarchyScroll;
     private Vector2 _logScroll;
@@ -106,20 +110,30 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private int _selectedLogIndex = -1;
 
+    private bool _gameplayInputBlocked;
+#if ENABLE_INPUT_SYSTEM
+    private readonly Dictionary<PlayerInput, bool> _capturedPlayerInputStates = new();
+#endif
+
     private void OnEnable()
     {
         SceneManager.sceneLoaded += HandleSceneLoaded;
         _stylesDirty = true;
         _titleStyle = null;
         EnsureSearchOverlay();
+        ApplyRuntimeInteractionState();
     }
 
     private void OnDisable()
     {
         SceneManager.sceneLoaded -= HandleSceneLoaded;
+        ApplyGameplayInputBlock(false);
 
         if (_searchOverlay != null)
+        {
+            _searchOverlay.SetInputBlockerVisible(false);
             _searchOverlay.SetVisible(false);
+        }
     }
 
     private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -134,7 +148,13 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         ClearFocus();
 
         if (_searchOverlay != null)
+        {
+            _searchOverlay.SetInputBlockerVisible(false);
             _searchOverlay.SetVisible(false);
+        }
+
+        ApplyGameplayInputBlock(false);
+        ApplyRuntimeInteractionState();
     }
 
     private void Update()
@@ -144,7 +164,12 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             _visible = !_visible;
 
             if (!_visible && _searchOverlay != null)
+            {
+                _searchOverlay.SetInputBlockerVisible(false);
                 _searchOverlay.SetVisible(false);
+            }
+
+            ApplyRuntimeInteractionState();
         }
     }
 
@@ -155,8 +180,12 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (!_visible)
         {
             if (_searchOverlay != null)
+            {
+                _searchOverlay.SetInputBlockerVisible(false);
                 _searchOverlay.SetVisible(false);
+            }
 
+            ApplyGameplayInputBlock(false);
             return;
         }
 
@@ -169,6 +198,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _windowRect = GUI.Window(91357, _windowRect, DrawWindow, "Runtime Debug Console");
 
         UpdateSearchOverlayLayout();
+        ApplyRuntimeInteractionState();
     }
 
     
@@ -213,6 +243,58 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         Vector2 topLeft = GUIUtility.GUIToScreenPoint(new Vector2(guiRect.xMin, guiRect.yMin));
         return new Rect(topLeft.x, topLeft.y, guiRect.width, guiRect.height);
     }
+
+    private void ApplyRuntimeInteractionState()
+    {
+        bool shouldShowOverlay = _visible;
+        bool shouldBlockGameplayInput = _visible && _blockGameplayInputWhenVisible;
+
+        if (_searchOverlay != null)
+        {
+            _searchOverlay.SetVisible(shouldShowOverlay);
+            _searchOverlay.SetInputBlockerVisible(shouldBlockGameplayInput);
+        }
+
+        ApplyGameplayInputBlock(shouldBlockGameplayInput);
+    }
+
+    private void ApplyGameplayInputBlock(bool shouldBlock)
+    {
+        if (_gameplayInputBlocked == shouldBlock)
+            return;
+
+        _gameplayInputBlocked = shouldBlock;
+
+#if ENABLE_INPUT_SYSTEM
+        if (shouldBlock)
+        {
+            _capturedPlayerInputStates.Clear();
+
+            PlayerInput[] playerInputs = FindObjectsByType<PlayerInput>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < playerInputs.Length; i++)
+            {
+                PlayerInput playerInput = playerInputs[i];
+                if (playerInput == null)
+                    continue;
+
+                _capturedPlayerInputStates[playerInput] = playerInput.enabled;
+                if (playerInput.enabled)
+                    playerInput.enabled = false;
+            }
+        }
+        else
+        {
+            foreach (KeyValuePair<PlayerInput, bool> pair in _capturedPlayerInputStates)
+            {
+                if (pair.Key != null)
+                    pair.Key.enabled = pair.Value;
+            }
+
+            _capturedPlayerInputStates.Clear();
+        }
+#endif
+    }
+
 
     private void InitStyles()
     {
@@ -1361,6 +1443,13 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         bool collapsePrevious = GUILayout.Toggle(_collapsePreviousOnSelection, "Collapse Prev", GUILayout.Width(120f));
         if (collapsePrevious != _collapsePreviousOnSelection)
             _collapsePreviousOnSelection = collapsePrevious;
+
+        bool blockInput = GUILayout.Toggle(_blockGameplayInputWhenVisible, "Block Input", GUILayout.Width(110f));
+        if (blockInput != _blockGameplayInputWhenVisible)
+        {
+            _blockGameplayInputWhenVisible = blockInput;
+            ApplyRuntimeInteractionState();
+        }
     }
 
     private void DrawToolbarActionGroup(DebugConsoleManager manager, string typeButtonLabel)
@@ -1393,15 +1482,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.Label("Hierarchy Search", GUILayout.Width(labelWidth));
 
         Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, 24f, GUILayout.Width(fieldWidth), GUILayout.Height(24f));
-        GUI.Box(fieldRect, GUIContent.none, _searchTextFieldStyle);
         _hierarchySearchScreenRect = ToScreenRect(fieldRect);
-
-        Event current = Event.current;
-        if (current.type == EventType.MouseDown && fieldRect.Contains(current.mousePosition))
-        {
-            _searchOverlay?.FocusHierarchy();
-            current.Use();
-        }
 
         if (_searchOverlay != null && _searchOverlay.IsHierarchyFocused)
             _searchFieldFocusedThisFrame = true;
@@ -1412,15 +1493,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.Label("Log Search", GUILayout.Width(labelWidth));
 
         Rect fieldRect = GUILayoutUtility.GetRect(10f, 24f, GUILayout.ExpandWidth(true), GUILayout.Height(24f));
-        GUI.Box(fieldRect, GUIContent.none, _searchTextFieldStyle);
         _logSearchScreenRect = ToScreenRect(fieldRect);
-
-        Event current = Event.current;
-        if (current.type == EventType.MouseDown && fieldRect.Contains(current.mousePosition))
-        {
-            _searchOverlay?.FocusLog();
-            current.Use();
-        }
 
         if (_searchOverlay != null && _searchOverlay.IsLogFocused)
             _searchFieldFocusedThisFrame = true;
