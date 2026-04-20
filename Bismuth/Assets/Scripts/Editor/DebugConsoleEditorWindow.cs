@@ -813,12 +813,50 @@ public class DebugConsoleEditorWindow : EditorWindow
             return;
 
         if (_collapsePreviousOnSelection)
+            PreserveExpansionWithinTopLevelRoot(target);
+
+        ExpandSelectionPath(target, includeDetails);
+    }
+
+    private void PreserveExpansionWithinTopLevelRoot(Transform target)
+    {
+        Transform topLevelRoot = GetTopLevelRoot(target);
+
+        if (topLevelRoot == null)
         {
             _expandedComponents.Clear();
             _expandedChildren.Clear();
+            return;
         }
 
-        ExpandSelectionPath(target, includeDetails);
+        HashSet<int> allowedIds = new HashSet<int>();
+        CollectSubtreeIds(topLevelRoot, allowedIds);
+
+        _expandedComponents.RemoveWhere(id => !allowedIds.Contains(id));
+        _expandedChildren.RemoveWhere(id => !allowedIds.Contains(id));
+    }
+
+    private Transform GetTopLevelRoot(Transform target)
+    {
+        if (target == null)
+            return null;
+
+        Transform current = target;
+        while (current.parent != null)
+            current = current.parent;
+
+        return current;
+    }
+
+    private void CollectSubtreeIds(Transform node, HashSet<int> ids)
+    {
+        if (node == null || ids == null)
+            return;
+
+        ids.Add(node.gameObject.GetInstanceID());
+
+        for (int i = 0; i < node.childCount; i++)
+            CollectSubtreeIds(node.GetChild(i), ids);
     }
 
     private void ClearFocus()
