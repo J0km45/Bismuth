@@ -61,6 +61,26 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
             _logInput.gameObject.SetActive(visible);
     }
 
+
+    public void FocusHierarchy()
+    {
+        if (_hierarchyInput == null)
+            return;
+
+        _hierarchyInput.gameObject.SetActive(true);
+        _hierarchyInput.ActivateInputField();
+        _hierarchyInput.Select();
+    }
+
+    public void FocusLog()
+    {
+        if (_logInput == null)
+            return;
+
+        _logInput.gameObject.SetActive(true);
+        _logInput.ActivateInputField();
+        _logInput.Select();
+    }
     public void SetTexts(string hierarchyText, string logText)
     {
         hierarchyText ??= string.Empty;
