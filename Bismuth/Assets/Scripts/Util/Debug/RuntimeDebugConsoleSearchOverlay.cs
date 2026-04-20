@@ -92,19 +92,19 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         logText ??= string.Empty;
 
         if (_hierarchyInput != null && !_hierarchyInput.isFocused && _hierarchyInput.text != hierarchyText)
-            _hierarchyInput.SetTextWithoutNotify(hierarchyText);
+            SetInputText(_hierarchyInput, hierarchyText);
 
         if (_logInput != null && !_logInput.isFocused && _logInput.text != logText)
-            _logInput.SetTextWithoutNotify(logText);
+            SetInputText(_logInput, logText);
     }
 
     public void ClearTexts()
     {
         if (_hierarchyInput != null)
-            _hierarchyInput.SetTextWithoutNotify(string.Empty);
+            SetInputText(_hierarchyInput, string.Empty);
 
         if (_logInput != null)
-            _logInput.SetTextWithoutNotify(string.Empty);
+            SetInputText(_logInput, string.Empty);
     }
 
     public void SetHierarchyRect(Rect screenRect)
@@ -137,8 +137,6 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         inputField.lineType = InputField.LineType.SingleLine;
         inputField.contentType = InputField.ContentType.Standard;
         inputField.shouldHideMobileInput = false;
-        inputField.resetOnDeActivation = false;
-        inputField.restoreOriginalTextOnEscape = false;
         inputField.caretWidth = 2;
         inputField.customCaretColor = true;
         inputField.caretColor = new Color(0.78f, 0.93f, 0.89f, 1f);
@@ -165,6 +163,15 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         return inputField;
     }
 
+
+    private void SetInputText(InputField inputField, string value)
+    {
+        if (inputField == null)
+            return;
+
+        inputField.text = value ?? string.Empty;
+        inputField.ForceLabelUpdate();
+    }
     private Text CreateTextChild(Transform parent, string objectName, Color color)
     {
         GameObject textObject = new GameObject(objectName, typeof(RectTransform), typeof(Text));
