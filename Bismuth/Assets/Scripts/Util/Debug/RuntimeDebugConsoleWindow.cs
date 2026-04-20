@@ -1393,9 +1393,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.Label("Hierarchy Search", GUILayout.Width(labelWidth));
 
         Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, 24f, GUILayout.Width(fieldWidth), GUILayout.Height(24f));
-        if (Event.current.type == EventType.Repaint)
-            _searchTextFieldStyle.Draw(fieldRect, GUIContent.none, false, false, false, false);
-
         _hierarchySearchScreenRect = ToScreenRect(fieldRect);
 
         if (_searchOverlay != null && _searchOverlay.IsHierarchyFocused)
@@ -1407,9 +1404,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.Label("Log Search", GUILayout.Width(labelWidth));
 
         Rect fieldRect = GUILayoutUtility.GetRect(10f, 24f, GUILayout.ExpandWidth(true), GUILayout.Height(24f));
-        if (Event.current.type == EventType.Repaint)
-            _searchTextFieldStyle.Draw(fieldRect, GUIContent.none, false, false, false, false);
-
         _logSearchScreenRect = ToScreenRect(fieldRect);
 
         if (_searchOverlay != null && _searchOverlay.IsLogFocused)

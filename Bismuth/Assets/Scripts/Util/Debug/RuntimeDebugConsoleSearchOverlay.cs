@@ -2,6 +2,7 @@ using UnityEngine.TextCore.LowLevel;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 {
@@ -64,23 +65,31 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 
     public void FocusHierarchy()
     {
-        if (_hierarchyInput == null)
-            return;
-
-        _hierarchyInput.gameObject.SetActive(true);
-        _hierarchyInput.ActivateInputField();
-        _hierarchyInput.Select();
+        FocusInput(_hierarchyInput);
     }
 
     public void FocusLog()
     {
-        if (_logInput == null)
+        FocusInput(_logInput);
+    }
+
+    private void FocusInput(TMP_InputField inputField)
+    {
+        if (inputField == null)
             return;
 
-        _logInput.gameObject.SetActive(true);
-        _logInput.ActivateInputField();
-        _logInput.Select();
+        inputField.gameObject.SetActive(true);
+        Canvas.ForceUpdateCanvases();
+
+        if (EventSystem.current != null)
+            EventSystem.current.SetSelectedGameObject(inputField.gameObject);
+
+        inputField.Select();
+        inputField.ActivateInputField();
+        inputField.MoveTextEnd(false);
+        Canvas.ForceUpdateCanvases();
     }
+
     public void SetTexts(string hierarchyText, string logText)
     {
         hierarchyText ??= string.Empty;
@@ -114,7 +123,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 
     private TMP_InputField CreateInputField(string objectName, out RectTransform rootRect)
     {
-        GameObject root = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(TMP_InputField));
+        GameObject root = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(TMP_InputField), typeof(EventTrigger));
         root.transform.SetParent(transform, false);
 
         rootRect = root.GetComponent<RectTransform>();
@@ -124,7 +133,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         rootRect.sizeDelta = new Vector2(240f, FieldHeight);
 
         Image background = root.GetComponent<Image>();
-        background.color = new Color(0.10f, 0.17f, 0.16f, 0.02f);
+        background.color = new Color(0.10f, 0.17f, 0.16f, 0.96f);
         background.raycastTarget = true;
 
         TMP_InputField inputField = root.GetComponent<TMP_InputField>();
@@ -159,6 +168,22 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         inputField.placeholder = placeholder;
 
         inputField.onSelect.AddListener(_ => inputField.ActivateInputField());
+        EventTrigger trigger = root.GetComponent<EventTrigger>();
+        trigger.triggers ??= new System.Collections.Generic.List<EventTrigger.Entry>();
+
+        EventTrigger.Entry pointerDownEntry = new EventTrigger.Entry
+        {
+            eventID = EventTriggerType.PointerDown
+        };
+        pointerDownEntry.callback.AddListener(_ => FocusInput(inputField));
+        trigger.triggers.Add(pointerDownEntry);
+
+        EventTrigger.Entry selectEntry = new EventTrigger.Entry
+        {
+            eventID = EventTriggerType.Select
+        };
+        selectEntry.callback.AddListener(_ => FocusInput(inputField));
+        trigger.triggers.Add(selectEntry);
 
         return inputField;
     }
