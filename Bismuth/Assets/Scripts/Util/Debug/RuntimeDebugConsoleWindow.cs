@@ -70,6 +70,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private readonly Dictionary<int, bool> _expandedObjects = new();
     private readonly DebugConsoleFocusState _focusState = new();
     private readonly List<Behaviour> _blockedInputBehaviours = new();
+    private EventSystem _ownedEventSystem;
 
     private TMP_FontAsset _fontAsset;
     private Font _inputFont;
@@ -206,7 +207,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         _toggleRowRect = CreateRect(_windowRoot, "ToggleRow");
         HorizontalLayoutGroup toggleLayout = _toggleRowRect.gameObject.AddComponent<HorizontalLayoutGroup>();
-        toggleLayout.spacing = 10f;
+        toggleLayout.spacing = 16f;
         toggleLayout.padding = new RectOffset(4, 4, 0, 0);
         toggleLayout.childAlignment = TextAnchor.MiddleLeft;
         toggleLayout.childControlWidth = false;
@@ -220,7 +221,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
                 return;
             manager.GlobalEnabled = v;
             RequestRebuild();
-        }, 110f);
+        }, 76f);
 
         _mirrorToggle = CreateLabeledToggle(_toggleRowRect, "Mirror Unity", v =>
         {
@@ -229,20 +230,20 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
                 return;
             manager.MirrorToUnityConsole = v;
             RequestRebuild();
-        }, 125f);
+        }, 88f);
 
-        _autoScrollToggle = CreateLabeledToggle(_toggleRowRect, "Auto Scroll", v => _autoScroll = v, 115f);
+        _autoScrollToggle = CreateLabeledToggle(_toggleRowRect, "Auto Scroll", v => _autoScroll = v, 88f);
         _hideTransformToggle = CreateLabeledToggle(_toggleRowRect, "Hide Transform", v =>
         {
             _hideTransform = v;
             RequestRebuild();
-        }, 125f);
+        }, 88f);
         _collapsePrevToggle = CreateLabeledToggle(_toggleRowRect, "Collapse Prev", v => _collapsePreviousOnSelection = v, 190f);
-        _blockInputToggle = CreateLabeledToggle(_toggleRowRect, "Block Input", v => ApplyBlockInput(v), 115f);
+        _blockInputToggle = CreateLabeledToggle(_toggleRowRect, "Block Input", v => ApplyBlockInput(v), 88f);
 
         _buttonRowRect = CreateRect(_windowRoot, "ButtonRow");
         HorizontalLayoutGroup buttonLayout = _buttonRowRect.gameObject.AddComponent<HorizontalLayoutGroup>();
-        buttonLayout.spacing = 10f;
+        buttonLayout.spacing = 16f;
         buttonLayout.padding = new RectOffset(0, 0, 0, 0);
         buttonLayout.childAlignment = TextAnchor.MiddleLeft;
         buttonLayout.childControlWidth = false;
@@ -250,7 +251,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         buttonLayout.childForceExpandWidth = false;
         buttonLayout.childForceExpandHeight = false;
 
-        _typeFilterButton = CreateButton(_buttonRowRect, "Type Filter v (0/0)", ToggleTypeFilterPanel, out _typeFilterButtonLabel, 150f);
+        _typeFilterButton = CreateButton(_buttonRowRect, "Type Filter v (0/0)", ToggleTypeFilterPanel, out _typeFilterButtonLabel, 118f);
         CreateButton(_buttonRowRect, "All Types On", () =>
         {
             DebugConsoleManager manager = DebugConsoleManager.Instance;
@@ -259,7 +260,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             manager.SetAllTypes(true);
             SyncManagerStateToUi(manager);
             RequestRebuild();
-        }, out _, 120f);
+        }, out _, 90f);
 
         CreateButton(_buttonRowRect, "All Types Off", () =>
         {
@@ -269,7 +270,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             manager.SetAllTypes(false);
             SyncManagerStateToUi(manager);
             RequestRebuild();
-        }, out _, 120f);
+        }, out _, 90f);
 
         CreateButton(_buttonRowRect, "Clear Logs", () =>
         {
@@ -278,13 +279,13 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
                 return;
             manager.ClearLogs();
             RequestRebuild();
-        }, out _, 120f);
+        }, out _, 90f);
 
         CreateButton(_buttonRowRect, "Clear Focus", () =>
         {
             _focusState.Clear();
             RequestRebuild();
-        }, out _, 120f);
+        }, out _, 90f);
 
         _searchRowRect = CreateRect(_windowRoot, "SearchRow");
         CreateSearchArea();
@@ -589,6 +590,10 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         RebuildLogContent(manager);
         UpdateFooter();
         Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(_hierarchyContent);
+        LayoutRebuilder.ForceRebuildLayoutImmediate(_logContent);
+        LayoutRebuilder.ForceRebuildLayoutImmediate(_leftPanelRect);
+        LayoutRebuilder.ForceRebuildLayoutImmediate(_rightPanelRect);
         LayoutRebuilder.ForceRebuildLayoutImmediate(_windowRoot);
     }
 
@@ -1005,6 +1010,31 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private void EnsureEventSystemExists()
     {
+        EventSystem[] systems = Resources.FindObjectsOfTypeAll<EventSystem>();
+        for (int i = 0; i < systems.Length; i++)
+        {
+            EventSystem system = systems[i];
+            if (system == null)
+                continue;
+
+            if (!system.gameObject.scene.IsValid() && system != _ownedEventSystem)
+                continue;
+
+            if (_ownedEventSystem != null && system != _ownedEventSystem)
+            {
+                if (_ownedEventSystem != null)
+                {
+                    Destroy(_ownedEventSystem.gameObject);
+                    _ownedEventSystem = null;
+                }
+
+                return;
+            }
+
+            if (system != null)
+                return;
+        }
+
         if (EventSystem.current != null)
             return;
 
@@ -1016,20 +1046,38 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             eventSystemObject.AddComponent(inputSystemModuleType);
         else
             eventSystemObject.AddComponent<StandaloneInputModule>();
+
+        _ownedEventSystem = eventSystemObject.GetComponent<EventSystem>();
     }
 
     private List<GameObject> GetSceneRootObjects()
     {
         List<GameObject> roots = new();
-        for (int i = 0; i < SceneManager.sceneCount; i++)
+        HashSet<int> seen = new();
+
+        GameObject[] allObjects = Resources.FindObjectsOfTypeAll<GameObject>();
+        for (int i = 0; i < allObjects.Length; i++)
         {
-            Scene scene = SceneManager.GetSceneAt(i);
-            if (!scene.IsValid() || !scene.isLoaded)
+            GameObject gameObject = allObjects[i];
+            if (gameObject == null)
                 continue;
 
-            roots.AddRange(scene.GetRootGameObjects());
+            if (!gameObject.scene.IsValid() || !gameObject.scene.isLoaded)
+                continue;
+
+            if (gameObject.hideFlags != HideFlags.None)
+                continue;
+
+            if (gameObject.transform.parent != null)
+                continue;
+
+            if (!seen.Add(gameObject.GetInstanceID()))
+                continue;
+
+            roots.Add(gameObject);
         }
 
+        roots.Sort((a, b) => string.CompareOrdinal(a.name, b.name));
         return roots;
     }
 
@@ -1119,7 +1167,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     {
         RectTransform root = CreateRect(parent, $"{label}_Toggle");
         LayoutElement layout = root.gameObject.AddComponent<LayoutElement>();
-        width = Mathf.Max(width, 36f + label.Length * 11f);
+        width = Mathf.Max(width, 28f + label.Length * 8f);
         layout.preferredWidth = width;
         layout.preferredHeight = 24f;
 
@@ -1148,7 +1196,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         labelRect.offsetMin = new Vector2(28f, 0f);
         labelRect.offsetMax = new Vector2(0f, 0f);
 
-        TextMeshProUGUI labelText = CreateText(labelRect, label, 16f, FontStyles.Normal, TextAlignmentOptions.Left);
+        TextMeshProUGUI labelText = CreateText(labelRect, label, 14f, FontStyles.Normal, TextAlignmentOptions.Left);
         Stretch(labelText.rectTransform, 0f, 0f, 0f, 0f);
         labelText.overflowMode = TextOverflowModes.Overflow;
 
@@ -1199,7 +1247,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         button.colors = colors;
         button.onClick.AddListener(() => onClick?.Invoke());
 
-        label = CreateText(root, text, 15f, FontStyles.Normal, TextAlignmentOptions.Center);
+        label = CreateText(root, text, 14f, FontStyles.Normal, TextAlignmentOptions.Center);
         Stretch(label.rectTransform, 6f, 6f, 2f, 2f);
         label.enableWordWrapping = false;
         label.overflowMode = TextOverflowModes.Overflow;
