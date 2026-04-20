@@ -158,7 +158,6 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 
         inputField.textComponent = text;
         inputField.placeholder = placeholder;
-        inputField.onSelect.AddListener(_ => inputField.ActivateInputField());
 
         return inputField;
     }
