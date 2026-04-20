@@ -64,23 +64,31 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 
     public void FocusHierarchy()
     {
-        if (_hierarchyInput == null)
-            return;
-
-        _hierarchyInput.gameObject.SetActive(true);
-        _hierarchyInput.ActivateInputField();
-        _hierarchyInput.Select();
+        FocusInput(_hierarchyInput);
     }
 
     public void FocusLog()
     {
-        if (_logInput == null)
+        FocusInput(_logInput);
+    }
+
+    private void FocusInput(TMP_InputField inputField)
+    {
+        if (inputField == null)
             return;
 
-        _logInput.gameObject.SetActive(true);
-        _logInput.ActivateInputField();
-        _logInput.Select();
+        inputField.gameObject.SetActive(true);
+        Canvas.ForceUpdateCanvases();
+
+        if (UnityEngine.EventSystems.EventSystem.current != null)
+            UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(inputField.gameObject);
+
+        inputField.Select();
+        inputField.ActivateInputField();
+        inputField.MoveTextEnd(false);
+        Canvas.ForceUpdateCanvases();
     }
+
     public void SetTexts(string hierarchyText, string logText)
     {
         hierarchyText ??= string.Empty;
@@ -124,7 +132,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         rootRect.sizeDelta = new Vector2(240f, FieldHeight);
 
         Image background = root.GetComponent<Image>();
-        background.color = new Color(0.10f, 0.17f, 0.16f, 0.02f);
+        background.color = new Color(0.10f, 0.17f, 0.16f, 0.96f);
         background.raycastTarget = true;
 
         TMP_InputField inputField = root.GetComponent<TMP_InputField>();
