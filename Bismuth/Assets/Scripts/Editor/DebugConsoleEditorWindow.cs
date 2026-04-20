@@ -1,10 +1,8 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.IO;
 using UnityEditor;
-using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -16,9 +14,6 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private string _hierarchySearch = string.Empty;
     private string _logSearch = string.Empty;
-
-    private SearchField _hierarchySearchField;
-    private SearchField _logSearchField;
 
     private bool _autoScroll = true;
     private bool _hideTransform = true;
@@ -96,9 +91,6 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private void OnEnable()
     {
-        _hierarchySearchField ??= new SearchField();
-        _logSearchField ??= new SearchField();
-
         EditorApplication.update += HandleEditorUpdate;
         EditorApplication.playModeStateChanged += HandlePlayModeChanged;
         SceneManager.sceneLoaded += HandleSceneLoaded;
@@ -367,10 +359,19 @@ public class DebugConsoleEditorWindow : EditorWindow
         EditorGUILayout.BeginVertical(_boxStyle);
         GUILayout.Label("DebugType Filter", _titleStyle);
 
-        _typeFilterScroll = EditorGUILayout.BeginScrollView(_typeFilterScroll, GUILayout.Height(88f));
-
         DebugType[] types = (DebugType[])Enum.GetValues(typeof(DebugType));
-        const int columns = 4;
+
+        const float minItemWidth = 120f;
+        const float itemSpacing = 12f;
+        float availableWidth = Mathf.Max(220f, position.width - 44f);
+        int columns = Mathf.Clamp(Mathf.FloorToInt((availableWidth + itemSpacing) / (minItemWidth + itemSpacing)), 1, types.Length);
+        float itemWidth = Mathf.Floor((availableWidth - itemSpacing * (columns - 1)) / columns);
+        itemWidth = Mathf.Max(minItemWidth, itemWidth);
+
+        int rows = Mathf.CeilToInt(types.Length / (float)columns);
+        float viewHeight = Mathf.Min(120f, rows * 22f + Mathf.Max(0, rows - 1) * 4f + 6f);
+
+        _typeFilterScroll = EditorGUILayout.BeginScrollView(_typeFilterScroll, GUILayout.Height(viewHeight));
 
         for (int row = 0; row < types.Length; row += columns)
         {
@@ -380,19 +381,20 @@ public class DebugConsoleEditorWindow : EditorWindow
             {
                 int index = row + col;
                 if (index >= types.Length)
-                {
-                    GUILayout.FlexibleSpace();
-                    continue;
-                }
+                    break;
 
                 DebugType type = types[index];
                 bool current = manager.GetTypeEnabled(type);
-                bool next = GUILayout.Toggle(current, type.ToString(), GUILayout.Width(140f));
+                bool next = GUILayout.Toggle(current, type.ToString(), GUILayout.Width(itemWidth));
 
                 if (next != current)
                     manager.SetTypeEnabled(type, next);
+
+                if (col < columns - 1)
+                    GUILayout.Space(itemSpacing);
             }
 
+            GUILayout.FlexibleSpace();
             EditorGUILayout.EndHorizontal();
         }
 
@@ -1326,15 +1328,13 @@ public class DebugConsoleEditorWindow : EditorWindow
     private void DrawHierarchySearchField(float fieldWidth, float labelWidth)
     {
         GUILayout.Label("Hierarchy Search", GUILayout.Width(labelWidth));
-        Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, EditorGUIUtility.singleLineHeight, GUILayout.Width(fieldWidth));
-        _hierarchySearch = _hierarchySearchField.OnGUI(fieldRect, _hierarchySearch);
+        _hierarchySearch = GUILayout.TextField(_hierarchySearch, _searchTextFieldStyle, GUILayout.Width(fieldWidth));
     }
 
     private void DrawLogSearchField(float labelWidth)
     {
         GUILayout.Label("Log Search", GUILayout.Width(labelWidth));
-        Rect fieldRect = GUILayoutUtility.GetRect(10f, EditorGUIUtility.singleLineHeight, GUILayout.ExpandWidth(true));
-        _logSearch = _logSearchField.OnGUI(fieldRect, _logSearch);
+        _logSearch = GUILayout.TextField(_logSearch, _searchTextFieldStyle, GUILayout.ExpandWidth(true));
 
         if (GUILayout.Button("Clear Search", GUILayout.Width(100f)))
         {
@@ -1428,9 +1428,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         if (string.IsNullOrEmpty(source) || string.IsNullOrEmpty(keyword))
             return false;
 
-        string normalizedSource = source.Normalize(NormalizationForm.FormKC);
-        string normalizedKeyword = keyword.Normalize(NormalizationForm.FormKC);
-        return normalizedSource.IndexOf(normalizedKeyword, StringComparison.OrdinalIgnoreCase) >= 0;
+        return source.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 }
 #endif
