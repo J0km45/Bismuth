@@ -116,6 +116,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _titleStyle = null;
         _windowRect = DebugConsolePreferenceStore.GetRect(WindowRectPrefKey, _windowRect);
         _hierarchyPanelWidth = DebugConsolePreferenceStore.GetFloat(HierarchyPanelWidthPrefKey, _hierarchyPanelWidth);
+        EnsureSearchOverlay();
     }
 
     private void OnDisable()
@@ -160,6 +161,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private void OnGUI()
     {
+        EnsureSearchOverlay();
 
         if (!_visible)
         {
@@ -260,18 +262,12 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         _searchTextFieldStyle = new GUIStyle(GUI.skin.textField)
         {
-            fontSize = 12,
-            alignment = TextAnchor.MiddleLeft,
-            padding = new RectOffset(6, 6, 4, 4)
+            fontSize = 12
         };
         _searchTextFieldStyle.normal.textColor = Color.white;
         _searchTextFieldStyle.focused.textColor = Color.white;
         _searchTextFieldStyle.hover.textColor = Color.white;
         _searchTextFieldStyle.active.textColor = Color.white;
-        _searchTextFieldStyle.onNormal.textColor = Color.white;
-        _searchTextFieldStyle.onFocused.textColor = Color.white;
-        _searchTextFieldStyle.onHover.textColor = Color.white;
-        _searchTextFieldStyle.onActive.textColor = Color.white;
 
         _linkButtonStyle = new GUIStyle(GUI.skin.button)
         {
@@ -1387,15 +1383,28 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     {
         GUILayout.Label("Hierarchy Search", GUILayout.Width(labelWidth));
 
-        GUI.SetNextControlName(HierarchySearchControlName);
-        string nextValue = GUILayout.TextField(_hierarchySearch, _searchTextFieldStyle, GUILayout.Width(fieldWidth), GUILayout.Height(24f));
-        if (!string.Equals(nextValue, _hierarchySearch, StringComparison.Ordinal))
-            _hierarchySearch = nextValue;
-
-        Rect fieldRect = GUILayoutUtility.GetLastRect();
+        Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, 24f, GUILayout.Width(fieldWidth), GUILayout.Height(24f));
+        GUI.Box(fieldRect, GUIContent.none, _searchTextFieldStyle);
         _hierarchySearchScreenRect = ToScreenRect(fieldRect);
 
-        if (GUI.GetNameOfFocusedControl() == HierarchySearchControlName)
+        Event current = Event.current;
+        if (current.type == EventType.MouseDown && fieldRect.Contains(current.mousePosition))
+        {
+            Rect screenRect = ToScreenRect(fieldRect);
+            _hierarchySearchScreenRect = screenRect;
+
+            if (_searchOverlay != null)
+            {
+                _searchOverlay.SetVisible(true);
+                _searchOverlay.SetHierarchyRect(screenRect);
+                _searchOverlay.SetTexts(_hierarchySearch, _logSearch);
+                _searchOverlay.FocusHierarchy();
+            }
+
+            current.Use();
+        }
+
+        if (_searchOverlay != null && _searchOverlay.IsHierarchyFocused)
             _searchFieldFocusedThisFrame = true;
     }
 
@@ -1403,22 +1412,37 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     {
         GUILayout.Label("Log Search", GUILayout.Width(labelWidth));
 
-        GUI.SetNextControlName(LogSearchControlName);
-        string nextValue = GUILayout.TextField(_logSearch, _searchTextFieldStyle, GUILayout.ExpandWidth(true), GUILayout.Height(24f));
-        if (!string.Equals(nextValue, _logSearch, StringComparison.Ordinal))
-            _logSearch = nextValue;
-
-        Rect fieldRect = GUILayoutUtility.GetLastRect();
+        Rect fieldRect = GUILayoutUtility.GetRect(10f, 24f, GUILayout.ExpandWidth(true), GUILayout.Height(24f));
+        GUI.Box(fieldRect, GUIContent.none, _searchTextFieldStyle);
         _logSearchScreenRect = ToScreenRect(fieldRect);
 
-        if (GUI.GetNameOfFocusedControl() == LogSearchControlName)
+        Event current = Event.current;
+        if (current.type == EventType.MouseDown && fieldRect.Contains(current.mousePosition))
+        {
+            Rect screenRect = ToScreenRect(fieldRect);
+            _logSearchScreenRect = screenRect;
+
+            if (_searchOverlay != null)
+            {
+                _searchOverlay.SetVisible(true);
+                _searchOverlay.SetLogRect(screenRect);
+                _searchOverlay.SetTexts(_hierarchySearch, _logSearch);
+                _searchOverlay.FocusLog();
+            }
+
+            current.Use();
+        }
+
+        if (_searchOverlay != null && _searchOverlay.IsLogFocused)
             _searchFieldFocusedThisFrame = true;
 
         if (GUILayout.Button("Clear Search", GUILayout.Width(100f)))
         {
             _hierarchySearch = string.Empty;
             _logSearch = string.Empty;
-            GUI.FocusControl(string.Empty);
+
+            if (_searchOverlay != null)
+                _searchOverlay.ClearTexts();
         }
     }
 

@@ -139,8 +139,8 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         inputField.shouldHideMobileInput = false;
         inputField.caretWidth = 2;
         inputField.customCaretColor = true;
-        inputField.caretColor = Color.white;
-        inputField.selectionColor = new Color(0.20f, 0.36f, 0.33f, 0.85f);
+        inputField.caretColor = Color.black;
+        inputField.selectionColor = new Color(0.62f, 0.78f, 1.00f, 0.85f);
 
         GameObject textArea = new GameObject("Text Area", typeof(RectTransform), typeof(RectMask2D));
         textArea.transform.SetParent(root.transform, false);
@@ -187,7 +187,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 
         if (inputField.textComponent != null)
         {
-            inputField.textComponent.color = Color.white;
+            inputField.textComponent.color = new Color(0.08f, 0.08f, 0.08f, 1f);
             inputField.textComponent.fontStyle = FontStyle.Bold;
             inputField.textComponent.fontSize = FontSize;
             inputField.textComponent.material = null;
@@ -196,13 +196,13 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         Text placeholderText = inputField.placeholder as Text;
         if (placeholderText != null)
         {
-            placeholderText.color = new Color(0.28f, 0.32f, 0.36f, 0.95f);
+            placeholderText.color = new Color(0.45f, 0.45f, 0.45f, 0.95f);
             placeholderText.fontStyle = FontStyle.Normal;
             placeholderText.fontSize = FontSize;
             placeholderText.material = null;
         }
 
-        inputField.caretColor = Color.white;
+        inputField.caretColor = Color.black;
     }
     private Text CreateTextChild(Transform parent, string objectName, Color color)
     {
