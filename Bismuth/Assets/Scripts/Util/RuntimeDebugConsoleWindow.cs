@@ -698,11 +698,16 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         Rect labelRect = new Rect(rect.x + 6f, rect.y + 6f, Mathf.Max(0f, rect.width - 12f), rect.height - 12f);
         GUI.Label(labelRect, content, _richLabelStyle);
 
-        if (Event.current.type == EventType.MouseDown && rect.Contains(Event.current.mousePosition))
+        if (Event.current.type == EventType.MouseDown &&
+            Event.current.button == 0 &&
+            rect.Contains(Event.current.mousePosition))
         {
             _selectedLogIndex = index;
             FocusEntry(entry);
-            OpenEntryScript(entry);
+
+            if (Event.current.clickCount >= 2)
+                OpenEntryScript(entry);
+
             Event.current.Use();
         }
 
