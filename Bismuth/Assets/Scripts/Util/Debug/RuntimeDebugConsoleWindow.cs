@@ -1,9 +1,11 @@
+
 using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
+using UnityEngine.TextCore.LowLevel;
 using UnityEngine.UI;
 
 public class RuntimeDebugConsoleWindow : MonoBehaviour
@@ -15,20 +17,30 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     [SerializeField] private bool _collapsePreviousOnSelection = true;
     [SerializeField] private bool _blockInput = true;
 
-    private const int SortOrder = 32000;
-    private const float RebuildInterval = 0.25f;
-    private const string FontFallbackName = "Arial";
-
+    public static RuntimeDebugConsoleWindow Instance { get; private set; }
     public static bool IsRuntimeConsoleVisible { get; private set; }
     public static bool ShouldBlockGameplayInput => Instance != null && Instance._visible && Instance._blockInput;
-    public static RuntimeDebugConsoleWindow Instance { get; private set; }
+
+    private const int CanvasSortOrder = 32000;
+    private const float RebuildInterval = 0.15f;
 
     private Canvas _canvas;
     private CanvasScaler _canvasScaler;
     private GraphicRaycaster _graphicRaycaster;
     private CanvasGroup _canvasGroup;
-    private Image _screenBlocker;
     private RectTransform _windowRoot;
+    private Image _screenBlocker;
+
+    private RectTransform _titleRect;
+    private RectTransform _toggleRowRect;
+    private RectTransform _buttonRowRect;
+    private RectTransform _searchRowRect;
+    private RectTransform _typeFilterPanelRect;
+    private RectTransform _contentRowRect;
+    private RectTransform _footerRect;
+    private RectTransform _leftPanelRect;
+    private RectTransform _rightPanelRect;
+    private RectTransform _dividerRect;
 
     private Toggle _globalToggle;
     private Toggle _mirrorToggle;
@@ -37,9 +49,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private Toggle _collapsePrevToggle;
     private Toggle _blockInputToggle;
 
-    private Button _typeFilterToggleButton;
-    private RectTransform _typeFilterPanel;
-    private TextMeshProUGUI _typeFilterToggleLabel;
+    private Button _typeFilterButton;
+    private TextMeshProUGUI _typeFilterButtonLabel;
 
     private TMP_InputField _hierarchySearchInput;
     private TMP_InputField _logSearchInput;
@@ -51,20 +62,20 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private TextMeshProUGUI _focusLabel;
     private TextMeshProUGUI _countLabel;
-    private TextMeshProUGUI _titleLabel;
-    private Button _clearSearchButton;
 
-    private TMP_FontAsset _runtimeFontAsset;
+    private readonly Dictionary<DebugType, Toggle> _typeToggles = new();
+    private readonly Dictionary<int, bool> _expandedObjects = new();
+    private readonly DebugConsoleFocusState _focusState = new();
+    private readonly List<Behaviour> _blockedInputBehaviours = new();
+
+    private TMP_FontAsset _fontAsset;
     private bool _showTypeFilterPanel = true;
-    private bool _pendingAutoScroll;
     private float _nextRebuildTime;
     private int _lastManagerVersion = -1;
+    private bool _pendingAutoScroll;
+
     private string _hierarchySearch = string.Empty;
     private string _logSearch = string.Empty;
-
-    private readonly DebugConsoleFocusState _focusState = new();
-    private readonly Dictionary<int, bool> _expandedObjectState = new();
-    private readonly Dictionary<DebugType, Toggle> _typeToggleMap = new();
 
     private void Awake()
     {
@@ -75,9 +86,10 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         }
 
         Instance = this;
-        BuildRuntimeUI();
-        SetVisible(_visible);
+        BuildUi();
+        ApplyFixedLayout();
         EnsureEventSystemExists();
+        SetVisible(_visible);
 
         SceneManager.sceneLoaded += HandleSceneLoaded;
     }
@@ -88,6 +100,24 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             Instance = null;
 
         SceneManager.sceneLoaded -= HandleSceneLoaded;
+        RestoreBlockedGameplayInput();
+    }
+
+    private void OnRectTransformDimensionsChange()
+    {
+        if (_windowRoot != null)
+            ApplyFixedLayout();
+    }
+
+    private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        _expandedObjects.Clear();
+        _focusState.Clear();
+        _lastManagerVersion = -1;
+        _nextRebuildTime = 0f;
+
+        if (_visible)
+            RequestRebuild(true);
     }
 
     private void Update()
@@ -104,24 +134,24 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (manager == null)
             return;
 
-        bool needsRebuild = false;
+        bool shouldRebuild = false;
 
         if (_lastManagerVersion != manager.ChangeVersion)
         {
             _lastManagerVersion = manager.ChangeVersion;
-            SyncManagerStateToUI(manager);
-            needsRebuild = true;
+            SyncManagerStateToUi(manager);
+            shouldRebuild = true;
             _pendingAutoScroll = _autoScroll;
         }
 
         if (Time.unscaledTime >= _nextRebuildTime)
         {
-            needsRebuild = true;
+            shouldRebuild = true;
             _nextRebuildTime = Time.unscaledTime + RebuildInterval;
         }
 
-        if (needsRebuild)
-            RebuildUIContents(manager);
+        if (shouldRebuild)
+            RebuildContents(manager);
     }
 
     private void LateUpdate()
@@ -134,25 +164,21 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _pendingAutoScroll = false;
     }
 
-    private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
+    private void BuildUi()
     {
-        _expandedObjectState.Clear();
-        _focusState.Clear();
-        _nextRebuildTime = 0f;
-        _lastManagerVersion = -1;
-    }
+        _fontAsset = CreateDynamicFontAsset();
 
-    private void BuildRuntimeUI()
-    {
-        _runtimeFontAsset = CreateDynamicFontAsset();
-
-        GameObject canvasObject = new GameObject("RuntimeDebugConsoleCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(CanvasGroup));
+        GameObject canvasObject = new GameObject("RuntimeDebugConsoleCanvas",
+            typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(CanvasGroup));
         canvasObject.transform.SetParent(transform, false);
+
+        RectTransform canvasRect = canvasObject.GetComponent<RectTransform>();
+        Stretch(canvasRect, 0f, 0f, 0f, 0f);
 
         _canvas = canvasObject.GetComponent<Canvas>();
         _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         _canvas.overrideSorting = true;
-        _canvas.sortingOrder = SortOrder;
+        _canvas.sortingOrder = CanvasSortOrder;
 
         _canvasScaler = canvasObject.GetComponent<CanvasScaler>();
         _canvasScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -162,270 +188,284 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _graphicRaycaster = canvasObject.GetComponent<GraphicRaycaster>();
         _canvasGroup = canvasObject.GetComponent<CanvasGroup>();
 
-        RectTransform canvasRect = canvasObject.GetComponent<RectTransform>();
-        canvasRect.anchorMin = Vector2.zero;
-        canvasRect.anchorMax = Vector2.one;
-        canvasRect.offsetMin = Vector2.zero;
-        canvasRect.offsetMax = Vector2.zero;
+        _screenBlocker = CreateImage(canvasRect, "ScreenBlocker", new Color(0f, 0f, 0f, 0.22f));
+        Stretch(_screenBlocker.rectTransform, 0f, 0f, 0f, 0f);
 
-        _screenBlocker = CreateImage("ScreenBlocker", canvasRect, new Color(0f, 0f, 0f, 0.28f));
-        RectTransform blockerRect = _screenBlocker.rectTransform;
-        Stretch(blockerRect, 0f, 0f, 0f, 0f);
+        Image windowImage = CreateImage(canvasRect, "WindowRoot", new Color(0.20f, 0.25f, 0.35f, 0.98f));
+        _windowRoot = windowImage.rectTransform;
+        Stretch(_windowRoot, 18f, 18f, 18f, 18f);
+        AddOutline(windowImage.gameObject, new Color(0.80f, 0.82f, 0.88f, 1f));
 
-        Image windowBackground = CreateImage("WindowRoot", canvasRect, new Color(0.16f, 0.21f, 0.30f, 0.98f));
-        _windowRoot = windowBackground.rectTransform;
-        Stretch(_windowRoot, 40f, -40f, 40f, -40f);
-        SetImageBorder(windowBackground, new Color(0.74f, 0.76f, 0.81f, 1f));
+        _titleRect = CreateRect(_windowRoot, "TitleRow");
+        CreateText(_titleRect, "Runtime Debug Console", 34f, FontStyles.Bold, TextAlignmentOptions.Center);
 
-        VerticalLayoutGroup rootLayout = _windowRoot.gameObject.AddComponent<VerticalLayoutGroup>();
-        rootLayout.padding = new RectOffset(12, 12, 10, 10);
-        rootLayout.spacing = 8f;
-        rootLayout.childControlWidth = true;
-        rootLayout.childControlHeight = false;
-        rootLayout.childForceExpandWidth = true;
-        rootLayout.childForceExpandHeight = false;
-
-        ContentSizeFitter rootFitter = _windowRoot.gameObject.AddComponent<ContentSizeFitter>();
-        rootFitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
-        rootFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-
-        _titleLabel = CreateText("Title", _windowRoot, "Runtime Debug Console", 28f, FontStyles.Bold, TextAlignmentOptions.Center);
-        LayoutElement titleLayout = _titleLabel.gameObject.AddComponent<LayoutElement>();
-        titleLayout.preferredHeight = 34f;
-
-        RectTransform toggleRow = CreateHorizontalRow("ToggleRow", _windowRoot, 8f, 34f);
-        _globalToggle = CreateHeaderToggle(toggleRow, "Global", value =>
+        _toggleRowRect = CreateRect(_windowRoot, "ToggleRow");
+        HorizontalLayoutGroup toggleLayout = AddHorizontalLayout(_toggleRowRect, 12f, 4, 4, 0, 0);
+        toggleLayout.childAlignment = TextAnchor.MiddleLeft;
+        _globalToggle = CreateLabeledToggle(_toggleRowRect, "Global", v =>
         {
             DebugConsoleManager manager = DebugConsoleManager.Instance;
             if (manager == null)
                 return;
-
-            manager.GlobalEnabled = value;
+            manager.GlobalEnabled = v;
             RequestRebuild();
-        });
+        }, 140f);
 
-        _mirrorToggle = CreateHeaderToggle(toggleRow, "Mirror Unity", value =>
+        _mirrorToggle = CreateLabeledToggle(_toggleRowRect, "Mirror Unity", v =>
         {
             DebugConsoleManager manager = DebugConsoleManager.Instance;
             if (manager == null)
                 return;
-
-            manager.MirrorToUnityConsole = value;
+            manager.MirrorToUnityConsole = v;
             RequestRebuild();
-        });
+        }, 180f);
 
-        _autoScrollToggle = CreateHeaderToggle(toggleRow, "Auto Scroll", value => _autoScroll = value);
-        _hideTransformToggle = CreateHeaderToggle(toggleRow, "Hide Transform", value =>
+        _autoScrollToggle = CreateLabeledToggle(_toggleRowRect, "Auto Scroll", v => _autoScroll = v, 170f);
+        _hideTransformToggle = CreateLabeledToggle(_toggleRowRect, "Hide Transform", v =>
         {
-            _hideTransform = value;
+            _hideTransform = v;
             RequestRebuild();
-        });
+        }, 190f);
+        _collapsePrevToggle = CreateLabeledToggle(_toggleRowRect, "Collapse Prev", v => _collapsePreviousOnSelection = v, 190f);
+        _blockInputToggle = CreateLabeledToggle(_toggleRowRect, "Block Input", v => ApplyBlockInput(v), 180f);
 
-        _collapsePrevToggle = CreateHeaderToggle(toggleRow, "Collapse Prev", value => _collapsePreviousOnSelection = value);
-        _blockInputToggle = CreateHeaderToggle(toggleRow, "Block Input", value => ApplyBlockInput(value));
+        _buttonRowRect = CreateRect(_windowRoot, "ButtonRow");
+        AddHorizontalLayout(_buttonRowRect, 10f, 0, 0, 0, 0);
 
-        RectTransform buttonRow = CreateHorizontalRow("ButtonRow", _windowRoot, 8f, 36f);
-        _typeFilterToggleButton = CreateButton(buttonRow, "Type Filter ▼", ToggleTypeFilterPanel, out _typeFilterToggleLabel);
-        CreateButton(buttonRow, "All Types On", () =>
+        _typeFilterButton = CreateButton(_buttonRowRect, "Type Filter ▼ (0/0)", ToggleTypeFilterPanel, out _typeFilterButtonLabel, 230f);
+        CreateButton(_buttonRowRect, "All Types On", () =>
         {
             DebugConsoleManager manager = DebugConsoleManager.Instance;
             if (manager == null)
                 return;
-
             manager.SetAllTypes(true);
-            SyncManagerStateToUI(manager);
+            SyncManagerStateToUi(manager);
             RequestRebuild();
-        });
+        }, out _, 180f);
 
-        CreateButton(buttonRow, "All Types Off", () =>
+        CreateButton(_buttonRowRect, "All Types Off", () =>
         {
             DebugConsoleManager manager = DebugConsoleManager.Instance;
             if (manager == null)
                 return;
-
             manager.SetAllTypes(false);
-            SyncManagerStateToUI(manager);
+            SyncManagerStateToUi(manager);
             RequestRebuild();
-        });
+        }, out _, 180f);
 
-        CreateButton(buttonRow, "Clear Logs", () =>
+        CreateButton(_buttonRowRect, "Clear Logs", () =>
         {
             DebugConsoleManager manager = DebugConsoleManager.Instance;
             if (manager == null)
                 return;
-
             manager.ClearLogs();
             RequestRebuild();
-        });
+        }, out _, 160f);
 
-        CreateButton(buttonRow, "Clear Focus", () =>
+        CreateButton(_buttonRowRect, "Clear Focus", () =>
         {
             _focusState.Clear();
             RequestRebuild();
-        });
+        }, out _, 160f);
 
-        RectTransform searchRow = CreateHorizontalRow("SearchRow", _windowRoot, 10f, 34f);
-        CreateLabeledInput(searchRow, "Hierarchy Search", out _hierarchySearchInput, value =>
+        _searchRowRect = CreateRect(_windowRoot, "SearchRow");
+        CreateSearchArea();
+
+        _typeFilterPanelRect = CreatePanelRect(_windowRoot, "TypeFilterPanel", new Color(0.12f, 0.15f, 0.21f, 0.92f));
+        AddOutline(_typeFilterPanelRect.gameObject, new Color(0.28f, 0.33f, 0.43f, 1f));
+        GridLayoutGroup grid = _typeFilterPanelRect.gameObject.AddComponent<GridLayoutGroup>();
+        grid.cellSize = new Vector2(220f, 32f);
+        grid.spacing = new Vector2(10f, 8f);
+        grid.padding = new RectOffset(12, 12, 12, 12);
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = 4;
+        CreateTypeToggleGrid();
+
+        _contentRowRect = CreateRect(_windowRoot, "ContentRow");
+
+        _leftPanelRect = CreatePanelRect(_contentRowRect, "HierarchyPanel", new Color(0.11f, 0.15f, 0.20f, 0.95f));
+        AddOutline(_leftPanelRect.gameObject, new Color(0.25f, 0.30f, 0.40f, 1f));
+        BuildPanel(_leftPanelRect, "Scene Objects / Components", out _hierarchyScrollRect, out _hierarchyContent);
+
+        _dividerRect = CreatePanelRect(_contentRowRect, "Divider", new Color(0.23f, 0.27f, 0.35f, 1f));
+
+        _rightPanelRect = CreatePanelRect(_contentRowRect, "LogPanel", new Color(0.11f, 0.15f, 0.20f, 0.95f));
+        AddOutline(_rightPanelRect.gameObject, new Color(0.25f, 0.30f, 0.40f, 1f));
+        BuildPanel(_rightPanelRect, "Logs", out _logScrollRect, out _logContent);
+
+        _footerRect = CreatePanelRect(_windowRoot, "Footer", new Color(0.05f, 0.08f, 0.12f, 0.98f));
+        AddOutline(_footerRect.gameObject, new Color(0.20f, 0.24f, 0.32f, 1f));
+        CreateFooter();
+    }
+
+    private void CreateSearchArea()
+    {
+        RectTransform hierarchyGroup = CreateRect(_searchRowRect, "HierarchyGroup");
+        SetRect(hierarchyGroup, 0f, 0f, 0.42f, 1f, 0f, 0f, -8f, 0f);
+        AddHorizontalLayout(hierarchyGroup, 8f, 0, 0, 0, 0);
+
+        TextMeshProUGUI hierarchyLabel = CreateText(hierarchyGroup, "Hierarchy Search", 20f, FontStyles.Normal, TextAlignmentOptions.Left);
+        LayoutElement hierarchyLabelLayout = hierarchyLabel.gameObject.AddComponent<LayoutElement>();
+        hierarchyLabelLayout.preferredWidth = 150f;
+
+        _hierarchySearchInput = CreateInputField(hierarchyGroup, value =>
         {
             _hierarchySearch = value ?? string.Empty;
             RequestRebuild();
-        }, 0.33f);
+        });
+        LayoutElement hierarchyInputLayout = _hierarchySearchInput.gameObject.GetComponent<LayoutElement>();
+        hierarchyInputLayout.flexibleWidth = 1f;
 
-        CreateLabeledInput(searchRow, "Log Search", out _logSearchInput, value =>
+        RectTransform logGroup = CreateRect(_searchRowRect, "LogGroup");
+        SetRect(logGroup, 0.42f, 0f, 0.90f, 1f, 8f, 0f, -8f, 0f);
+        AddHorizontalLayout(logGroup, 8f, 0, 0, 0, 0);
+
+        TextMeshProUGUI logLabel = CreateText(logGroup, "Log Search", 20f, FontStyles.Normal, TextAlignmentOptions.Left);
+        LayoutElement logLabelLayout = logLabel.gameObject.AddComponent<LayoutElement>();
+        logLabelLayout.preferredWidth = 110f;
+
+        _logSearchInput = CreateInputField(logGroup, value =>
         {
             _logSearch = value ?? string.Empty;
             RequestRebuild();
-        }, 0.55f);
+        });
+        LayoutElement logInputLayout = _logSearchInput.gameObject.GetComponent<LayoutElement>();
+        logInputLayout.flexibleWidth = 1f;
 
-        _clearSearchButton = CreateButton(searchRow, "Clear Search", () =>
+        RectTransform clearGroup = CreateRect(_searchRowRect, "ClearGroup");
+        SetRect(clearGroup, 0.90f, 0f, 1f, 1f, 8f, 0f, 0f, 0f);
+        CreateButton(clearGroup, "Clear Search", () =>
         {
             _hierarchySearch = string.Empty;
             _logSearch = string.Empty;
             _hierarchySearchInput.SetTextWithoutNotify(string.Empty);
             _logSearchInput.SetTextWithoutNotify(string.Empty);
             RequestRebuild();
-        }, 150f);
-
-        _typeFilterPanel = CreatePanel("TypeFilterPanel", _windowRoot, new Color(0.10f, 0.14f, 0.18f, 0.75f));
-        GridLayoutGroup gridLayout = _typeFilterPanel.gameObject.AddComponent<GridLayoutGroup>();
-        gridLayout.cellSize = new Vector2(240f, 30f);
-        gridLayout.spacing = new Vector2(8f, 8f);
-        gridLayout.padding = new RectOffset(12, 12, 12, 12);
-        gridLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-        gridLayout.constraintCount = 4;
-        LayoutElement typePanelLayout = _typeFilterPanel.gameObject.AddComponent<LayoutElement>();
-        typePanelLayout.preferredHeight = 108f;
-
-        CreateTypeToggles(_typeFilterPanel);
-
-        RectTransform contentRow = CreateHorizontalRow("ContentRow", _windowRoot, 10f, -1f);
-        LayoutElement contentLayout = contentRow.gameObject.AddComponent<LayoutElement>();
-        contentLayout.flexibleHeight = 1f;
-        contentLayout.minHeight = 300f;
-
-        RectTransform hierarchyPanel = CreatePanel("HierarchyPanel", contentRow, new Color(0.10f, 0.14f, 0.18f, 0.78f));
-        LayoutElement hierarchyLayout = hierarchyPanel.gameObject.AddComponent<LayoutElement>();
-        hierarchyLayout.flexibleWidth = 0.42f;
-        hierarchyLayout.flexibleHeight = 1f;
-
-        RectTransform logPanel = CreatePanel("LogPanel", contentRow, new Color(0.10f, 0.14f, 0.18f, 0.78f));
-        LayoutElement logLayout = logPanel.gameObject.AddComponent<LayoutElement>();
-        logLayout.flexibleWidth = 0.58f;
-        logLayout.flexibleHeight = 1f;
-
-        BuildPane(hierarchyPanel, "Scene Objects / Components", out _hierarchyScrollRect, out _hierarchyContent);
-        BuildPane(logPanel, "Logs", out _logScrollRect, out _logContent);
-
-        RectTransform footerRow = CreateHorizontalRow("FooterRow", _windowRoot, 8f, 42f);
-        Image footerBackground = footerRow.gameObject.AddComponent<Image>();
-        footerBackground.color = new Color(0.05f, 0.07f, 0.10f, 0.95f);
-
-        _focusLabel = CreateText("FocusLabel", footerRow, "Focus : All", 22f, FontStyles.Bold, TextAlignmentOptions.Left);
-        LayoutElement footerLeftLayout = _focusLabel.gameObject.AddComponent<LayoutElement>();
-        footerLeftLayout.flexibleWidth = 1f;
-
-        _countLabel = CreateText("CountLabel", footerRow, "Count : 0", 22f, FontStyles.Bold, TextAlignmentOptions.Right);
-        LayoutElement footerRightLayout = _countLabel.gameObject.AddComponent<LayoutElement>();
-        footerRightLayout.minWidth = 140f;
+        }, out _, 160f);
+        Stretch(clearGroup.GetChild(0).GetComponent<RectTransform>(), 0f, 0f, 0f, 0f);
     }
 
-    private void BuildPane(RectTransform panelRoot, string title, out ScrollRect scrollRect, out RectTransform contentRoot)
+    private void CreateTypeToggleGrid()
     {
-        VerticalLayoutGroup layout = panelRoot.gameObject.AddComponent<VerticalLayoutGroup>();
-        layout.padding = new RectOffset(10, 10, 10, 10);
-        layout.spacing = 8f;
-        layout.childControlWidth = true;
-        layout.childControlHeight = false;
-        layout.childForceExpandWidth = true;
-        layout.childForceExpandHeight = false;
+        _typeToggles.Clear();
+        Array values = Enum.GetValues(typeof(DebugType));
+        for (int i = 0; i < values.Length; i++)
+        {
+            DebugType debugType = (DebugType)values.GetValue(i);
+            Toggle toggle = CreateLabeledToggle(_typeFilterPanelRect, debugType.ToString(), value =>
+            {
+                DebugConsoleManager manager = DebugConsoleManager.Instance;
+                if (manager == null)
+                    return;
 
-        CreateText("Title", panelRoot, title, 26f, FontStyles.Bold, TextAlignmentOptions.Left);
+                manager.SetTypeEnabled(debugType, value);
+                UpdateTypeFilterButtonLabel();
+                RequestRebuild();
+            }, 220f);
 
-        GameObject scrollObject = new GameObject("ScrollView", typeof(RectTransform), typeof(Image), typeof(Mask), typeof(ScrollRect));
-        scrollObject.transform.SetParent(panelRoot, false);
-        RectTransform scrollRectTransform = scrollObject.GetComponent<RectTransform>();
-        LayoutElement layoutElement = scrollObject.AddComponent<LayoutElement>();
-        layoutElement.flexibleHeight = 1f;
-        layoutElement.minHeight = 200f;
+            _typeToggles[debugType] = toggle;
+        }
+    }
 
-        Image scrollBackground = scrollObject.GetComponent<Image>();
-        scrollBackground.color = new Color(0.14f, 0.18f, 0.25f, 1f);
-        Mask mask = scrollObject.GetComponent<Mask>();
-        mask.showMaskGraphic = false;
+    private void CreateFooter()
+    {
+        RectTransform focusRect = CreateRect(_footerRect, "FocusArea");
+        SetRect(focusRect, 0f, 0f, 0.7f, 1f, 14f, 0f, -14f, 0f);
 
-        scrollRect = scrollObject.GetComponent<ScrollRect>();
-        scrollRect.horizontal = false;
-        scrollRect.vertical = true;
-        scrollRect.scrollSensitivity = 25f;
+        _focusLabel = CreateText(focusRect, "Focus : All", 22f, FontStyles.Bold, TextAlignmentOptions.Left);
+        Stretch(_focusLabel.rectTransform, 0f, 0f, 0f, 0f);
+        _focusLabel.color = new Color(0.95f, 0.84f, 0.24f, 1f);
 
-        GameObject viewportObject = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
-        viewportObject.transform.SetParent(scrollObject.transform, false);
-        RectTransform viewportRect = viewportObject.GetComponent<RectTransform>();
+        RectTransform countRect = CreateRect(_footerRect, "CountArea");
+        SetRect(countRect, 0.7f, 0f, 1f, 1f, 14f, 0f, -14f, 0f);
+
+        _countLabel = CreateText(countRect, "Count : 0", 22f, FontStyles.Bold, TextAlignmentOptions.Right);
+        Stretch(_countLabel.rectTransform, 0f, 0f, 0f, 0f);
+        _countLabel.color = new Color(0.95f, 0.84f, 0.24f, 1f);
+    }
+
+    private void BuildPanel(RectTransform panelRoot, string title, out ScrollRect scrollRect, out RectTransform contentRoot)
+    {
+        RectTransform titleRect = CreateRect(panelRoot, "Title");
+        SetTopRect(titleRect, 10f, 28f, 12f, 12f);
+        CreateText(titleRect, title, 26f, FontStyles.Bold, TextAlignmentOptions.Left);
+
+        RectTransform scrollRoot = CreatePanelRect(panelRoot, "ScrollView", new Color(0.14f, 0.18f, 0.25f, 1f));
+        Stretch(scrollRoot, 12f, 12f, 44f, 12f);
+
+        GameObject viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+        viewport.transform.SetParent(scrollRoot, false);
+        RectTransform viewportRect = viewport.GetComponent<RectTransform>();
         Stretch(viewportRect, 0f, 0f, 0f, 0f);
-        Image viewportImage = viewportObject.GetComponent<Image>();
+
+        Image viewportImage = viewport.GetComponent<Image>();
         viewportImage.color = new Color(0f, 0f, 0f, 0.001f);
-        Mask viewportMask = viewportObject.GetComponent<Mask>();
+
+        Mask viewportMask = viewport.GetComponent<Mask>();
         viewportMask.showMaskGraphic = false;
 
-        GameObject contentObject = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-        contentObject.transform.SetParent(viewportObject.transform, false);
-        contentRoot = contentObject.GetComponent<RectTransform>();
+        GameObject content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        content.transform.SetParent(viewport.transform, false);
+
+        contentRoot = content.GetComponent<RectTransform>();
         contentRoot.anchorMin = new Vector2(0f, 1f);
         contentRoot.anchorMax = new Vector2(1f, 1f);
         contentRoot.pivot = new Vector2(0.5f, 1f);
         contentRoot.anchoredPosition = Vector2.zero;
         contentRoot.sizeDelta = new Vector2(0f, 0f);
 
-        VerticalLayoutGroup contentLayout = contentObject.GetComponent<VerticalLayoutGroup>();
-        contentLayout.padding = new RectOffset(8, 8, 8, 8);
-        contentLayout.spacing = 4f;
-        contentLayout.childControlWidth = true;
-        contentLayout.childControlHeight = false;
-        contentLayout.childForceExpandWidth = true;
-        contentLayout.childForceExpandHeight = false;
+        VerticalLayoutGroup layout = content.GetComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(8, 8, 8, 8);
+        layout.spacing = 4f;
+        layout.childControlWidth = true;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
 
-        ContentSizeFitter fitter = contentObject.GetComponent<ContentSizeFitter>();
+        ContentSizeFitter fitter = content.GetComponent<ContentSizeFitter>();
         fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
         fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
 
+        scrollRect = scrollRoot.gameObject.AddComponent<ScrollRect>();
         scrollRect.viewport = viewportRect;
         scrollRect.content = contentRoot;
+        scrollRect.horizontal = false;
+        scrollRect.vertical = true;
+        scrollRect.scrollSensitivity = 30f;
     }
 
-    private void CreateTypeToggles(RectTransform root)
+    private void ApplyFixedLayout()
     {
-        _typeToggleMap.Clear();
-        Array values = Enum.GetValues(typeof(DebugType));
-        for (int i = 0; i < values.Length; i++)
+        if (_windowRoot == null)
+            return;
+
+        SetTopRect(_titleRect, 10f, 38f, 12f, 12f);
+        SetTopRect(_toggleRowRect, 56f, 30f, 12f, 12f);
+        SetTopRect(_buttonRowRect, 94f, 34f, 12f, 12f);
+        SetTopRect(_searchRowRect, 136f, 34f, 12f, 12f);
+
+        float bodyTop;
+        if (_showTypeFilterPanel)
         {
-            DebugType type = (DebugType)values.GetValue(i);
-            Toggle toggle = CreateTypeToggle(root, type.ToString(), isOn =>
-            {
-                DebugConsoleManager manager = DebugConsoleManager.Instance;
-                if (manager == null)
-                    return;
-
-                manager.SetTypeEnabled(type, isOn);
-                UpdateTypeFilterButtonLabel();
-                RequestRebuild();
-            });
-            _typeToggleMap[type] = toggle;
+            _typeFilterPanelRect.gameObject.SetActive(true);
+            SetTopRect(_typeFilterPanelRect, 178f, 120f, 12f, 12f);
+            bodyTop = 308f;
         }
-    }
+        else
+        {
+            _typeFilterPanelRect.gameObject.SetActive(false);
+            bodyTop = 178f;
+        }
 
-    private void ToggleTypeFilterPanel()
-    {
-        _showTypeFilterPanel = !_showTypeFilterPanel;
-        _typeFilterPanel.gameObject.SetActive(_showTypeFilterPanel);
-        _typeFilterToggleLabel.text = _showTypeFilterPanel ? "Type Filter ▼" : "Type Filter ▶";
-        LayoutRebuilder.ForceRebuildLayoutImmediate(_windowRoot);
-    }
+        SetBottomRect(_footerRect, 12f, 46f, 12f, 12f);
+        Stretch(_contentRowRect, 12f, 12f, bodyTop, 68f);
 
-    private void ApplyBlockInput(bool value)
-    {
-        _blockInput = value;
-        if (_screenBlocker != null)
-            _screenBlocker.raycastTarget = _visible && value;
+        SetRect(_leftPanelRect, 0f, 0f, 0.36f, 1f, 0f, 0f, -6f, 0f);
+        SetRect(_dividerRect, 0.36f, 0f, 0.36f, 1f, 0f, 0f, 4f, 0f);
+        _dividerRect.sizeDelta = new Vector2(4f, 0f);
+        SetRect(_rightPanelRect, 0.36f, 0f, 1f, 1f, 8f, 0f, 0f, 0f);
+
+        UpdateTypeFilterButtonLabel();
     }
 
     private void SetVisible(bool visible)
@@ -449,97 +489,148 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
             EnsureEventSystemExists();
+            ApplyBlockedGameplayInput();
             RequestRebuild(true);
+        }
+        else
+        {
+            RestoreBlockedGameplayInput();
         }
     }
 
-    private void RequestRebuild(bool forceImmediate = false)
+    private void ApplyBlockInput(bool value)
     {
-        _nextRebuildTime = 0f;
+        _blockInput = value;
 
-        if (!forceImmediate || !_visible || DebugConsoleManager.Instance == null)
-            return;
+        if (_screenBlocker != null)
+            _screenBlocker.raycastTarget = _visible && value;
 
-        RebuildUIContents(DebugConsoleManager.Instance);
+        if (_visible)
+        {
+            if (value)
+                ApplyBlockedGameplayInput();
+            else
+                RestoreBlockedGameplayInput();
+        }
     }
 
-    private void RebuildUIContents(DebugConsoleManager manager)
+    private void ApplyBlockedGameplayInput()
+    {
+        RestoreBlockedGameplayInput();
+
+        if (!_blockInput)
+            return;
+
+        Type playerInputType = Type.GetType("UnityEngine.InputSystem.PlayerInput, Unity.InputSystem");
+        if (playerInputType == null)
+            return;
+
+        UnityEngine.Object[] objects = Resources.FindObjectsOfTypeAll(playerInputType);
+        for (int i = 0; i < objects.Length; i++)
+        {
+            if (objects[i] is not Behaviour behaviour)
+                continue;
+
+            if (!behaviour.gameObject.scene.IsValid())
+                continue;
+
+            if (!behaviour.enabled)
+                continue;
+
+            behaviour.enabled = false;
+            _blockedInputBehaviours.Add(behaviour);
+        }
+    }
+
+    private void RestoreBlockedGameplayInput()
+    {
+        for (int i = 0; i < _blockedInputBehaviours.Count; i++)
+        {
+            Behaviour behaviour = _blockedInputBehaviours[i];
+            if (behaviour != null)
+                behaviour.enabled = true;
+        }
+
+        _blockedInputBehaviours.Clear();
+    }
+
+    private void RequestRebuild(bool immediate = false)
+    {
+        _nextRebuildTime = 0f;
+        if (!immediate || !_visible || DebugConsoleManager.Instance == null)
+            return;
+
+        RebuildContents(DebugConsoleManager.Instance);
+    }
+
+    private void RebuildContents(DebugConsoleManager manager)
     {
         if (manager == null)
             return;
 
-        RebuildHierarchyPane(manager);
-        RebuildLogPane(manager);
-        UpdateFooterLabels();
-
+        RebuildHierarchyContent(manager);
+        RebuildLogContent(manager);
+        UpdateFooter();
         Canvas.ForceUpdateCanvases();
         LayoutRebuilder.ForceRebuildLayoutImmediate(_windowRoot);
     }
 
-    private void RebuildHierarchyPane(DebugConsoleManager manager)
+    private void RebuildHierarchyContent(DebugConsoleManager manager)
     {
         ClearChildren(_hierarchyContent);
 
         List<GameObject> roots = GetSceneRootObjects();
         for (int i = 0; i < roots.Count; i++)
-            AddGameObjectRowRecursive(_hierarchyContent, roots[i], 0, manager);
+            AddGameObjectRecursive(_hierarchyContent, roots[i], 0, manager);
     }
 
-    private void AddGameObjectRowRecursive(RectTransform parent, GameObject go, int depth, DebugConsoleManager manager)
+    private void AddGameObjectRecursive(RectTransform parent, GameObject gameObject, int depth, DebugConsoleManager manager)
     {
-        if (go == null)
+        if (gameObject == null || !ShouldShowGameObject(gameObject))
             return;
 
-        if (!ShouldShowGameObject(go))
-            return;
+        RectTransform row = CreateRect(parent, $"GameObjectRow_{gameObject.GetInstanceID()}");
+        HorizontalLayoutGroup layout = AddHorizontalLayout(row, 4f, 6 + depth * 18, 6, 2, 2);
+        LayoutElement rowLayout = row.gameObject.AddComponent<LayoutElement>();
+        rowLayout.preferredHeight = 30f;
 
-        RectTransform row = CreateHorizontalRow($"ObjectRow_{go.GetInstanceID()}", parent, 4f, 30f);
         Image rowBackground = row.gameObject.AddComponent<Image>();
-        rowBackground.color = GetObjectRowColor(go.GetInstanceID());
+        rowBackground.color = GetGameObjectRowColor(gameObject.GetInstanceID());
 
-        LayoutGroup rowLayout = row.GetComponent<HorizontalLayoutGroup>();
-        rowLayout.padding = new RectOffset(6 + depth * 18, 6, 2, 2);
-
-        Toggle objectToggle = CreateInlineToggle(row, manager.GetGameObjectEnabled(go), value =>
+        CreateInlineToggle(row, manager.GetGameObjectEnabled(gameObject), value =>
         {
-            manager.SetGameObjectEnabled(go, value);
+            manager.SetGameObjectEnabled(gameObject, value);
             RequestRebuild();
         });
 
-        objectToggle.transform.SetAsFirstSibling();
-
-        bool hasChildren = HasVisibleChildren(go);
-        bool hasComponents = HasVisibleComponents(go);
-        bool hasExpandTarget = hasChildren || hasComponents;
-
-        Button labelButton = CreateRowButton(row, TrimName(go.name), () =>
+        Button selectButton = CreateRowButton(row, TrimDisplayName(gameObject.name), () =>
         {
-            HandleObjectSelected(go);
-        }, TextAlignmentOptions.Left, true);
-
-        LayoutElement labelLayout = labelButton.gameObject.GetComponent<LayoutElement>();
+            SelectGameObject(gameObject);
+        }, true, 0f);
+        LayoutElement labelLayout = selectButton.gameObject.GetComponent<LayoutElement>();
         labelLayout.flexibleWidth = 1f;
 
-        if (hasExpandTarget)
+        bool hasVisibleComponents = HasVisibleComponents(gameObject);
+        bool hasVisibleChildren = HasVisibleChildren(gameObject);
+
+        if (hasVisibleComponents || hasVisibleChildren)
         {
-            bool expanded = GetExpanded(go.GetInstanceID());
+            bool expanded = GetExpanded(gameObject.GetInstanceID());
             CreateRowButton(row, expanded ? "▼" : "▶", () =>
             {
-                SetExpanded(go.GetInstanceID(), !GetExpanded(go.GetInstanceID()));
+                SetExpanded(gameObject.GetInstanceID(), !expanded);
                 RequestRebuild();
-            }, TextAlignmentOptions.Center, false, 32f);
+            }, false, 32f);
         }
         else
         {
-            LayoutElement spacer = new GameObject("ExpandSpacer", typeof(RectTransform), typeof(LayoutElement)).GetComponent<LayoutElement>();
-            spacer.transform.SetParent(row, false);
-            spacer.preferredWidth = 32f;
+            CreateSpacer(row, 32f);
         }
 
-        if (!GetExpanded(go.GetInstanceID()))
+        if (!GetExpanded(gameObject.GetInstanceID()))
             return;
 
-        Component[] components = go.GetComponents<Component>();
+        Component[] components = gameObject.GetComponents<Component>();
         for (int i = 0; i < components.Length; i++)
         {
             Component component = components[i];
@@ -552,29 +643,30 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             if (!ShouldShowComponent(component))
                 continue;
 
-            AddComponentRow(parent, go, component, depth + 1, manager);
+            AddComponentRow(parent, gameObject, component, depth + 1, manager);
         }
 
-        for (int childIndex = 0; childIndex < go.transform.childCount; childIndex++)
+        for (int i = 0; i < gameObject.transform.childCount; i++)
         {
-            Transform child = go.transform.GetChild(childIndex);
+            Transform child = gameObject.transform.GetChild(i);
             if (child == null)
                 continue;
 
-            AddGameObjectRowRecursive(parent, child.gameObject, depth + 1, manager);
+            AddGameObjectRecursive(parent, child.gameObject, depth + 1, manager);
         }
     }
 
     private void AddComponentRow(RectTransform parent, GameObject owner, Component component, int depth, DebugConsoleManager manager)
     {
-        RectTransform row = CreateHorizontalRow($"ComponentRow_{component.GetInstanceID()}", parent, 4f, 28f);
+        RectTransform row = CreateRect(parent, $"ComponentRow_{component.GetInstanceID()}");
+        HorizontalLayoutGroup layout = AddHorizontalLayout(row, 4f, 18 + depth * 18, 6, 2, 2);
+        LayoutElement rowLayout = row.gameObject.AddComponent<LayoutElement>();
+        rowLayout.preferredHeight = 28f;
+
         Image rowBackground = row.gameObject.AddComponent<Image>();
         rowBackground.color = _focusState.IsComponentFocused(component.GetInstanceID())
-            ? new Color(0.73f, 0.58f, 0.15f, 0.72f)
-            : new Color(0.32f, 0.24f, 0.08f, 0.30f);
-
-        LayoutGroup rowLayout = row.GetComponent<HorizontalLayoutGroup>();
-        rowLayout.padding = new RectOffset(18 + depth * 18, 6, 2, 2);
+            ? new Color(0.72f, 0.55f, 0.16f, 0.82f)
+            : new Color(0.45f, 0.33f, 0.08f, 0.28f);
 
         CreateInlineToggle(row, manager.GetComponentEnabled(component), value =>
         {
@@ -582,46 +674,17 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             RequestRebuild();
         });
 
-        Button labelButton = CreateRowButton(row, TrimName(component.GetType().Name), () =>
+        Button selectButton = CreateRowButton(row, TrimDisplayName(component.GetType().Name), () =>
         {
-            HandleComponentSelected(owner, component);
-        }, TextAlignmentOptions.Left, true);
-
-        LayoutElement labelLayout = labelButton.gameObject.GetComponent<LayoutElement>();
+            SelectComponent(owner, component);
+        }, true, 0f);
+        LayoutElement labelLayout = selectButton.gameObject.GetComponent<LayoutElement>();
         labelLayout.flexibleWidth = 1f;
 
-        LayoutElement spacer = new GameObject("EndSpacer", typeof(RectTransform), typeof(LayoutElement)).GetComponent<LayoutElement>();
-        spacer.transform.SetParent(row, false);
-        spacer.preferredWidth = 32f;
+        CreateSpacer(row, 32f);
     }
 
-    private void HandleObjectSelected(GameObject go)
-    {
-        if (go == null)
-            return;
-
-        if (_collapsePreviousOnSelection)
-            _expandedObjectState.Clear();
-
-        _focusState.FocusGameObject(go.GetInstanceID(), go.name);
-        SetExpanded(go.GetInstanceID(), true);
-        RequestRebuild();
-    }
-
-    private void HandleComponentSelected(GameObject owner, Component component)
-    {
-        if (owner == null || component == null)
-            return;
-
-        if (_collapsePreviousOnSelection)
-            _expandedObjectState.Clear();
-
-        _focusState.FocusComponent(owner.GetInstanceID(), component.GetInstanceID(), owner.name, component.GetType().Name);
-        SetExpanded(owner.GetInstanceID(), true);
-        RequestRebuild();
-    }
-
-    private void RebuildLogPane(DebugConsoleManager manager)
+    private void RebuildLogContent(DebugConsoleManager manager)
     {
         ClearChildren(_logContent);
 
@@ -634,17 +697,28 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
                 continue;
 
             visibleCount++;
-            AddLogEntryRow(_logContent, entry);
+            AddLogEntryRow(entry);
         }
 
         _countLabel.text = $"Count : {visibleCount}";
     }
 
-    private void AddLogEntryRow(RectTransform parent, DebugEntry entry)
+    private void AddLogEntryRow(DebugEntry entry)
     {
-        RectTransform row = CreateVerticalRow($"LogRow_{parent.childCount}", parent, 2f);
+        RectTransform row = CreateRect(_logContent, $"LogRow_{_logContent.childCount}");
+        VerticalLayoutGroup layout = row.gameObject.AddComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(10, 10, 8, 8);
+        layout.spacing = 4f;
+        layout.childControlWidth = true;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+
+        LayoutElement rowLayout = row.gameObject.AddComponent<LayoutElement>();
+        rowLayout.minHeight = 56f;
+
         Image background = row.gameObject.AddComponent<Image>();
-        background.color = GetLogRowColor(entry.Level);
+        background.color = GetLogBackgroundColor(entry.Level);
 
         Button button = row.gameObject.AddComponent<Button>();
         ColorBlock colors = button.colors;
@@ -653,24 +727,20 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         colors.pressedColor = new Color(1f, 1f, 1f, 0.12f);
         colors.selectedColor = new Color(1f, 1f, 1f, 0.08f);
         button.colors = colors;
-        button.transition = Selectable.Transition.ColorTint;
         button.onClick.AddListener(() => FocusFromEntry(entry));
 
         string header = $"[{entry.Time}] [{entry.Type}] {entry.SourceName}";
-        string footer = string.IsNullOrEmpty(entry.MemberName)
+        string detail = string.IsNullOrEmpty(entry.MemberName)
             ? entry.Message
-            : $"{entry.Message}\n{entry.MemberName}:{entry.LineNumber}";
+            : $"{entry.Message}\n출처 : {entry.MemberName} : {entry.LineNumber}";
 
-        TextMeshProUGUI headerText = CreateText("Header", row, header, 18f, FontStyles.Bold, TextAlignmentOptions.Left);
-        headerText.color = ColorFromHex(entry.ColorHex, new Color(0.92f, 0.94f, 0.96f, 1f));
+        TextMeshProUGUI headerText = CreateText(row, header, 18f, FontStyles.Bold, TextAlignmentOptions.Left);
         headerText.enableWordWrapping = true;
+        headerText.color = ParseColor(entry.ColorHex, new Color(0.92f, 0.95f, 0.98f, 1f));
 
-        TextMeshProUGUI messageText = CreateText("Message", row, footer, 17f, FontStyles.Normal, TextAlignmentOptions.Left);
-        messageText.color = new Color(0.90f, 0.94f, 0.96f, 1f);
-        messageText.enableWordWrapping = true;
-
-        LayoutElement layout = row.gameObject.AddComponent<LayoutElement>();
-        layout.minHeight = 54f;
+        TextMeshProUGUI detailText = CreateText(row, detail, 17f, FontStyles.Normal, TextAlignmentOptions.Left);
+        detailText.enableWordWrapping = true;
+        detailText.color = new Color(0.90f, 0.94f, 0.97f, 1f);
     }
 
     private void FocusFromEntry(DebugEntry entry)
@@ -678,9 +748,15 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (entry == null)
             return;
 
-        if (entry.ComponentId != 0 && entry.Context is Component component)
+        if (entry.Context is Component component)
         {
-            HandleComponentSelected(component.gameObject, component);
+            SelectComponent(component.gameObject, component);
+            return;
+        }
+
+        if (entry.Context is GameObject gameObject)
+        {
+            SelectGameObject(gameObject);
             return;
         }
 
@@ -688,8 +764,34 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         {
             GameObject target = FindGameObjectByInstanceId(entry.GameObjectId);
             if (target != null)
-                HandleObjectSelected(target);
+                SelectGameObject(target);
         }
+    }
+
+    private void SelectGameObject(GameObject gameObject)
+    {
+        if (gameObject == null)
+            return;
+
+        if (_collapsePreviousOnSelection)
+            _expandedObjects.Clear();
+
+        _focusState.FocusGameObject(gameObject.GetInstanceID(), gameObject.name);
+        SetExpanded(gameObject.GetInstanceID(), true);
+        RequestRebuild();
+    }
+
+    private void SelectComponent(GameObject owner, Component component)
+    {
+        if (owner == null || component == null)
+            return;
+
+        if (_collapsePreviousOnSelection)
+            _expandedObjects.Clear();
+
+        _focusState.FocusComponent(owner.GetInstanceID(), component.GetInstanceID(), owner.name, component.GetType().Name);
+        SetExpanded(owner.GetInstanceID(), true);
+        RequestRebuild();
     }
 
     private bool ShouldDisplayEntry(DebugConsoleManager manager, DebugEntry entry)
@@ -706,30 +808,33 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (_focusState.HasGameObjectFocus && !_focusState.HasComponentFocus && entry.GameObjectId != _focusState.FocusedGameObjectId)
             return false;
 
-        if (string.IsNullOrWhiteSpace(_logSearch))
-            return true;
+        if (!string.IsNullOrWhiteSpace(_logSearch))
+        {
+            string keyword = _logSearch.Trim();
+            if (!ContainsText(entry.Message, keyword)
+                && !ContainsText(entry.SourceName, keyword)
+                && !ContainsText(entry.MemberName, keyword)
+                && !ContainsText(entry.Type.ToString(), keyword)
+                && !ContainsText(entry.Time, keyword))
+                return false;
+        }
 
-        string keyword = _logSearch.Trim();
-        return Contains(entry.Message, keyword)
-               || Contains(entry.SourceName, keyword)
-               || Contains(entry.MemberName, keyword)
-               || Contains(entry.Type.ToString(), keyword)
-               || Contains(entry.Time, keyword);
+        return true;
     }
 
-    private bool ShouldShowGameObject(GameObject go)
+    private bool ShouldShowGameObject(GameObject gameObject)
     {
-        if (go == null)
+        if (gameObject == null)
             return false;
 
         if (string.IsNullOrWhiteSpace(_hierarchySearch))
             return true;
 
         string keyword = _hierarchySearch.Trim();
-        if (Contains(go.name, keyword))
+        if (ContainsText(gameObject.name, keyword))
             return true;
 
-        Component[] components = go.GetComponents<Component>();
+        Component[] components = gameObject.GetComponents<Component>();
         for (int i = 0; i < components.Length; i++)
         {
             Component component = components[i];
@@ -739,13 +844,13 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             if (_hideTransform && component is Transform)
                 continue;
 
-            if (Contains(component.GetType().Name, keyword))
+            if (ContainsText(component.GetType().Name, keyword))
                 return true;
         }
 
-        for (int childIndex = 0; childIndex < go.transform.childCount; childIndex++)
+        for (int i = 0; i < gameObject.transform.childCount; i++)
         {
-            Transform child = go.transform.GetChild(childIndex);
+            Transform child = gameObject.transform.GetChild(i);
             if (child != null && ShouldShowGameObject(child.gameObject))
                 return true;
         }
@@ -762,15 +867,15 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             return true;
 
         string keyword = _hierarchySearch.Trim();
-        return Contains(component.GetType().Name, keyword)
-               || Contains(component.gameObject.name, keyword);
+        return ContainsText(component.GetType().Name, keyword)
+               || ContainsText(component.gameObject.name, keyword);
     }
 
-    private bool HasVisibleChildren(GameObject go)
+    private bool HasVisibleChildren(GameObject gameObject)
     {
-        for (int i = 0; i < go.transform.childCount; i++)
+        for (int i = 0; i < gameObject.transform.childCount; i++)
         {
-            Transform child = go.transform.GetChild(i);
+            Transform child = gameObject.transform.GetChild(i);
             if (child != null && ShouldShowGameObject(child.gameObject))
                 return true;
         }
@@ -778,9 +883,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         return false;
     }
 
-    private bool HasVisibleComponents(GameObject go)
+    private bool HasVisibleComponents(GameObject gameObject)
     {
-        Component[] components = go.GetComponents<Component>();
+        Component[] components = gameObject.GetComponents<Component>();
         for (int i = 0; i < components.Length; i++)
         {
             Component component = components[i];
@@ -799,97 +904,57 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private bool GetExpanded(int instanceId)
     {
-        return _expandedObjectState.TryGetValue(instanceId, out bool expanded) && expanded;
+        return _expandedObjects.TryGetValue(instanceId, out bool expanded) && expanded;
     }
 
     private void SetExpanded(int instanceId, bool expanded)
     {
-        _expandedObjectState[instanceId] = expanded;
+        _expandedObjects[instanceId] = expanded;
     }
 
-    private void SyncManagerStateToUI(DebugConsoleManager manager)
+    private void SyncManagerStateToUi(DebugConsoleManager manager)
     {
         if (manager == null)
             return;
 
-        SetToggleValueWithoutNotify(_globalToggle, manager.GlobalEnabled);
-        SetToggleValueWithoutNotify(_mirrorToggle, manager.MirrorToUnityConsole);
-        SetToggleValueWithoutNotify(_autoScrollToggle, _autoScroll);
-        SetToggleValueWithoutNotify(_hideTransformToggle, _hideTransform);
-        SetToggleValueWithoutNotify(_collapsePrevToggle, _collapsePreviousOnSelection);
-        SetToggleValueWithoutNotify(_blockInputToggle, _blockInput);
+        SetToggleValue(_globalToggle, manager.GlobalEnabled);
+        SetToggleValue(_mirrorToggle, manager.MirrorToUnityConsole);
+        SetToggleValue(_autoScrollToggle, _autoScroll);
+        SetToggleValue(_hideTransformToggle, _hideTransform);
+        SetToggleValue(_collapsePrevToggle, _collapsePreviousOnSelection);
+        SetToggleValue(_blockInputToggle, _blockInput);
 
-        foreach (KeyValuePair<DebugType, Toggle> pair in _typeToggleMap)
-            SetToggleValueWithoutNotify(pair.Value, manager.GetTypeEnabled(pair.Key));
+        foreach (KeyValuePair<DebugType, Toggle> pair in _typeToggles)
+            SetToggleValue(pair.Value, manager.GetTypeEnabled(pair.Key));
 
         UpdateTypeFilterButtonLabel();
     }
 
+    private void UpdateFooter()
+    {
+        _focusLabel.text = _focusState.GetFooterLabel(24);
+    }
+
+    private void ToggleTypeFilterPanel()
+    {
+        _showTypeFilterPanel = !_showTypeFilterPanel;
+        ApplyFixedLayout();
+    }
+
     private void UpdateTypeFilterButtonLabel()
     {
-        if (_typeFilterToggleLabel == null)
+        if (_typeFilterButtonLabel == null)
             return;
 
         int enabledCount = 0;
-        foreach (KeyValuePair<DebugType, Toggle> pair in _typeToggleMap)
+        foreach (KeyValuePair<DebugType, Toggle> pair in _typeToggles)
         {
             if (pair.Value != null && pair.Value.isOn)
                 enabledCount++;
         }
 
         string arrow = _showTypeFilterPanel ? "▼" : "▶";
-        _typeFilterToggleLabel.text = $"Type Filter {arrow} ({enabledCount}/{_typeToggleMap.Count})";
-    }
-
-    private void UpdateFooterLabels()
-    {
-        _focusLabel.text = _focusState.GetFooterLabel(20);
-    }
-
-    private List<GameObject> GetSceneRootObjects()
-    {
-        List<GameObject> roots = new List<GameObject>();
-        for (int sceneIndex = 0; sceneIndex < SceneManager.sceneCount; sceneIndex++)
-        {
-            Scene scene = SceneManager.GetSceneAt(sceneIndex);
-            if (!scene.IsValid() || !scene.isLoaded)
-                continue;
-
-            roots.AddRange(scene.GetRootGameObjects());
-        }
-
-        return roots;
-    }
-
-    private GameObject FindGameObjectByInstanceId(int instanceId)
-    {
-        List<GameObject> roots = GetSceneRootObjects();
-        for (int i = 0; i < roots.Count; i++)
-        {
-            GameObject result = FindGameObjectRecursive(roots[i].transform, instanceId);
-            if (result != null)
-                return result;
-        }
-
-        return null;
-    }
-
-    private GameObject FindGameObjectRecursive(Transform current, int instanceId)
-    {
-        if (current == null)
-            return null;
-
-        if (current.gameObject.GetInstanceID() == instanceId)
-            return current.gameObject;
-
-        for (int i = 0; i < current.childCount; i++)
-        {
-            GameObject result = FindGameObjectRecursive(current.GetChild(i), instanceId);
-            if (result != null)
-                return result;
-        }
-
-        return null;
+        _typeFilterButtonLabel.text = $"Type Filter {arrow} ({enabledCount}/{_typeToggles.Count})";
     }
 
     private void EnsureEventSystemExists()
@@ -907,139 +972,126 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             eventSystemObject.AddComponent<StandaloneInputModule>();
     }
 
-    private TMP_FontAsset CreateDynamicFontAsset()
+    private List<GameObject> GetSceneRootObjects()
     {
-        string[] fontCandidates =
+        List<GameObject> roots = new();
+        for (int i = 0; i < SceneManager.sceneCount; i++)
         {
-            "Malgun Gothic",
-            "맑은 고딕",
-            "Noto Sans CJK KR",
-            "Noto Sans KR",
-            "Arial Unicode MS",
-            FontFallbackName
-        };
+            Scene scene = SceneManager.GetSceneAt(i);
+            if (!scene.IsValid() || !scene.isLoaded)
+                continue;
 
-        Font sourceFont = Font.CreateDynamicFontFromOSFont(fontCandidates, 32);
-        if (sourceFont == null)
-            sourceFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            roots.AddRange(scene.GetRootGameObjects());
+        }
 
-        return TMP_FontAsset.CreateFontAsset(sourceFont, 90, 9, UnityEngine.TextCore.LowLevel.GlyphRenderMode.SDFAA, 1024, 1024, AtlasPopulationMode.Dynamic, true);
+        return roots;
     }
 
-    private RectTransform CreateHorizontalRow(string name, Transform parent, float spacing, float preferredHeight)
+    private GameObject FindGameObjectByInstanceId(int instanceId)
     {
-        GameObject rowObject = new GameObject(name, typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
-        rowObject.transform.SetParent(parent, false);
-        RectTransform rect = rowObject.GetComponent<RectTransform>();
+        List<GameObject> roots = GetSceneRootObjects();
+        for (int i = 0; i < roots.Count; i++)
+        {
+            GameObject found = FindGameObjectRecursive(roots[i].transform, instanceId);
+            if (found != null)
+                return found;
+        }
 
-        HorizontalLayoutGroup layout = rowObject.GetComponent<HorizontalLayoutGroup>();
-        layout.spacing = spacing;
-        layout.childAlignment = TextAnchor.MiddleLeft;
-        layout.childControlWidth = false;
-        layout.childControlHeight = true;
-        layout.childForceExpandWidth = false;
-        layout.childForceExpandHeight = false;
-
-        LayoutElement layoutElement = rowObject.GetComponent<LayoutElement>();
-        if (preferredHeight > 0f)
-            layoutElement.preferredHeight = preferredHeight;
-
-        return rect;
+        return null;
     }
 
-    private RectTransform CreateVerticalRow(string name, Transform parent, float spacing)
+    private GameObject FindGameObjectRecursive(Transform current, int instanceId)
     {
-        GameObject rowObject = new GameObject(name, typeof(RectTransform), typeof(VerticalLayoutGroup));
-        rowObject.transform.SetParent(parent, false);
-        RectTransform rect = rowObject.GetComponent<RectTransform>();
+        if (current == null)
+            return null;
 
-        VerticalLayoutGroup layout = rowObject.GetComponent<VerticalLayoutGroup>();
-        layout.padding = new RectOffset(8, 8, 6, 6);
-        layout.spacing = spacing;
-        layout.childAlignment = TextAnchor.UpperLeft;
-        layout.childControlWidth = true;
-        layout.childControlHeight = false;
-        layout.childForceExpandWidth = true;
-        layout.childForceExpandHeight = false;
+        if (current.gameObject.GetInstanceID() == instanceId)
+            return current.gameObject;
 
-        return rect;
+        for (int i = 0; i < current.childCount; i++)
+        {
+            GameObject found = FindGameObjectRecursive(current.GetChild(i), instanceId);
+            if (found != null)
+                return found;
+        }
+
+        return null;
     }
 
-    private RectTransform CreatePanel(string name, Transform parent, Color color)
+    private RectTransform CreateRect(Transform parent, string name)
     {
-        GameObject panelObject = new GameObject(name, typeof(RectTransform), typeof(Image));
-        panelObject.transform.SetParent(parent, false);
-        Image image = panelObject.GetComponent<Image>();
-        image.color = color;
+        GameObject obj = new GameObject(name, typeof(RectTransform));
+        obj.transform.SetParent(parent, false);
+        return obj.GetComponent<RectTransform>();
+    }
+
+    private RectTransform CreatePanelRect(Transform parent, string name, Color color)
+    {
+        Image image = CreateImage(parent, name, color);
         return image.rectTransform;
     }
 
-    private Image CreateImage(string name, Transform parent, Color color)
+    private Image CreateImage(Transform parent, string name, Color color)
     {
-        GameObject imageObject = new GameObject(name, typeof(RectTransform), typeof(Image));
-        imageObject.transform.SetParent(parent, false);
-        Image image = imageObject.GetComponent<Image>();
+        GameObject obj = new GameObject(name, typeof(RectTransform), typeof(Image));
+        obj.transform.SetParent(parent, false);
+        Image image = obj.GetComponent<Image>();
         image.color = color;
         return image;
     }
 
-    private TextMeshProUGUI CreateText(string name, Transform parent, string text, float fontSize, FontStyles fontStyle, TextAlignmentOptions alignment)
+    private TextMeshProUGUI CreateText(Transform parent, string text, float fontSize, FontStyles fontStyle, TextAlignmentOptions alignment)
     {
-        GameObject textObject = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
-        textObject.transform.SetParent(parent, false);
-        TextMeshProUGUI textComponent = textObject.GetComponent<TextMeshProUGUI>();
-        textComponent.font = _runtimeFontAsset;
+        GameObject obj = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+        obj.transform.SetParent(parent, false);
+        TextMeshProUGUI textComponent = obj.GetComponent<TextMeshProUGUI>();
+        textComponent.font = _fontAsset;
         textComponent.text = text;
         textComponent.fontSize = fontSize;
         textComponent.fontStyle = fontStyle;
         textComponent.alignment = alignment;
-        textComponent.color = new Color(0.90f, 0.94f, 0.96f, 1f);
+        textComponent.color = new Color(0.92f, 0.95f, 0.98f, 1f);
         textComponent.enableWordWrapping = false;
         textComponent.overflowMode = TextOverflowModes.Ellipsis;
         return textComponent;
     }
 
-    private Toggle CreateHeaderToggle(Transform parent, string label, Action<bool> callback)
+    private HorizontalLayoutGroup AddHorizontalLayout(RectTransform target, float spacing, int left, int right, int top, int bottom)
     {
-        Toggle toggle = CreateTypeToggle(parent, label, callback, 170f, 30f);
-        LayoutElement layout = toggle.gameObject.GetComponent<LayoutElement>();
-        layout.preferredWidth = 170f;
-        return toggle;
+        HorizontalLayoutGroup layout = target.gameObject.AddComponent<HorizontalLayoutGroup>();
+        layout.spacing = spacing;
+        layout.padding = new RectOffset(left, right, top, bottom);
+        layout.childAlignment = TextAnchor.MiddleLeft;
+        layout.childControlWidth = false;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+        return layout;
     }
 
-    private Toggle CreateTypeToggle(Transform parent, string label, Action<bool> callback, float preferredWidth = 200f, float preferredHeight = 30f)
+    private Toggle CreateLabeledToggle(Transform parent, string label, Action<bool> callback, float width)
     {
-        GameObject root = new GameObject(label + "Toggle", typeof(RectTransform), typeof(LayoutElement), typeof(Toggle));
-        root.transform.SetParent(parent, false);
+        RectTransform root = CreateRect(parent, $"{label}_Toggle");
+        LayoutElement layout = root.gameObject.AddComponent<LayoutElement>();
+        layout.preferredWidth = width;
+        layout.preferredHeight = 24f;
 
-        LayoutElement layout = root.GetComponent<LayoutElement>();
-        layout.preferredWidth = preferredWidth;
-        layout.preferredHeight = preferredHeight;
+        AddHorizontalLayout(root, 8f, 0, 0, 0, 0);
 
-        HorizontalLayoutGroup row = root.AddComponent<HorizontalLayoutGroup>();
-        row.spacing = 6f;
-        row.padding = new RectOffset(2, 2, 2, 2);
-        row.childAlignment = TextAnchor.MiddleLeft;
-        row.childControlWidth = false;
-        row.childControlHeight = false;
-        row.childForceExpandWidth = false;
-        row.childForceExpandHeight = false;
+        Toggle toggle = root.gameObject.AddComponent<Toggle>();
 
-        Toggle toggle = root.GetComponent<Toggle>();
+        Image box = CreateImage(root, "Box", new Color(0.16f, 0.20f, 0.28f, 1f));
+        RectTransform boxRect = box.rectTransform;
+        boxRect.sizeDelta = new Vector2(18f, 18f);
+        toggle.targetGraphic = box;
 
-        Image background = CreateImage("Background", root.transform, new Color(0.14f, 0.18f, 0.25f, 1f));
-        RectTransform backgroundRect = background.rectTransform;
-        backgroundRect.sizeDelta = new Vector2(20f, 20f);
-        toggle.targetGraphic = background;
+        Image check = CreateImage(boxRect, "Checkmark", new Color(0.56f, 0.88f, 0.75f, 1f));
+        Stretch(check.rectTransform, 3f, -3f, 3f, -3f);
+        toggle.graphic = check;
 
-        Image checkmark = CreateImage("Checkmark", background.transform, new Color(0.56f, 0.88f, 0.75f, 1f));
-        Stretch(checkmark.rectTransform, 3f, -3f, 3f, -3f);
-        toggle.graphic = checkmark;
-
-        TextMeshProUGUI labelText = CreateText("Label", root.transform, label, 19f, FontStyles.Normal, TextAlignmentOptions.Left);
+        TextMeshProUGUI labelText = CreateText(root, label, 20f, FontStyles.Normal, TextAlignmentOptions.Left);
         LayoutElement labelLayout = labelText.gameObject.AddComponent<LayoutElement>();
-        labelLayout.preferredWidth = preferredWidth - 28f;
-        labelText.enableWordWrapping = false;
+        labelLayout.preferredWidth = Mathf.Max(60f, width - 28f);
 
         toggle.onValueChanged.AddListener(value => callback?.Invoke(value));
         return toggle;
@@ -1047,156 +1099,135 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private Toggle CreateInlineToggle(Transform parent, bool initialValue, Action<bool> callback)
     {
-        GameObject root = new GameObject("InlineToggle", typeof(RectTransform), typeof(LayoutElement), typeof(Toggle));
-        root.transform.SetParent(parent, false);
-        LayoutElement layout = root.GetComponent<LayoutElement>();
+        RectTransform root = CreateRect(parent, "InlineToggle");
+        LayoutElement layout = root.gameObject.AddComponent<LayoutElement>();
         layout.preferredWidth = 22f;
         layout.preferredHeight = 22f;
 
-        Toggle toggle = root.GetComponent<Toggle>();
-        Image background = CreateImage("Background", root.transform, new Color(0.15f, 0.19f, 0.24f, 1f));
-        Stretch(background.rectTransform, 0f, 0f, 0f, 0f);
-        toggle.targetGraphic = background;
+        Toggle toggle = root.gameObject.AddComponent<Toggle>();
 
-        Image checkmark = CreateImage("Checkmark", background.transform, new Color(0.56f, 0.88f, 0.75f, 1f));
-        Stretch(checkmark.rectTransform, 4f, -4f, 4f, -4f);
-        toggle.graphic = checkmark;
+        Image box = CreateImage(root, "Box", new Color(0.16f, 0.20f, 0.28f, 1f));
+        Stretch(box.rectTransform, 0f, 0f, 0f, 0f);
+        toggle.targetGraphic = box;
+
+        Image check = CreateImage(box.rectTransform, "Checkmark", new Color(0.56f, 0.88f, 0.75f, 1f));
+        Stretch(check.rectTransform, 4f, -4f, 4f, -4f);
+        toggle.graphic = check;
 
         toggle.SetIsOnWithoutNotify(initialValue);
         toggle.onValueChanged.AddListener(value => callback?.Invoke(value));
         return toggle;
     }
 
-    private Button CreateButton(Transform parent, string text, Action onClick, float width = 170f)
+    private Button CreateButton(Transform parent, string text, Action onClick, out TextMeshProUGUI label, float width)
     {
-        return CreateButton(parent, text, onClick, out _, width);
-    }
-
-    private Button CreateButton(Transform parent, string text, Action onClick, out TextMeshProUGUI label, float width = 170f)
-    {
-        GameObject buttonObject = new GameObject(text + "Button", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
-        buttonObject.transform.SetParent(parent, false);
-
-        LayoutElement layout = buttonObject.GetComponent<LayoutElement>();
+        RectTransform root = CreateRect(parent, $"{text}_Button");
+        LayoutElement layout = root.gameObject.AddComponent<LayoutElement>();
         layout.preferredWidth = width;
         layout.preferredHeight = 34f;
 
-        Image image = buttonObject.GetComponent<Image>();
-        image.color = new Color(0.22f, 0.28f, 0.37f, 1f);
+        Image background = root.gameObject.AddComponent<Image>();
+        background.color = new Color(0.18f, 0.23f, 0.31f, 1f);
 
-        Button button = buttonObject.GetComponent<Button>();
+        Button button = root.gameObject.AddComponent<Button>();
         ColorBlock colors = button.colors;
-        colors.normalColor = image.color;
-        colors.highlightedColor = new Color(0.28f, 0.35f, 0.46f, 1f);
-        colors.pressedColor = new Color(0.18f, 0.24f, 0.31f, 1f);
-        colors.selectedColor = new Color(0.28f, 0.35f, 0.46f, 1f);
+        colors.normalColor = background.color;
+        colors.highlightedColor = new Color(0.25f, 0.31f, 0.41f, 1f);
+        colors.pressedColor = new Color(0.15f, 0.19f, 0.26f, 1f);
+        colors.selectedColor = new Color(0.25f, 0.31f, 0.41f, 1f);
         button.colors = colors;
         button.onClick.AddListener(() => onClick?.Invoke());
 
-        label = CreateText("Label", buttonObject.transform, text, 18f, FontStyles.Normal, TextAlignmentOptions.Center);
+        label = CreateText(root, text, 19f, FontStyles.Normal, TextAlignmentOptions.Center);
         Stretch(label.rectTransform, 6f, -6f, 2f, -2f);
-        label.text = text;
+
         return button;
     }
 
-    private Button CreateRowButton(Transform parent, string text, Action onClick, TextAlignmentOptions alignment, bool flexible, float width = 0f)
+    private Button CreateRowButton(Transform parent, string text, Action onClick, bool flexible, float width)
     {
-        GameObject buttonObject = new GameObject(text + "Button", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
-        buttonObject.transform.SetParent(parent, false);
-
-        Image image = buttonObject.GetComponent<Image>();
-        image.color = new Color(0.18f, 0.22f, 0.28f, 0.95f);
-
-        LayoutElement layout = buttonObject.GetComponent<LayoutElement>();
+        RectTransform root = CreateRect(parent, $"{text}_RowButton");
+        LayoutElement layout = root.gameObject.AddComponent<LayoutElement>();
+        layout.preferredHeight = 24f;
         if (flexible)
             layout.flexibleWidth = 1f;
         else
             layout.preferredWidth = width;
-        layout.preferredHeight = 24f;
 
-        Button button = buttonObject.GetComponent<Button>();
+        Image background = root.gameObject.AddComponent<Image>();
+        background.color = new Color(0.18f, 0.22f, 0.28f, 0.96f);
+
+        Button button = root.gameObject.AddComponent<Button>();
         ColorBlock colors = button.colors;
-        colors.normalColor = image.color;
-        colors.highlightedColor = new Color(0.24f, 0.30f, 0.38f, 1f);
-        colors.pressedColor = new Color(0.15f, 0.19f, 0.24f, 1f);
-        colors.selectedColor = new Color(0.24f, 0.30f, 0.38f, 1f);
+        colors.normalColor = background.color;
+        colors.highlightedColor = new Color(0.24f, 0.29f, 0.38f, 1f);
+        colors.pressedColor = new Color(0.15f, 0.18f, 0.24f, 1f);
+        colors.selectedColor = new Color(0.24f, 0.29f, 0.38f, 1f);
         button.colors = colors;
         button.onClick.AddListener(() => onClick?.Invoke());
 
-        TextMeshProUGUI label = CreateText("Label", buttonObject.transform, text, 18f, FontStyles.Normal, alignment);
+        TextMeshProUGUI label = CreateText(root, text, 18f, FontStyles.Normal, TextAlignmentOptions.Left);
         Stretch(label.rectTransform, 6f, -6f, 0f, 0f);
-        label.enableWordWrapping = false;
-        label.overflowMode = TextOverflowModes.Ellipsis;
+
         return button;
-    }
-
-    private void CreateLabeledInput(Transform parent, string label, out TMP_InputField inputField, Action<string> onValueChanged, float widthWeight)
-    {
-        GameObject containerObject = new GameObject(label + "Container", typeof(RectTransform), typeof(LayoutElement), typeof(HorizontalLayoutGroup));
-        containerObject.transform.SetParent(parent, false);
-        LayoutElement containerLayout = containerObject.GetComponent<LayoutElement>();
-        containerLayout.flexibleWidth = widthWeight;
-        containerLayout.preferredHeight = 34f;
-
-        HorizontalLayoutGroup row = containerObject.GetComponent<HorizontalLayoutGroup>();
-        row.spacing = 6f;
-        row.childAlignment = TextAnchor.MiddleLeft;
-        row.childControlWidth = false;
-        row.childControlHeight = true;
-        row.childForceExpandWidth = false;
-        row.childForceExpandHeight = false;
-
-        TextMeshProUGUI labelText = CreateText("Label", containerObject.transform, label, 19f, FontStyles.Normal, TextAlignmentOptions.Left);
-        LayoutElement labelLayout = labelText.gameObject.AddComponent<LayoutElement>();
-        labelLayout.preferredWidth = 150f;
-
-        inputField = CreateInputField(containerObject.transform, onValueChanged);
-        LayoutElement inputLayout = inputField.gameObject.GetComponent<LayoutElement>();
-        inputLayout.flexibleWidth = 1f;
     }
 
     private TMP_InputField CreateInputField(Transform parent, Action<string> onValueChanged)
     {
-        GameObject root = new GameObject("InputField", typeof(RectTransform), typeof(Image), typeof(TMP_InputField), typeof(LayoutElement));
-        root.transform.SetParent(parent, false);
-
-        LayoutElement layout = root.GetComponent<LayoutElement>();
+        RectTransform root = CreateRect(parent, "InputField");
+        LayoutElement layout = root.gameObject.AddComponent<LayoutElement>();
         layout.preferredHeight = 34f;
+        layout.preferredWidth = 300f;
 
-        Image background = root.GetComponent<Image>();
-        background.color = new Color(0.11f, 0.14f, 0.18f, 1f);
+        Image background = root.gameObject.AddComponent<Image>();
+        background.color = new Color(0.11f, 0.14f, 0.19f, 1f);
+        AddOutline(root.gameObject, new Color(0.28f, 0.34f, 0.44f, 1f));
 
-        TMP_InputField inputField = root.GetComponent<TMP_InputField>();
+        TMP_InputField inputField = root.gameObject.AddComponent<TMP_InputField>();
         inputField.lineType = TMP_InputField.LineType.SingleLine;
         inputField.contentType = TMP_InputField.ContentType.Standard;
-        inputField.richText = false;
         inputField.customCaretColor = true;
-        inputField.caretColor = new Color(0.83f, 0.96f, 0.92f, 1f);
+        inputField.caretColor = new Color(0.84f, 0.96f, 0.92f, 1f);
         inputField.selectionColor = new Color(0.24f, 0.40f, 0.36f, 0.95f);
+        inputField.caretWidth = 2;
         inputField.shouldHideMobileInput = false;
         inputField.resetOnDeActivation = false;
         inputField.restoreOriginalTextOnEscape = false;
-        inputField.caretWidth = 2;
 
-        GameObject textArea = new GameObject("Text Area", typeof(RectTransform), typeof(RectMask2D));
-        textArea.transform.SetParent(root.transform, false);
-        RectTransform textAreaRect = textArea.GetComponent<RectTransform>();
-        Stretch(textAreaRect, 8f, -8f, 5f, -5f);
+        RectTransform textArea = CreateRect(root, "TextArea");
+        Stretch(textArea, 8f, 8f, 5f, 5f);
+        textArea.gameObject.AddComponent<RectMask2D>();
 
-        TextMeshProUGUI placeholder = CreateText("Placeholder", textArea.transform, string.Empty, 19f, FontStyles.Normal, TextAlignmentOptions.Left);
+        TextMeshProUGUI placeholder = CreateText(textArea, string.Empty, 19f, FontStyles.Normal, TextAlignmentOptions.Left);
         Stretch(placeholder.rectTransform, 0f, 0f, 0f, 0f);
-        placeholder.color = new Color(0.52f, 0.62f, 0.66f, 0.7f);
+        placeholder.text = string.Empty;
+        placeholder.color = new Color(0.52f, 0.62f, 0.66f, 0.72f);
 
-        TextMeshProUGUI text = CreateText("Text", textArea.transform, string.Empty, 19f, FontStyles.Normal, TextAlignmentOptions.Left);
+        TextMeshProUGUI text = CreateText(textArea, string.Empty, 19f, FontStyles.Normal, TextAlignmentOptions.Left);
         Stretch(text.rectTransform, 0f, 0f, 0f, 0f);
         text.enableWordWrapping = false;
         text.overflowMode = TextOverflowModes.Masking;
 
-        inputField.textViewport = textAreaRect;
+        inputField.textViewport = textArea;
         inputField.textComponent = text;
         inputField.placeholder = placeholder;
         inputField.onValueChanged.AddListener(value => onValueChanged?.Invoke(value));
+
         return inputField;
+    }
+
+    private void CreateSpacer(Transform parent, float width)
+    {
+        RectTransform spacer = CreateRect(parent, "Spacer");
+        LayoutElement layout = spacer.gameObject.AddComponent<LayoutElement>();
+        layout.preferredWidth = width;
+        layout.preferredHeight = 1f;
+    }
+
+    private void SetToggleValue(Toggle toggle, bool value)
+    {
+        if (toggle != null)
+            toggle.SetIsOnWithoutNotify(value);
     }
 
     private void ClearChildren(RectTransform parent)
@@ -1208,75 +1239,118 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             Destroy(parent.GetChild(i).gameObject);
     }
 
-    private void SetToggleValueWithoutNotify(Toggle toggle, bool value)
-    {
-        if (toggle == null)
-            return;
-
-        toggle.SetIsOnWithoutNotify(value);
-    }
-
-    private Color GetObjectRowColor(int instanceId)
-    {
-        if (_focusState.IsObjectFocused(instanceId))
-            return new Color(0.85f, 0.67f, 0.18f, 0.78f);
-
-        if (_focusState.IsFocusedObjectParent(instanceId))
-            return new Color(0.58f, 0.46f, 0.13f, 0.66f);
-
-        return new Color(0.18f, 0.22f, 0.28f, 0.60f);
-    }
-
-    private Color GetLogRowColor(DebugLogLevel level)
-    {
-        switch (level)
-        {
-            case DebugLogLevel.Warning:
-                return new Color(0.38f, 0.28f, 0.06f, 0.90f);
-            case DebugLogLevel.Error:
-                return new Color(0.44f, 0.10f, 0.10f, 0.90f);
-            default:
-                return new Color(0.17f, 0.20f, 0.25f, 0.90f);
-        }
-    }
-
-    private bool Contains(string source, string keyword)
+    private bool ContainsText(string source, string keyword)
     {
         if (string.IsNullOrEmpty(keyword))
             return true;
 
-        return !string.IsNullOrEmpty(source)
-               && source.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0;
+        return !string.IsNullOrEmpty(source) &&
+               source.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
-    private string TrimName(string value)
+    private string TrimDisplayName(string value)
     {
         if (string.IsNullOrEmpty(value))
             return string.Empty;
 
-        return value.Length > 36 ? value.Substring(0, 36) + "..." : value;
+        return value.Length > 34 ? value.Substring(0, 34) + "..." : value;
     }
 
-    private Color ColorFromHex(string colorHex, Color fallback)
+    private Color ParseColor(string html, Color fallback)
     {
-        if (string.IsNullOrWhiteSpace(colorHex))
+        if (string.IsNullOrWhiteSpace(html))
             return fallback;
 
-        return ColorUtility.TryParseHtmlString(colorHex, out Color parsedColor) ? parsedColor : fallback;
+        return ColorUtility.TryParseHtmlString(html, out Color parsed) ? parsed : fallback;
+    }
+
+    private Color GetGameObjectRowColor(int instanceId)
+    {
+        if (_focusState.IsObjectFocused(instanceId))
+            return new Color(0.85f, 0.67f, 0.18f, 0.82f);
+
+        if (_focusState.IsFocusedObjectParent(instanceId))
+            return new Color(0.57f, 0.44f, 0.13f, 0.68f);
+
+        return new Color(0.18f, 0.22f, 0.28f, 0.62f);
+    }
+
+    private Color GetLogBackgroundColor(DebugLogLevel level)
+    {
+        return level switch
+        {
+            DebugLogLevel.Warning => new Color(0.36f, 0.27f, 0.08f, 0.92f),
+            DebugLogLevel.Error => new Color(0.42f, 0.11f, 0.11f, 0.92f),
+            _ => new Color(0.17f, 0.21f, 0.27f, 0.92f)
+        };
+    }
+
+    private TMP_FontAsset CreateDynamicFontAsset()
+    {
+        string[] candidates =
+        {
+            "Malgun Gothic",
+            "맑은 고딕",
+            "Noto Sans CJK KR",
+            "Noto Sans KR",
+            "Arial Unicode MS",
+            "Arial"
+        };
+
+        Font sourceFont = Font.CreateDynamicFontFromOSFont(candidates, 32);
+        if (sourceFont == null)
+            sourceFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
+
+        return TMP_FontAsset.CreateFontAsset(
+            sourceFont,
+            90,
+            9,
+            GlyphRenderMode.SDFAA,
+            1024,
+            1024,
+            AtlasPopulationMode.Dynamic,
+            true);
     }
 
     private void Stretch(RectTransform rectTransform, float left, float right, float top, float bottom)
     {
         rectTransform.anchorMin = Vector2.zero;
         rectTransform.anchorMax = Vector2.one;
-        rectTransform.offsetMin = new Vector2(left, top);
-        rectTransform.offsetMax = new Vector2(right, bottom);
+        rectTransform.offsetMin = new Vector2(left, bottom);
+        rectTransform.offsetMax = new Vector2(-right, -top);
     }
 
-    private void SetImageBorder(Image image, Color borderColor)
+    private void SetTopRect(RectTransform rectTransform, float top, float height, float left, float right)
     {
-        Outline outline = image.gameObject.AddComponent<Outline>();
-        outline.effectColor = borderColor;
+        rectTransform.anchorMin = new Vector2(0f, 1f);
+        rectTransform.anchorMax = new Vector2(1f, 1f);
+        rectTransform.pivot = new Vector2(0.5f, 1f);
+        rectTransform.offsetMin = new Vector2(left, -(top + height));
+        rectTransform.offsetMax = new Vector2(-right, -top);
+    }
+
+    private void SetBottomRect(RectTransform rectTransform, float bottom, float height, float left, float right)
+    {
+        rectTransform.anchorMin = new Vector2(0f, 0f);
+        rectTransform.anchorMax = new Vector2(1f, 0f);
+        rectTransform.pivot = new Vector2(0.5f, 0f);
+        rectTransform.offsetMin = new Vector2(left, bottom);
+        rectTransform.offsetMax = new Vector2(-right, bottom + height);
+    }
+
+    private void SetRect(RectTransform rectTransform, float anchorMinX, float anchorMinY, float anchorMaxX, float anchorMaxY,
+        float offsetLeft, float offsetBottom, float offsetRight, float offsetTop)
+    {
+        rectTransform.anchorMin = new Vector2(anchorMinX, anchorMinY);
+        rectTransform.anchorMax = new Vector2(anchorMaxX, anchorMaxY);
+        rectTransform.offsetMin = new Vector2(offsetLeft, offsetBottom);
+        rectTransform.offsetMax = new Vector2(offsetRight, offsetTop);
+    }
+
+    private void AddOutline(GameObject gameObject, Color color)
+    {
+        Outline outline = gameObject.AddComponent<Outline>();
+        outline.effectColor = color;
         outline.effectDistance = new Vector2(1f, -1f);
     }
 }
