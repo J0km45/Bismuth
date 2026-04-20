@@ -65,11 +65,11 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private const float HierarchyFoldoutSize = 18f;
     private const float PanelSplitterWidth = 6f;
     private const float MaxHierarchyIndentPenalty = 24f;
-    private const float MinHierarchyPanelWidth = 160f;
+    private const float MinHierarchyPanelWidth = 220f;
     private const float MinLogPanelWidth = 220f;
-    private const float HierarchyRowContentRightReserve = 30f;
+    private const float HierarchyRowContentRightReserve = 18f;
 
-    [SerializeField] private float _hierarchyPanelWidth = 420f;
+    [SerializeField] private float _hierarchyPanelWidth = 480f;
     private bool _isDraggingPanelSplitter;
 
     private float _lastLogContentHeight;
@@ -491,7 +491,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         float width = panelWidth;
         width -= _boxStyle.padding.left + _boxStyle.padding.right;
         width -= HierarchyRowContentRightReserve;
-        return Mathf.Max(80f, width);
+        return Mathf.Max(140f, width);
     }
 
     private float GetHierarchyTextButtonWidth(float rowContentWidth, float leadingSpace, bool reserveToggle, bool reserveFoldout)
@@ -505,7 +505,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (reserveFoldout)
             width -= HierarchyFoldoutSize + 4f;
 
-        return Mathf.Max(60f, width);
+        return Mathf.Max(92f, width);
     }
 
     private float GetLogContentWidth(float panelWidth)
