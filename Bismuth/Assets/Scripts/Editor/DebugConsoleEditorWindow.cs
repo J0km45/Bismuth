@@ -94,6 +94,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         EditorApplication.update += HandleEditorUpdate;
         EditorApplication.playModeStateChanged += HandlePlayModeChanged;
         SceneManager.sceneLoaded += HandleSceneLoaded;
+        _hierarchyPanelWidth = DebugConsolePreferenceStore.GetFloat(HierarchyPanelWidthPrefKey, _hierarchyPanelWidth);
     }
 
     private void OnDisable()
@@ -101,6 +102,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         EditorApplication.update -= HandleEditorUpdate;
         EditorApplication.playModeStateChanged -= HandlePlayModeChanged;
         SceneManager.sceneLoaded -= HandleSceneLoaded;
+        DebugConsolePreferenceStore.SetFloat(HierarchyPanelWidthPrefKey, _hierarchyPanelWidth);
     }
 
     private void HandleEditorUpdate()
@@ -440,6 +442,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         if (_isDraggingPanelSplitter && (current.type == EventType.MouseUp || current.rawType == EventType.MouseUp))
         {
             _isDraggingPanelSplitter = false;
+            DebugConsolePreferenceStore.SetFloat(HierarchyPanelWidthPrefKey, _hierarchyPanelWidth);
             current.Use();
         }
 
@@ -469,7 +472,49 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         for (int i = 0; i < roots.Length; i++)
             DrawGameObjectNode(manager, roots[i], 0, panelWidth);
+
         GUILayout.EndScrollView();
+
+        GUILayout.Space(4f);
+        string footerFocusFullText = GetFocusLabel();
+        string footerFocusDisplayText = GetFooterFocusLabel();
+        string footerCountText = $"Count : {GetVisibleEntryCount(manager)}";
+        float footerHorizontalPadding = 10f;
+        float footerGap = 12f;
+        float footerFocusRequiredWidth = _footerLeftLabelStyle.CalcSize(new GUIContent(footerFocusDisplayText)).x;
+        float footerCountRequiredWidth = _footerRightLabelStyle.CalcSize(new GUIContent(footerCountText)).x;
+        bool useTwoLineFooter = panelWidth < footerFocusRequiredWidth + footerCountRequiredWidth + (footerHorizontalPadding * 2f) + footerGap;
+
+        if (useTwoLineFooter)
+        {
+            GUILayout.BeginVertical(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(52f));
+
+            GUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
+            GUILayout.Space(footerHorizontalPadding);
+            GUILayout.Label(new GUIContent(footerFocusDisplayText, footerFocusFullText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
+            GUILayout.Space(footerHorizontalPadding);
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
+            GUILayout.Space(footerHorizontalPadding);
+            GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
+            GUILayout.Space(footerHorizontalPadding);
+            GUILayout.EndHorizontal();
+
+            GUILayout.EndVertical();
+        }
+        else
+        {
+            GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(30f));
+            GUILayout.Space(footerHorizontalPadding);
+            float footerCountWidth = Mathf.Ceil(footerCountRequiredWidth) + 4f;
+            float footerLeftWidth = Mathf.Max(60f, panelWidth - footerCountWidth - (footerHorizontalPadding * 2f) - footerGap);
+            GUILayout.Label(new GUIContent(footerFocusDisplayText, footerFocusFullText), _footerLeftLabelStyle, GUILayout.Width(footerLeftWidth), GUILayout.MinHeight(22f));
+            GUILayout.Space(footerGap);
+            GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerRightLabelStyle, GUILayout.Width(footerCountWidth), GUILayout.MinHeight(22f));
+            GUILayout.Space(footerHorizontalPadding);
+            GUILayout.EndHorizontal();
+        }
         GUILayout.EndVertical();
     }
 

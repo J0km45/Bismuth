@@ -94,6 +94,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private const float MinLogPanelWidth = 220f;
     private const float HierarchyRowContentRightReserve = 18f;
 
+    private const string WindowRectPrefKey = "RuntimeDebugConsoleWindow.WindowRect";
+    private const string HierarchyPanelWidthPrefKey = "RuntimeDebugConsoleWindow.HierarchyPanelWidth";
+
     [SerializeField] private float _hierarchyPanelWidth = 480f;
     private bool _isDraggingPanelSplitter;
 
@@ -111,12 +114,15 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         SceneManager.sceneLoaded += HandleSceneLoaded;
         _stylesDirty = true;
         _titleStyle = null;
+        _windowRect = DebugConsolePreferenceStore.GetRect(WindowRectPrefKey, _windowRect);
+        _hierarchyPanelWidth = DebugConsolePreferenceStore.GetFloat(HierarchyPanelWidthPrefKey, _hierarchyPanelWidth);
         EnsureSearchOverlay();
     }
 
     private void OnDisable()
     {
         SceneManager.sceneLoaded -= HandleSceneLoaded;
+        SaveLayoutPreferences();
 
         if (_searchOverlay != null)
             _searchOverlay.SetVisible(false);
@@ -143,8 +149,13 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         {
             _visible = !_visible;
 
-            if (!_visible && _searchOverlay != null)
-                _searchOverlay.SetVisible(false);
+            if (!_visible)
+            {
+                SaveLayoutPreferences();
+
+                if (_searchOverlay != null)
+                    _searchOverlay.SetVisible(false);
+            }
         }
     }
 
@@ -166,7 +177,11 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _logSearchScreenRect = Rect.zero;
 
         InitStyles();
+        Rect previousWindowRect = _windowRect;
         _windowRect = GUI.Window(91357, _windowRect, DrawWindow, "Runtime Debug Console");
+
+        if (previousWindowRect != _windowRect)
+            SaveLayoutPreferences();
 
         UpdateSearchOverlayLayout();
     }
@@ -249,6 +264,10 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         {
             fontSize = 12
         };
+        _searchTextFieldStyle.normal.textColor = Color.white;
+        _searchTextFieldStyle.focused.textColor = Color.white;
+        _searchTextFieldStyle.hover.textColor = Color.white;
+        _searchTextFieldStyle.active.textColor = Color.white;
 
         _linkButtonStyle = new GUIStyle(GUI.skin.button)
         {
@@ -507,6 +526,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (_isDraggingPanelSplitter && (current.type == EventType.MouseUp || current.rawType == EventType.MouseUp))
         {
             _isDraggingPanelSplitter = false;
+            SaveLayoutPreferences();
             current.Use();
         }
 
@@ -1033,6 +1053,13 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         for (int i = 0; i < node.childCount; i++)
             CollectSubtreeIds(node.GetChild(i), ids);
+    }
+
+
+    private void SaveLayoutPreferences()
+    {
+        DebugConsolePreferenceStore.SetRect(WindowRectPrefKey, _windowRect);
+        DebugConsolePreferenceStore.SetFloat(HierarchyPanelWidthPrefKey, _hierarchyPanelWidth);
     }
 
     private void ClearFocus()

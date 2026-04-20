@@ -129,7 +129,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         rootRect.sizeDelta = new Vector2(240f, FieldHeight);
 
         Image background = root.GetComponent<Image>();
-        background.color = new Color(0.08f, 0.11f, 0.16f, 0.18f);
+        background.color = new Color(0.08f, 0.11f, 0.16f, 0.28f);
         background.raycastTarget = true;
 
         InputField inputField = root.GetComponent<InputField>();
