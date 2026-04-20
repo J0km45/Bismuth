@@ -151,7 +151,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         rootRect.sizeDelta = new Vector2(240f, FieldHeight);
 
         Image background = root.GetComponent<Image>();
-        background.color = new Color(0.10f, 0.17f, 0.16f, 0.92f);
+        background.color = new Color(0f, 0f, 0f, 0.01f);
         background.raycastTarget = true;
 
         TMP_InputField inputField = root.GetComponent<TMP_InputField>();
