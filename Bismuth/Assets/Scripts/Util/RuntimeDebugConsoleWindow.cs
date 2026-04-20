@@ -749,7 +749,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (string.IsNullOrWhiteSpace(callerFilePath))
             return false;
 
-        string normalizedPath = callerFilePath.Replace('\', '/');
+        string normalizedPath = callerFilePath.Replace('\\', '/');
 
         int assetsIndex = normalizedPath.LastIndexOf("/Assets/", StringComparison.OrdinalIgnoreCase);
         if (assetsIndex >= 0)
@@ -765,7 +765,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             return true;
         }
 
-        string projectAssetsPath = Application.dataPath.Replace('\', '/');
+        string projectAssetsPath = Application.dataPath.Replace('\\', '/');
         if (normalizedPath.StartsWith(projectAssetsPath, StringComparison.OrdinalIgnoreCase))
         {
             assetPath = "Assets" + normalizedPath.Substring(projectAssetsPath.Length);
