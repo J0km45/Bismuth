@@ -66,8 +66,8 @@ public class DebugConsoleEditorWindow : EditorWindow
     private const float MaxHierarchyIndentPenalty = 24f;
     private const float MinHierarchyPanelWidth = 220f;
     private const float MinLogPanelWidth = 220f;
-    private const float HierarchyRowContentRightReserve = 18f;
     private const string HierarchyPanelWidthPrefKey = "DebugConsoleEditorWindow.HierarchyPanelWidth";
+    private const float HierarchyRowContentRightReserve = 18f;
 
     private float _hierarchyPanelWidth = 420f;
     private bool _isDraggingPanelSplitter;
