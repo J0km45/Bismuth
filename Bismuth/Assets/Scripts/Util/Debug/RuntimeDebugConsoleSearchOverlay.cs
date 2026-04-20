@@ -216,6 +216,9 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         if (rectTransform == null || screenRect.width <= 0f || screenRect.height <= 0f)
             return;
 
+        rectTransform.anchorMin = new Vector2(0f, 1f);
+        rectTransform.anchorMax = new Vector2(0f, 1f);
+        rectTransform.pivot = new Vector2(0f, 1f);
         rectTransform.anchoredPosition = new Vector2(screenRect.xMin, -screenRect.yMin);
         rectTransform.sizeDelta = new Vector2(screenRect.width, Mathf.Max(FieldHeight, screenRect.height));
     }

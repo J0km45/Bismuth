@@ -738,7 +738,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     {
         GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
         GUILayout.BeginHorizontal();
-        GUILayout.Label(new GUIContent($"Logs {GetFocusSuffix()}", $"Logs {GetFocusSuffix()}"), _titleStyle, GUILayout.ExpandWidth(true));
+        string focusSuffix = GetFocusSuffix();
+        GUILayout.Label(new GUIContent("Logs", string.IsNullOrEmpty(focusSuffix) ? "Logs" : $"Logs {focusSuffix}"), _titleStyle, GUILayout.ExpandWidth(true));
         GUILayout.EndHorizontal();
 
         bool wasNearBottom = IsNearBottom(_lastMaxLogScrollY);
@@ -1126,10 +1127,14 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private string GetFocusSuffix()
     {
         if (_focusedComponentId != 0)
-            return $"({_focusedObjectName}/{_focusedComponentName})";
+        {
+            string objectName = TrimFooterFocusSegment(_focusedObjectName);
+            string componentName = TrimFooterFocusSegment(_focusedComponentName);
+            return $"({objectName}/{componentName})";
+        }
 
         if (_focusedGameObjectId != 0)
-            return $"({_focusedObjectName})";
+            return $"({TrimFooterFocusSegment(_focusedObjectName)})";
 
         return string.Empty;
     }
@@ -1399,7 +1404,17 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         Event current = Event.current;
         if (current.type == EventType.MouseDown && fieldRect.Contains(current.mousePosition))
         {
-            _searchOverlay?.FocusHierarchy();
+            Rect screenRect = ToScreenRect(fieldRect);
+            _hierarchySearchScreenRect = screenRect;
+
+            if (_searchOverlay != null)
+            {
+                _searchOverlay.SetVisible(true);
+                _searchOverlay.SetHierarchyRect(screenRect);
+                _searchOverlay.SetTexts(_hierarchySearch, _logSearch);
+                _searchOverlay.FocusHierarchy();
+            }
+
             current.Use();
         }
 
@@ -1418,7 +1433,17 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         Event current = Event.current;
         if (current.type == EventType.MouseDown && fieldRect.Contains(current.mousePosition))
         {
-            _searchOverlay?.FocusLog();
+            Rect screenRect = ToScreenRect(fieldRect);
+            _logSearchScreenRect = screenRect;
+
+            if (_searchOverlay != null)
+            {
+                _searchOverlay.SetVisible(true);
+                _searchOverlay.SetLogRect(screenRect);
+                _searchOverlay.SetTexts(_hierarchySearch, _logSearch);
+                _searchOverlay.FocusLog();
+            }
+
             current.Use();
         }
 
