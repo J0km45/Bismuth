@@ -24,6 +24,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private const string LogSearchControlName = "DebugConsole_LogSearch";
     private IMECompositionMode _previousImeCompositionMode = IMECompositionMode.Auto;
     private bool _imeCompositionCaptured;
+    private bool _searchFieldFocusedThisFrame;
     private Rect _lastFocusedSearchFieldRect;
 
     private bool _showTypeFilterPanel;
@@ -132,30 +133,31 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             return;
         }
 
+        _searchFieldFocusedThisFrame = false;
+
+        if (_imeCompositionCaptured)
+            Input.imeCompositionMode = IMECompositionMode.On;
+
         InitStyles();
         _windowRect = GUI.Window(91357, _windowRect, DrawWindow, "Runtime Debug Console");
-        UpdateImeCompositionState();
+
+        if (!_searchFieldFocusedThisFrame)
+            RestoreImeCompositionMode();
     }
 
-    private void UpdateImeCompositionState()
+    private void EnsureImeCompositionForSearchField(Rect fieldRect)
     {
-        string focusedControl = GUI.GetNameOfFocusedControl();
-        bool isSearchFocused = focusedControl == HierarchySearchControlName || focusedControl == LogSearchControlName;
+        _searchFieldFocusedThisFrame = true;
+        _lastFocusedSearchFieldRect = fieldRect;
 
-        if (isSearchFocused)
+        if (!_imeCompositionCaptured)
         {
-            if (!_imeCompositionCaptured)
-            {
-                _previousImeCompositionMode = Input.imeCompositionMode;
-                _imeCompositionCaptured = true;
-            }
-
-            Input.imeCompositionMode = IMECompositionMode.On;
-            Input.compositionCursorPos = GUIUtility.GUIToScreenPoint(new Vector2(_lastFocusedSearchFieldRect.xMin + 6f, _lastFocusedSearchFieldRect.yMax - 4f));
-            return;
+            _previousImeCompositionMode = Input.imeCompositionMode;
+            _imeCompositionCaptured = true;
         }
 
-        RestoreImeCompositionMode();
+        Input.imeCompositionMode = IMECompositionMode.On;
+        Input.compositionCursorPos = GUIUtility.GUIToScreenPoint(new Vector2(fieldRect.xMin + 6f, fieldRect.yMax - 4f));
     }
 
     private void RestoreImeCompositionMode()
@@ -1347,8 +1349,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUI.SetNextControlName(HierarchySearchControlName);
         _hierarchySearch = GUILayout.TextField(_hierarchySearch, _searchTextFieldStyle, GUILayout.Width(fieldWidth));
 
+        Rect fieldRect = GUILayoutUtility.GetLastRect();
         if (GUI.GetNameOfFocusedControl() == HierarchySearchControlName)
-            _lastFocusedSearchFieldRect = GUILayoutUtility.GetLastRect();
+            EnsureImeCompositionForSearchField(fieldRect);
     }
 
     private void DrawLogSearchField(float labelWidth)
@@ -1357,8 +1360,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUI.SetNextControlName(LogSearchControlName);
         _logSearch = GUILayout.TextField(_logSearch, _searchTextFieldStyle, GUILayout.ExpandWidth(true));
 
+        Rect fieldRect = GUILayoutUtility.GetLastRect();
         if (GUI.GetNameOfFocusedControl() == LogSearchControlName)
-            _lastFocusedSearchFieldRect = GUILayoutUtility.GetLastRect();
+            EnsureImeCompositionForSearchField(fieldRect);
 
         if (GUILayout.Button("Clear Search", GUILayout.Width(100f)))
         {
