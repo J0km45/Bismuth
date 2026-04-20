@@ -114,14 +114,6 @@ public class BoardSystem : MonoBehaviour
         return slotMap.TryGetValue(slot, out slotData);
     }
 
-    public bool CanPlaceAtWorld(Vector3 worldPos, out SlotData slotData)
-    {
-        if (!TryGetSlotFromWorld(worldPos, out slotData))
-            return false;
-
-        return !slotData.isOccupied;
-    }
-
     public bool PlaceNewTower(GameObject towerPrefab, SlotData targetSlot, out TowerUnit createdTower)
     {
         createdTower = null;
@@ -167,16 +159,6 @@ public class BoardSystem : MonoBehaviour
         );
 
         return true;
-    }
-
-    public bool TryPlaceNewTowerAtWorld(GameObject towerPrefab, Vector3 worldPos, out TowerUnit createdTower)
-    {
-        createdTower = null;
-
-        if (!CanPlaceAtWorld(worldPos, out SlotData slotData))
-            return false;
-
-        return PlaceNewTower(towerPrefab, slotData, out createdTower);
     }
 
     public bool TryReleaseTowerSlot(TowerUnit tower, out SlotData releasedSlot)

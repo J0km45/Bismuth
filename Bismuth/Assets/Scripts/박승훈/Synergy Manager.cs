@@ -10,13 +10,22 @@ using UnityEngine.InputSystem;
 public class SynergyManager : MonoBehaviour
 {
     [SerializeField] private SummonUnit _summonUnit;
-    
+
+    [Header("시너지 데이터 SO (ID → SynergyData 조회용)")]
+    [SerializeField] private SynergySO _synergySO;
+
     public UnityEvent<UnitStat> OnUnitCreated;
     public UnityEvent<UnitStat> OnUnitRemoved;
     public event Action<Dictionary<int, List<int>>> OnSynergyChanged;
 
     // key = 시너지 ID, value = 해당 시너지를 보유한 유닛의 개수
     private Dictionary<int, List<int>> synergiesDict = new();
+
+    // key = 시너지 ID, value = SynergySO 의 SynergyData 참조 (Awake 에서 빌드)
+    private Dictionary<int, SynergyData> _dataById = new();
+
+    // 누락된 ID 경고가 스팸되지 않도록 한 번만 찍게 하는 집합
+    private HashSet<int> _warnedMissingIds = new();
 
     [SerializeField] private int _unitCount = 0;
 
@@ -25,6 +34,7 @@ public class SynergyManager : MonoBehaviour
     private void Awake()
     {
         _summonUnit = GetComponent<SummonUnit>();
+        BuildDataCache();
     }
 
     private void OnEnable()
@@ -184,6 +194,120 @@ public class SynergyManager : MonoBehaviour
     {
         return synergiesDict.ContainsKey(synergyType) ? synergiesDict[synergyType].Count : 0;
     }
+
+    // ───────── 시너지 데이터 조회 API ─────────
+    // synergySO(에셋) + synergiesDict(현재 활성 수) 를 조합해,
+    // 호출자는 시너지 ID 하나만 알면 현재 효과값까지 곧바로 얻을 수 있다.
+    // 내부 위임 : SynergyManager → SynergyData(Layer1) 의 매칭 로직.
+
+    /// <summary> ID 에 해당하는 SynergyData 를 반환. 없으면 null (경고 1회 출력). </summary>
+    public SynergyData GetSynergyData(int id)
+    {
+        EnsureDataCache();
+
+        if (_dataById.TryGetValue(id, out SynergyData data))
+            return data;
+
+        if (_warnedMissingIds.Add(id))
+            DebugTool.Warnning($"[시너지] ID {id} 의 데이터를 찾을 수 없습니다.", DebugType.Data, this);
+
+        return null;
+    }
+
+    /// <summary> 현재 활성 개수에 매칭되는 효과값을 반환. 없으면 0. </summary>
+    public float GetEffectValue(int id, int effectIndex = 0)
+    {
+        TryGetEffectValue(id, effectIndex, out float value);
+        return value;
+    }
+
+    /// <summary> 효과값 조회 + 성공 여부 반환. 0 과 "효과 없음" 을 구분해야 할 때 사용. </summary>
+    public bool TryGetEffectValue(int id, int effectIndex, out float value)
+    {
+        value = 0f;
+
+        SynergyData data = GetSynergyData(id);
+        if (data == null)
+            return false;
+
+        int activeCount = GetSynergyLevel(id);
+        return data.TryGetEffectValue(activeCount, effectIndex, out value);
+    }
+
+    /// <summary> 해당 시너지가 현재 1단계라도 활성 상태인지 여부. </summary>
+    public bool IsSynergyActive(int id)
+    {
+        SynergyData data = GetSynergyData(id);
+        if (data == null)
+            return false;
+
+        return data.IsActive(GetSynergyLevel(id));
+    }
+
+    /// <summary> 해당 시너지의 최소 활성 단계에 필요한 유닛 수. 데이터 없으면 int.MaxValue. </summary>
+    public int GetMinActiveCount(int id)
+    {
+        SynergyData data = GetSynergyData(id);
+        return data != null ? data.MinActiveCount : int.MaxValue;
+    }
+
+    /// <summary> 해당 시너지의 최대 단계에 필요한 유닛 수. 데이터 없으면 0. </summary>
+    public int GetMaxActiveCount(int id)
+    {
+        SynergyData data = GetSynergyData(id);
+        return data != null ? data.MaxActiveCount : 0;
+    }
+
+    // ───────── 캐시 관리 ─────────
+
+    // Rows 수가 바뀐 경우(시트 런타임 로드 등) 캐시를 다시 빌드한다.
+    private void EnsureDataCache()
+    {
+        if (_synergySO == null)
+            return;
+
+        IReadOnlyList<SynergyData> rows = _synergySO.Rows;
+        if (rows == null)
+            return;
+
+        if (_dataById.Count == rows.Count)
+            return;
+
+        BuildDataCache();
+    }
+
+    private void BuildDataCache()
+    {
+        _dataById.Clear();
+        _warnedMissingIds.Clear();
+
+        if (_synergySO == null)
+        {
+            DebugTool.Warnning("[시너지] SynergySO 가 연결되지 않았습니다.", DebugType.Data, this);
+            return;
+        }
+
+        IReadOnlyList<SynergyData> rows = _synergySO.Rows;
+        if (rows == null)
+            return;
+
+        for (int i = 0; i < rows.Count; i++)
+        {
+            SynergyData data = rows[i];
+            if (data == null)
+                continue;
+
+            if (_dataById.ContainsKey(data.ID))
+            {
+                DebugTool.Warnning($"[시너지] 중복 ID 데이터가 있습니다 : {data.ID}", DebugType.Data, this);
+                continue;
+            }
+
+            _dataById.Add(data.ID, data);
+        }
+    }
+    // ─────────────────────────────
+
     public enum SynergyType
     {
         None = 0,

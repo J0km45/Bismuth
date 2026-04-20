@@ -10,11 +10,9 @@ public class DamageCalculator : MonoBehaviour
     private const int OrcSynergyId = (int)SynergyManager.SynergyType.Orc;
 
     [Header("Synergy")]
-    [SerializeField] private SynergySO synergySO;
     [SerializeField] private SynergyManager synergyManager;
     [SerializeField] private bool synergyLog = false;
 
-    private bool warnedMissingSynergySo;
     private bool warnedMissingSynergyManager;
 
     private void Awake()
@@ -118,23 +116,12 @@ public class DamageCalculator : MonoBehaviour
             return 0f;
         }
 
-        if (synergySO == null)
-        {
-            WarnMissingSynergySo();
-            return 0f;
-        }
-
-        SynergyData archerData = GetSynergyData(ArcherSynergyId);
-        if (archerData == null || archerData.Levels == null || archerData.Levels.Count == 0)
-            return 0f;
-
-        int activeCount = synergyManager.GetSynergyLevel(ArcherSynergyId);
-        float bonus = GetMatchedBonus(archerData, activeCount);
+        float bonus = synergyManager.GetEffectValue(ArcherSynergyId);
 
         if (synergyLog && bonus > 0f)
         {
             DebugTool.Log(
-                $"궁수 최대 체력 비례 대미지 비율 적용 | unit={attackerStat.Name}, active={activeCount}, bonus={bonus:F2}",
+                $"궁수 최대 체력 비례 대미지 비율 적용 | unit={attackerStat.Name}, active={synergyManager.GetSynergyLevel(ArcherSynergyId)}, bonus={bonus:F2}",
                 DebugType.Synergy,
                 this
             );
@@ -157,23 +144,12 @@ public class DamageCalculator : MonoBehaviour
             return 0f;
         }
 
-        if (synergySO == null)
-        {
-            WarnMissingSynergySo();
-            return 0f;
-        }
-
-        SynergyData wizardData = GetSynergyData(WizardSynergyId);
-        if (wizardData == null || wizardData.Levels == null || wizardData.Levels.Count == 0)
-            return 0f;
-
-        int activeCount = synergyManager.GetSynergyLevel(WizardSynergyId);
-        float bonus = GetMatchedBonus(wizardData, activeCount);
+        float bonus = synergyManager.GetEffectValue(WizardSynergyId);
 
         if (synergyLog && bonus > 0f)
         {
             DebugTool.Log(
-                $"마법사 추가 대미지 비율 적용 | unit={attackerStat.Name}, active={activeCount}, bonus={bonus:F2}",
+                $"마법사 추가 대미지 비율 적용 | unit={attackerStat.Name}, active={synergyManager.GetSynergyLevel(WizardSynergyId)}, bonus={bonus:F2}",
                 DebugType.Synergy,
                 this
             );
@@ -195,23 +171,13 @@ public class DamageCalculator : MonoBehaviour
             return 1f;
         }
 
-        if (synergySO == null)
-        {
-            WarnMissingSynergySo();
-            return 1f;
-        }
-
-        SynergyData warriorData = GetSynergyData(WarriorSynergyId);
-        if (warriorData == null || warriorData.Levels == null || warriorData.Levels.Count == 0)
-            return 1f;
-
-        int activeCount = synergyManager.GetSynergyLevel(WarriorSynergyId);
-        float bonus = GetMatchedBonus(warriorData, activeCount);
+        // ID 하나만 넘기면 현재 활성 수에 맞는 효과값이 바로 나옴 (없으면 0)
+        float bonus = synergyManager.GetEffectValue(WarriorSynergyId);
 
         if (synergyLog && bonus > 0f)
         {
             DebugTool.Log(
-                $"전사 공격력 배율 적용 | unit={attackerStat.Name}, active={activeCount}, bonus={bonus:F2}, multiplier={1f + bonus:F2}",
+                $"전사 공격력 배율 적용 | unit={attackerStat.Name}, active={synergyManager.GetSynergyLevel(WarriorSynergyId)}, bonus={bonus:F2}, multiplier={1f + bonus:F2}",
                 DebugType.Synergy,
                 this
             );
@@ -236,18 +202,7 @@ public class DamageCalculator : MonoBehaviour
             return 0f;
         }
 
-        if (synergySO == null)
-        {
-            WarnMissingSynergySo();
-            return 0f;
-        }
-
-        SynergyData elfData = GetSynergyData(ElfSynergyId);
-        if (elfData == null || elfData.Levels == null || elfData.Levels.Count == 0)
-            return 0f;
-
-        int activeCount = synergyManager.GetSynergyLevel(ElfSynergyId);
-        float bonusPerKill = GetMatchedBonus(elfData, activeCount);
+        float bonusPerKill = synergyManager.GetEffectValue(ElfSynergyId);
 
         if (bonusPerKill <= 0f)
             return 0f;
@@ -257,7 +212,7 @@ public class DamageCalculator : MonoBehaviour
         if (synergyLog && totalBonus > 0f)
         {
             DebugTool.Log(
-                $"엘프 공격력 배율 적용 | unit={attackerStat.Name}, active={activeCount}, bonusPerKill={bonusPerKill:F2}, kills={attackerStat.ElfWaveKillCount}, total={totalBonus:F2}",
+                $"엘프 공격력 배율 적용 | unit={attackerStat.Name}, active={synergyManager.GetSynergyLevel(ElfSynergyId)}, bonusPerKill={bonusPerKill:F2}, kills={attackerStat.ElfWaveKillCount}, total={totalBonus:F2}",
                 DebugType.Synergy,
                 this
             );
@@ -294,43 +249,6 @@ public class DamageCalculator : MonoBehaviour
             return;
 
         synergyManager = FindAnyObjectByType<SynergyManager>();
-    }
-
-    private SynergyData GetSynergyData(int synergyId)
-    {
-        if (synergySO == null || synergySO.Rows == null)
-            return null;
-
-        for (int i = 0; i < synergySO.Rows.Count; i++)
-        {
-            SynergyData data = synergySO.Rows[i];
-            if (data != null && data.ID == synergyId)
-                return data;
-        }
-
-        return null;
-    }
-
-    private float GetMatchedBonus(SynergyData synergyData, int activeCount)
-    {
-        float bonus = 0f;
-
-        for (int i = 0; i < synergyData.Levels.Count; i++)
-        {
-            SynergyLevelData level = synergyData.Levels[i];
-            if (level == null)
-                continue;
-
-            if (activeCount < level.ActiveCount)
-                continue;
-
-            if (level.EffectValues == null || level.EffectValues.Count == 0)
-                continue;
-
-            bonus = level.EffectValues[0];
-        }
-
-        return bonus;
     }
 
     private bool HasSynergyTag(UnitStat attackerStat, int synergyId)
@@ -377,19 +295,7 @@ public class DamageCalculator : MonoBehaviour
             return 0f;
         }
 
-        if (synergySO == null)
-        {
-            WarnMissingSynergySo();
-            return 0f;
-        }
-
-        SynergyData fighterData = GetSynergyData(FighterSynergyId);
-        if (fighterData == null || fighterData.Levels == null || fighterData.Levels.Count == 0)
-            return 0f;
-
-        int activeCount = synergyManager.GetSynergyLevel(FighterSynergyId);
-        float bonus = GetMatchedBonus(fighterData, activeCount);
-
+        float bonus = synergyManager.GetEffectValue(FighterSynergyId);
 
         if (bonus > 1f)
             bonus *= 0.01f;
@@ -397,7 +303,7 @@ public class DamageCalculator : MonoBehaviour
         if (synergyLog && bonus > 0f)
         {
             DebugTool.Log(
-                $"격투가 치명타 보너스 조회 | unit={attackerStat.Name}, active={activeCount}, bonus={bonus:F3}",
+                $"격투가 치명타 보너스 조회 | unit={attackerStat.Name}, active={synergyManager.GetSynergyLevel(FighterSynergyId)}, bonus={bonus:F3}",
                 DebugType.Synergy,
                 this
             );
@@ -413,15 +319,6 @@ public class DamageCalculator : MonoBehaviour
 
         warnedMissingSynergyManager = true;
         DebugTool.Warnning("SynergyManager를 찾지 못해 시너지 보너스를 적용하지 않습니다.", DebugType.Synergy, this);
-    }
-
-    private void WarnMissingSynergySo()
-    {
-        if (warnedMissingSynergySo)
-            return;
-
-        warnedMissingSynergySo = true;
-        DebugTool.Warnning("SynergySO 참조가 없어 시너지 보너스를 적용하지 않습니다.", DebugType.Synergy, this);
     }
 
 }

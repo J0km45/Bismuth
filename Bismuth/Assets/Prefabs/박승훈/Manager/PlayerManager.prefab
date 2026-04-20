@@ -76,6 +76,7 @@ MonoBehaviour:
   _combineManger: {fileID: 0}
   _unitEnhanceSO: {fileID: 11400000, guid: a63d15e893752584497909e9d1b163f3, type: 2}
   _unitInfoPanelUI: {fileID: 0}
+  _controlPanelUI: {fileID: 0}
 --- !u!114 &8140035803927745397
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -89,6 +90,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SynergyManager
   _summonUnit: {fileID: 0}
+  _synergySO: {fileID: 11400000, guid: ae19ff350cd21684392c987d6ab5e999, type: 2}
   OnUnitCreated:
     m_PersistentCalls:
       m_Calls: []
@@ -233,6 +235,7 @@ MonoBehaviour:
     m_Bits: 1024
   unitInfoPanel: {fileID: 0}
   _combinationScrollView: {fileID: 0}
+  _holdDuration: 0.5
 --- !u!114 &5106607783468869301
 MonoBehaviour:
   m_ObjectHideFlags: 0
