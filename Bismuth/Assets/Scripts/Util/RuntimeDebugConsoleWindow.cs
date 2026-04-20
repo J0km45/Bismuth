@@ -159,7 +159,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             padding = new RectOffset(6, 6, 0, 0),
             margin = new RectOffset(0, 0, 0, 0),
             fixedHeight = HierarchyRowHeight,
-            fontStyle = FontStyle.Normal
+            fontStyle = FontStyle.Normal,
+            wordWrap = false,
+            clipping = TextClipping.Clip
         };
         Color normalButtonText = new Color(0.84f, 0.96f, 0.92f, 1f);
         _linkButtonStyle.normal.textColor = normalButtonText;
@@ -426,9 +428,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private void DrawHierarchyPanel(DebugConsoleManager manager, float panelWidth)
     {
         GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
-        float headerWidth = Mathf.Max(80f, panelWidth - _boxStyle.padding.left - _boxStyle.padding.right - 8f);
         GUILayout.BeginHorizontal();
-        GUILayout.Label("Scene Objects / Components", _titleStyle, GUILayout.Width(headerWidth));
+        GUILayout.Label("Scene Objects / Components", _titleStyle, GUILayout.ExpandWidth(true));
         GUILayout.EndHorizontal();
 
         _hierarchyScroll = GUILayout.BeginScrollView(_hierarchyScroll);
@@ -504,7 +505,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         bool showChildren = hasVisibleChildren && (childrenExpanded || forceOpenChildren);
 
         float objectLeadingSpace = depth * 18f;
-        float objectButtonWidth = GetHierarchyTextButtonWidth(panelWidth, objectLeadingSpace, true, true);
 
         GUILayout.BeginVertical(GetHierarchyRowStyle(isObjectFocused, isComponentParentFocused, false));
         GUILayout.BeginHorizontal(GUILayout.Height(HierarchyRowHeight));
@@ -516,7 +516,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         GUIStyle objectStyle = GetObjectButtonStyle(objectEnabled, isObjectFocused, isComponentParentFocused);
         GUIContent objectContent = new GUIContent(GetDisplayName(go.name), go.name);
-        if (GUILayout.Button(objectContent, objectStyle, GUILayout.Width(objectButtonWidth), GUILayout.Height(HierarchyRowHeight)))
+        if (GUILayout.Button(objectContent, objectStyle, GUILayout.Height(HierarchyRowHeight), GUILayout.ExpandWidth(true)))
             ToggleGameObjectFocus(go);
 
         if (hasDetails)
@@ -542,7 +542,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             GUI.enabled = objectEnabled;
 
             float componentLeadingSpace = (depth + 1) * 18f + HierarchyToggleSize + 8f;
-            float componentButtonWidth = GetHierarchyTextButtonWidth(panelWidth, componentLeadingSpace, true, true);
 
             foreach (Component component in components)
             {
@@ -562,7 +561,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
                 GUIStyle componentStyle = GetComponentButtonStyle(objectEnabled, isComponentFocused);
                 GUIContent componentContent = new GUIContent(GetDisplayName(component.GetType().Name), component.GetType().Name);
-                if (GUILayout.Button(componentContent, componentStyle, GUILayout.Width(componentButtonWidth), GUILayout.Height(HierarchyRowHeight)))
+                if (GUILayout.Button(componentContent, componentStyle, GUILayout.Height(HierarchyRowHeight), GUILayout.ExpandWidth(true)))
                     ToggleComponentFocus(component);
 
                 GUILayout.Space(HierarchyFoldoutSize);
@@ -576,13 +575,12 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (hasVisibleChildren)
         {
             float childLeadingSpace = (depth + 1) * 18f + HierarchyToggleSize + 8f + HierarchyToggleSize;
-            float childButtonWidth = GetHierarchyTextButtonWidth(panelWidth, childLeadingSpace, false, true);
 
             GUILayout.BeginHorizontal(GUILayout.Height(HierarchyRowHeight));
             GUILayout.Space((depth + 1) * 18f + HierarchyToggleSize + 8f);
             GUILayout.Space(HierarchyToggleSize);
 
-            if (GUILayout.Button(new GUIContent("하위 오브젝트", "하위 오브젝트"), _linkButtonStyle, GUILayout.Width(childButtonWidth), GUILayout.Height(HierarchyRowHeight)))
+            if (GUILayout.Button(new GUIContent("하위 오브젝트", "하위 오브젝트"), _linkButtonStyle, GUILayout.Height(HierarchyRowHeight), GUILayout.ExpandWidth(true)))
                 ToggleExpandedSet(_expandedChildren, id);
 
             string childFoldoutLabel = showChildren ? "▾" : "▸";
@@ -602,9 +600,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     {
         GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
-        float headerWidth = Mathf.Max(80f, panelWidth - _boxStyle.padding.left - _boxStyle.padding.right - 8f);
         GUILayout.BeginHorizontal();
-        GUILayout.Label(new GUIContent($"Logs {GetFocusSuffix()}", $"Logs {GetFocusSuffix()}"), _titleStyle, GUILayout.Width(headerWidth));
+        GUILayout.Label(new GUIContent($"Logs {GetFocusSuffix()}", $"Logs {GetFocusSuffix()}"), _titleStyle, GUILayout.ExpandWidth(true));
         GUILayout.EndHorizontal();
 
         bool wasNearBottom = IsNearBottom(_lastMaxLogScrollY);
@@ -645,7 +642,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         float estimatedWidth = Mathf.Max(140f, contentWidth);
         float height = _richLabelStyle.CalcHeight(content, estimatedWidth);
 
-        Rect rect = GUILayoutUtility.GetRect(estimatedWidth + 12f, height + 14f, GUILayout.ExpandWidth(true));
+        Rect rect = GUILayoutUtility.GetRect(0f, height + 14f, GUILayout.ExpandWidth(true));
 
         Color previousColor = GUI.color;
         if (index == _selectedLogIndex)
@@ -654,7 +651,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUI.Box(rect, GUIContent.none);
         GUI.color = previousColor;
 
-        Rect labelRect = new Rect(rect.x + 6f, rect.y + 6f, estimatedWidth, rect.height - 12f);
+        Rect labelRect = new Rect(rect.x + 6f, rect.y + 6f, Mathf.Max(0f, rect.width - 12f), rect.height - 12f);
         GUI.Label(labelRect, content, _richLabelStyle);
 
         if (Event.current.type == EventType.MouseDown && rect.Contains(Event.current.mousePosition))
