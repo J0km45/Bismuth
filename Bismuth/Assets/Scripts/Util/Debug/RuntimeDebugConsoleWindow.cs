@@ -1115,7 +1115,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     {
         RectTransform root = CreateRect(parent, $"{label}_Toggle");
         LayoutElement layout = root.gameObject.AddComponent<LayoutElement>();
-        width = Mathf.Max(width, 36f + text.Length * 11f);
+        width = Mathf.Max(width, 36f + label.Length * 11f);
         layout.preferredWidth = width;
         layout.preferredHeight = 24f;
 
