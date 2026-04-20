@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.IO;
 using UnityEditor;
+using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -15,6 +16,9 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private string _hierarchySearch = string.Empty;
     private string _logSearch = string.Empty;
+
+    private SearchField _hierarchySearchField;
+    private SearchField _logSearchField;
 
     private bool _autoScroll = true;
     private bool _hideTransform = true;
@@ -92,6 +96,9 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private void OnEnable()
     {
+        _hierarchySearchField ??= new SearchField();
+        _logSearchField ??= new SearchField();
+
         EditorApplication.update += HandleEditorUpdate;
         EditorApplication.playModeStateChanged += HandlePlayModeChanged;
         SceneManager.sceneLoaded += HandleSceneLoaded;
@@ -1319,13 +1326,15 @@ public class DebugConsoleEditorWindow : EditorWindow
     private void DrawHierarchySearchField(float fieldWidth, float labelWidth)
     {
         GUILayout.Label("Hierarchy Search", GUILayout.Width(labelWidth));
-        _hierarchySearch = GUILayout.TextField(_hierarchySearch, _searchTextFieldStyle, GUILayout.Width(fieldWidth));
+        Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, EditorGUIUtility.singleLineHeight, GUILayout.Width(fieldWidth));
+        _hierarchySearch = _hierarchySearchField.OnGUI(fieldRect, _hierarchySearch);
     }
 
     private void DrawLogSearchField(float labelWidth)
     {
         GUILayout.Label("Log Search", GUILayout.Width(labelWidth));
-        _logSearch = GUILayout.TextField(_logSearch, _searchTextFieldStyle, GUILayout.ExpandWidth(true));
+        Rect fieldRect = GUILayoutUtility.GetRect(10f, EditorGUIUtility.singleLineHeight, GUILayout.ExpandWidth(true));
+        _logSearch = _logSearchField.OnGUI(fieldRect, _logSearch);
 
         if (GUILayout.Button("Clear Search", GUILayout.Width(100f)))
         {

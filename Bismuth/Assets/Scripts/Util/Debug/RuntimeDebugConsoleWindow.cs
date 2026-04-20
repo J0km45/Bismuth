@@ -406,18 +406,23 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     {
         float availableWidth = GetTopAreaWidth();
 
-        GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
-        DrawHierarchySearchField(Mathf.Max(160f, availableWidth - 230f), 105f);
-
-        if (GUILayout.Button("Clear Search", GUILayout.Width(100f)))
+        if (availableWidth >= 760f)
         {
-            _hierarchySearch = string.Empty;
-            _logSearch = string.Empty;
-
-            if (_searchOverlay != null)
-                _searchOverlay.ClearTexts();
+            GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
+            float hierarchyWidth = Mathf.Clamp((availableWidth - 330f) * 0.42f, 160f, 320f);
+            DrawHierarchySearchField(hierarchyWidth, 105f);
+            GUILayout.Space(12f);
+            DrawLogSearchField(75f);
+            GUILayout.EndHorizontal();
+            return;
         }
 
+        GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
+        DrawHierarchySearchField(Mathf.Max(160f, availableWidth - 130f), 105f);
+        GUILayout.EndHorizontal();
+
+        GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
+        DrawLogSearchField(75f);
         GUILayout.EndHorizontal();
     }
 
@@ -969,7 +974,11 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
                 return false;
         }
 
-        return true;
+        if (string.IsNullOrWhiteSpace(_logSearch))
+            return true;
+
+        string searchPool = $"{entry.Message} {entry.SourceName} {entry.MemberName} {entry.Type} {entry.Time}";
+        return ContainsIgnoreCase(searchPool, _logSearch);
     }
 
     private void ToggleGameObjectFocus(GameObject go)

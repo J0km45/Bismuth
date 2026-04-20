@@ -1,7 +1,6 @@
 using UnityEngine.TextCore.LowLevel;
 using TMPro;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
@@ -12,13 +11,15 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
     private Canvas _canvas;
     private RectTransform _canvasRect;
     private TMP_InputField _hierarchyInput;
+    private TMP_InputField _logInput;
     private RectTransform _hierarchyRectTransform;
+    private RectTransform _logRectTransform;
     private TMP_FontAsset _dynamicFontAsset;
 
     public string HierarchyText => _hierarchyInput != null ? _hierarchyInput.text : string.Empty;
-    public string LogText => string.Empty;
+    public string LogText => _logInput != null ? _logInput.text : string.Empty;
     public bool IsHierarchyFocused => _hierarchyInput != null && _hierarchyInput.isFocused;
-    public bool IsLogFocused => false;
+    public bool IsLogFocused => _logInput != null && _logInput.isFocused;
 
     public void Initialize()
     {
@@ -39,7 +40,9 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         _canvasRect.offsetMax = Vector2.zero;
 
         _dynamicFontAsset = CreateDynamicTMPFontAsset();
+
         _hierarchyInput = CreateInputField("HierarchySearchInput", out _hierarchyRectTransform);
+        _logInput = CreateInputField("LogSearchInput", out _logRectTransform);
 
         SetVisible(false);
     }
@@ -53,7 +56,11 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 
         if (_hierarchyInput != null)
             _hierarchyInput.gameObject.SetActive(visible);
+
+        if (_logInput != null)
+            _logInput.gameObject.SetActive(visible);
     }
+
 
     public void FocusHierarchy()
     {
@@ -61,41 +68,38 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
             return;
 
         _hierarchyInput.gameObject.SetActive(true);
-
-        if (EventSystem.current != null)
-            EventSystem.current.SetSelectedGameObject(_hierarchyInput.gameObject);
-
-        _hierarchyInput.Select();
         _hierarchyInput.ActivateInputField();
-        _hierarchyInput.MoveTextEnd(false);
+        _hierarchyInput.Select();
     }
 
     public void FocusLog()
     {
-    }
+        if (_logInput == null)
+            return;
 
+        _logInput.gameObject.SetActive(true);
+        _logInput.ActivateInputField();
+        _logInput.Select();
+    }
     public void SetTexts(string hierarchyText, string logText)
     {
-        SetText(hierarchyText);
-    }
-
-    public void SetText(string hierarchyText)
-    {
         hierarchyText ??= string.Empty;
+        logText ??= string.Empty;
 
         if (_hierarchyInput != null && !_hierarchyInput.isFocused && _hierarchyInput.text != hierarchyText)
             _hierarchyInput.SetTextWithoutNotify(hierarchyText);
+
+        if (_logInput != null && !_logInput.isFocused && _logInput.text != logText)
+            _logInput.SetTextWithoutNotify(logText);
     }
 
     public void ClearTexts()
     {
-        ClearText();
-    }
-
-    public void ClearText()
-    {
         if (_hierarchyInput != null)
             _hierarchyInput.SetTextWithoutNotify(string.Empty);
+
+        if (_logInput != null)
+            _logInput.SetTextWithoutNotify(string.Empty);
     }
 
     public void SetHierarchyRect(Rect screenRect)
@@ -105,6 +109,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 
     public void SetLogRect(Rect screenRect)
     {
+        ApplyScreenRect(_logRectTransform, screenRect);
     }
 
     private TMP_InputField CreateInputField(string objectName, out RectTransform rootRect)
@@ -152,49 +157,10 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         inputField.textViewport = textAreaRect;
         inputField.textComponent = text;
         inputField.placeholder = placeholder;
-        inputField.onSelect.AddListener(_ =>
-        {
-            if (EventSystem.current != null)
-                EventSystem.current.SetSelectedGameObject(inputField.gameObject);
 
-            inputField.ActivateInputField();
-        });
+        inputField.onSelect.AddListener(_ => inputField.ActivateInputField());
 
-        AddFocusTrigger(root, inputField);
         return inputField;
-    }
-
-    private void AddFocusTrigger(GameObject target, TMP_InputField inputField)
-    {
-        EventTrigger trigger = target.GetComponent<EventTrigger>();
-        if (trigger == null)
-            trigger = target.AddComponent<EventTrigger>();
-
-        trigger.triggers ??= new System.Collections.Generic.List<EventTrigger.Entry>();
-        trigger.triggers.Clear();
-
-        AddTrigger(trigger, EventTriggerType.PointerDown, _ => FocusInput(inputField));
-        AddTrigger(trigger, EventTriggerType.Select, _ => FocusInput(inputField));
-    }
-
-    private void AddTrigger(EventTrigger trigger, EventTriggerType type, System.Action<BaseEventData> action)
-    {
-        EventTrigger.Entry entry = new EventTrigger.Entry { eventID = type };
-        entry.callback.AddListener(data => action(data));
-        trigger.triggers.Add(entry);
-    }
-
-    private void FocusInput(TMP_InputField inputField)
-    {
-        if (inputField == null)
-            return;
-
-        if (EventSystem.current != null)
-            EventSystem.current.SetSelectedGameObject(inputField.gameObject);
-
-        inputField.Select();
-        inputField.ActivateInputField();
-        inputField.MoveTextEnd(false);
     }
 
     private TextMeshProUGUI CreateTextChild(Transform parent, string objectName, Color color)
@@ -216,6 +182,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         text.overflowMode = TextOverflowModes.Masking;
         text.alignment = TextAlignmentOptions.MidlineLeft;
         text.color = color;
+
         return text;
     }
 
@@ -234,7 +201,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         if (sourceFont == null)
             sourceFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
 
-        return TMP_FontAsset.CreateFontAsset(
+        TMP_FontAsset fontAsset = TMP_FontAsset.CreateFontAsset(
             sourceFont,
             samplingPointSize: 90,
             atlasPadding: 9,
@@ -243,6 +210,8 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
             atlasHeight: 1024,
             atlasPopulationMode: AtlasPopulationMode.Dynamic,
             enableMultiAtlasSupport: true);
+
+        return fontAsset;
     }
 
     private void ApplyScreenRect(RectTransform rectTransform, Rect screenRect)
