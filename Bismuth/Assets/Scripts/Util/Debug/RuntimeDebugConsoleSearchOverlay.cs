@@ -139,7 +139,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         inputField.shouldHideMobileInput = false;
         inputField.caretWidth = 2;
         inputField.customCaretColor = true;
-        inputField.caretColor = new Color(0.78f, 0.93f, 0.89f, 1f);
+        inputField.caretColor = Color.white;
         inputField.selectionColor = new Color(0.20f, 0.36f, 0.33f, 0.85f);
 
         GameObject textArea = new GameObject("Text Area", typeof(RectTransform), typeof(RectMask2D));
@@ -151,10 +151,10 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         textAreaRect.offsetMin = new Vector2(8f, 3f);
         textAreaRect.offsetMax = new Vector2(-8f, -3f);
 
-        Text placeholder = CreateTextChild(textArea.transform, "Placeholder", new Color(0.46f, 0.60f, 0.58f, 0.95f));
+        Text placeholder = CreateTextChild(textArea.transform, "Placeholder", new Color(0.38f, 0.46f, 0.48f, 0.95f));
         placeholder.text = string.Empty;
 
-        Text text = CreateTextChild(textArea.transform, "Text", new Color(0.96f, 0.98f, 1f, 1f));
+        Text text = CreateTextChild(textArea.transform, "Text", Color.white);
 
         inputField.textComponent = text;
         inputField.placeholder = placeholder;
