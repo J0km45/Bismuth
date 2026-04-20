@@ -37,6 +37,7 @@ public class DebugConsoleEditorWindow : EditorWindow
     private GUIStyle _componentSelectedButtonStyle;
     private GUIStyle _parentSelectedButtonStyle;
     private GUIStyle _foldoutButtonStyle;
+    private GUIStyle _toolbarButtonStyle;
     private GUIStyle _toolbarInfoLabelStyle;
     private GUIStyle _toolbarInfoRightLabelStyle;
     private GUIStyle _footerLeftLabelStyle;
@@ -374,62 +375,48 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private void DrawHierarchyPanel(DebugConsoleManager manager, float panelWidth)
     {
-        GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
-        GUILayout.BeginHorizontal();
-        GUILayout.Label("Scene Objects / Components", _titleStyle, GUILayout.ExpandWidth(true));
-        GUILayout.EndHorizontal();
-
-        _hierarchyScroll = GUILayout.BeginScrollView(_hierarchyScroll);
-
-        Scene activeScene = SceneManager.GetActiveScene();
-        GameObject[] roots = activeScene.GetRootGameObjects();
-
-        for (int i = 0; i < roots.Length; i++)
-            DrawGameObjectNode(manager, roots[i], 0, panelWidth);
-
-        GUILayout.EndScrollView();
-
-        GUILayout.Space(4f);
-        string footerFocusFullText = GetFocusLabel();
-        string footerFocusDisplayText = GetFooterFocusLabel();
-        string footerCountText = $"Count : {GetVisibleEntryCount(manager)}";
-        float footerHorizontalPadding = 10f;
-        float footerGap = 12f;
-        float footerFocusRequiredWidth = _footerLeftLabelStyle.CalcSize(new GUIContent(footerFocusDisplayText)).x;
-        float footerCountRequiredWidth = _footerRightLabelStyle.CalcSize(new GUIContent(footerCountText)).x;
-        bool useTwoLineFooter = panelWidth < footerFocusRequiredWidth + footerCountRequiredWidth + (footerHorizontalPadding * 2f) + footerGap;
-
-        if (useTwoLineFooter)
+        DebugConsoleHierarchyRenderContext context = new DebugConsoleHierarchyRenderContext
         {
-            GUILayout.BeginVertical(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(52f));
+            Manager = manager,
+            PanelWidth = panelWidth,
+            Scroll = _hierarchyScroll,
+            HierarchySearch = _hierarchySearch,
+            TitleStyle = _titleStyle,
+            BoxStyle = _boxStyle,
+            LinkButtonStyle = _linkButtonStyle,
+            FoldoutButtonStyle = _foldoutButtonStyle,
+            FooterLeftLabelStyle = _footerLeftLabelStyle,
+            FooterRightLabelStyle = _footerRightLabelStyle,
+            HierarchyRowHeight = HierarchyRowHeight,
+            HierarchyToggleSize = HierarchyToggleSize,
+            HierarchyFoldoutSize = HierarchyFoldoutSize,
+            HierarchyRowContentRightReserve = HierarchyRowContentRightReserve,
+            MaxHierarchyIndentPenalty = MaxHierarchyIndentPenalty,
+            ExpandedComponents = _expandedComponents,
+            ExpandedChildren = _expandedChildren,
+            GetVisibleEntryCount = () => GetVisibleEntryCount(manager),
+            GetFocusLabel = GetFocusLabel,
+            GetFooterFocusLabel = GetFooterFocusLabel,
+            ShouldShowGameObject = ShouldShowGameObject,
+            HasVisibleComponents = HasVisibleComponents,
+            HasVisibleChildren = HasVisibleChildren,
+            HasMatchingComponent = HasMatchingComponent,
+            ShouldShowComponent = ShouldShowComponent,
+            IsObjectFocused = IsObjectFocused,
+            IsFocusedObjectParent = IsFocusedObjectParent,
+            IsComponentFocused = IsComponentFocused,
+            GetHierarchyRowStyle = GetHierarchyRowStyle,
+            GetObjectButtonStyle = GetObjectButtonStyle,
+            GetComponentButtonStyle = GetComponentButtonStyle,
+            GetDisplayName = GetDisplayName,
+            ToggleGameObjectFocus = ToggleGameObjectFocus,
+            ToggleComponentFocus = ToggleComponentFocus,
+            ToggleExpandedSet = ToggleExpandedSet,
+            SaveState = SaveViewState
+        };
 
-            GUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.Label(new GUIContent(footerFocusDisplayText, footerFocusFullText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.EndHorizontal();
-
-            GUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.EndHorizontal();
-
-            GUILayout.EndVertical();
-        }
-        else
-        {
-            GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(30f));
-            GUILayout.Space(footerHorizontalPadding);
-            float footerCountWidth = Mathf.Ceil(footerCountRequiredWidth) + 4f;
-            float footerLeftWidth = Mathf.Max(60f, panelWidth - footerCountWidth - (footerHorizontalPadding * 2f) - footerGap);
-            GUILayout.Label(new GUIContent(footerFocusDisplayText, footerFocusFullText), _footerLeftLabelStyle, GUILayout.Width(footerLeftWidth), GUILayout.MinHeight(22f));
-            GUILayout.Space(footerGap);
-            GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerRightLabelStyle, GUILayout.Width(footerCountWidth), GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.EndHorizontal();
-        }
-        GUILayout.EndVertical();
+        DebugConsoleHierarchyRenderer.Draw(context);
+        _hierarchyScroll = context.Scroll;
     }
 
     private float GetHierarchyRowContentWidth(float panelWidth)
@@ -592,42 +579,31 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     {
-        EditorGUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
-        EditorGUILayout.BeginHorizontal();
-        GUILayout.Label($"Logs {GetFocusSuffix()}", _titleStyle);
-        EditorGUILayout.EndHorizontal();
-
-        bool wasNearBottom = IsNearBottom(_lastMaxLogScrollY);
-        float contentHeight = 0f;
-
-        _logScroll = EditorGUILayout.BeginScrollView(_logScroll);
-
-        IReadOnlyList<DebugEntry> entries = manager.Entries;
-        float width = Mathf.Max(panelWidth - 32f, 300f);
-
-        for (int i = 0; i < entries.Count; i++)
+        DebugConsoleLogRenderContext context = new DebugConsoleLogRenderContext
         {
-            DebugEntry entry = entries[i];
+            PanelWidth = panelWidth,
+            Scroll = _logScroll,
+            AutoScroll = _autoScroll,
+            LastLogContentHeight = _lastLogContentHeight,
+            LastLogViewportHeight = _lastLogViewportHeight,
+            LastMaxLogScrollY = _lastMaxLogScrollY,
+            SelectedLogIndex = _selectedLogIndex,
+            Entries = manager.Entries,
+            TitleStyle = _titleStyle,
+            BoxStyle = _boxStyle,
+            RichLabelStyle = _richLabelStyle,
+            GetFocusSuffix = GetFocusSuffix,
+            ShouldDisplayEntry = entry => ShouldDisplayEntry(manager, entry),
+            FocusEntry = FocusEntry,
+            OpenEntryScript = OpenEntryScript
+        };
 
-            if (!ShouldDisplayEntry(manager, entry))
-                continue;
-
-            float drawnHeight = DrawLogEntry(entry, i, width);
-            contentHeight += drawnHeight + 4f;
-            GUILayout.Space(4f);
-        }
-
-        EditorGUILayout.EndScrollView();
-
-        Rect scrollRect = GUILayoutUtility.GetLastRect();
-        _lastLogViewportHeight = scrollRect.height;
-        _lastLogContentHeight = contentHeight + 8f;
-        _lastMaxLogScrollY = Mathf.Max(0f, _lastLogContentHeight - _lastLogViewportHeight);
-
-        if (Event.current.type == EventType.Repaint && (_autoScroll || wasNearBottom || IsNearBottom(_lastMaxLogScrollY)))
-            _logScroll.y = _lastMaxLogScrollY + 4f;
-
-        EditorGUILayout.EndVertical();
+        DebugConsoleLogRenderer.Draw(context);
+        _logScroll = context.Scroll;
+        _lastLogContentHeight = context.LastLogContentHeight;
+        _lastLogViewportHeight = context.LastLogViewportHeight;
+        _lastMaxLogScrollY = context.LastMaxLogScrollY;
+        _selectedLogIndex = context.SelectedLogIndex;
     }
 
     private float DrawLogEntry(DebugEntry entry, int index, float width)
@@ -1214,6 +1190,9 @@ public class DebugConsoleEditorWindow : EditorWindow
             SaveViewState();
         }
 
+        if (GUILayout.Button("Reset Filters", GUILayout.Width(110f)))
+            ResetFilterState(manager);
+
         if (GUILayout.Button("Clear Logs", GUILayout.Width(100f)))
             manager.ClearLogs();
 
@@ -1221,11 +1200,27 @@ public class DebugConsoleEditorWindow : EditorWindow
             ClearFocus();
     }
 
+    private void ResetFilterState(DebugConsoleManager manager)
+    {
+        if (manager == null)
+            return;
+
+        manager.ResetAllFiltersToDefault();
+        _hierarchySearch = string.Empty;
+        _logSearch = string.Empty;
+        _selectedLogIndex = -1;
+        _expandedComponents.Clear();
+        _expandedChildren.Clear();
+        ClearFocus();
+        GUI.FocusControl(null);
+        SaveViewState();
+    }
+
     private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
     {
         GUILayout.Label(GetFocusLabel(), _toolbarInfoLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(expanded ? 30f : 18f));
         GUILayout.Space(8f);
-        GUILayout.Label($"Count : {manager.Entries.Count}", _toolbarInfoLabelStyle, GUILayout.Width(expanded ? 120f : 110f), GUILayout.MinHeight(expanded ? 30f : 18f));
+        GUILayout.Label($"Count : {GetVisibleEntryCount(manager)}", _toolbarInfoLabelStyle, GUILayout.Width(expanded ? 120f : 110f), GUILayout.MinHeight(expanded ? 30f : 18f));
     }
 
     private void DrawHierarchySearchField(float fieldWidth, float labelWidth)
