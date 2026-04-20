@@ -20,6 +20,14 @@ public class DebugConsoleManager : MonoBehaviour
     private readonly Dictionary<int, bool> _componentFilters = new();
     private readonly Dictionary<int, string> _gameObjectFilterKeys = new();
     private readonly Dictionary<int, string> _componentFilterKeys = new();
+    private readonly HashSet<string> _gameObjectPrefKeyRegistry = new();
+    private readonly HashSet<string> _componentPrefKeyRegistry = new();
+
+    private const string GameObjectRegistryPrefKey = PrefKeyPrefix + ".Registry.GameObject";
+    private const string ComponentRegistryPrefKey = PrefKeyPrefix + ".Registry.Component";
+
+    private int _changeVersion;
+    public int ChangeVersion => _changeVersion;
 
     public IReadOnlyList<DebugEntry> Entries => _entries;
 
@@ -33,6 +41,7 @@ public class DebugConsoleManager : MonoBehaviour
 
             _globalEnabled = value;
             SaveGlobalSettings();
+            MarkChanged();
         }
     }
 
@@ -46,6 +55,7 @@ public class DebugConsoleManager : MonoBehaviour
 
             _mirrorToUnityConsole = value;
             SaveGlobalSettings();
+            MarkChanged();
         }
     }
 
@@ -76,6 +86,7 @@ public class DebugConsoleManager : MonoBehaviour
         InitializeFilters();
         LoadGlobalSettings();
         LoadTypeFilters();
+        LoadRegistries();
 
         SceneManager.sceneLoaded += HandleSceneLoaded;
     }
@@ -92,6 +103,7 @@ public class DebugConsoleManager : MonoBehaviour
         _componentFilters.Clear();
         _gameObjectFilterKeys.Clear();
         _componentFilterKeys.Clear();
+        MarkChanged();
     }
 
     public void AddEntry(DebugEntry entry)
@@ -103,11 +115,14 @@ public class DebugConsoleManager : MonoBehaviour
 
         if (_entries.Count > _maxEntries)
             _entries.RemoveAt(0);
+
+        MarkChanged();
     }
 
     public void ClearLogs()
     {
         _entries.Clear();
+        MarkChanged();
     }
 
     public bool GetTypeEnabled(DebugType type)
@@ -122,6 +137,7 @@ public class DebugConsoleManager : MonoBehaviour
 
         _typeFilters[(int)type] = value;
         SaveTypeFilter(type, value);
+        MarkChanged();
     }
 
     public void SetAllTypes(bool value)
@@ -138,7 +154,10 @@ public class DebugConsoleManager : MonoBehaviour
         }
 
         if (changed)
+        {
             SaveGlobalSettings();
+            MarkChanged();
+        }
     }
 
     public bool GetGameObjectEnabled(GameObject go)
@@ -151,7 +170,9 @@ public class DebugConsoleManager : MonoBehaviour
             return cachedValue;
 
         string filterKey = GetOrCacheGameObjectFilterKey(go);
-        bool value = DebugConsolePreferenceStore.GetBool(GetGameObjectPrefKey(filterKey), true);
+        string prefKey = GetGameObjectPrefKey(filterKey);
+        RegisterFilterPrefKey(_gameObjectPrefKeyRegistry, GameObjectRegistryPrefKey, prefKey);
+        bool value = DebugConsolePreferenceStore.GetBool(prefKey, true);
         _gameObjectFilters[instanceId] = value;
         return value;
     }
@@ -170,7 +191,10 @@ public class DebugConsoleManager : MonoBehaviour
         _gameObjectFilters[instanceId] = value;
 
         string filterKey = GetOrCacheGameObjectFilterKey(go);
-        DebugConsolePreferenceStore.SetBool(GetGameObjectPrefKey(filterKey), value);
+        string prefKey = GetGameObjectPrefKey(filterKey);
+        RegisterFilterPrefKey(_gameObjectPrefKeyRegistry, GameObjectRegistryPrefKey, prefKey);
+        DebugConsolePreferenceStore.SetBool(prefKey, value);
+        MarkChanged();
     }
 
     public bool GetComponentEnabled(Component component)
@@ -183,7 +207,9 @@ public class DebugConsoleManager : MonoBehaviour
             return cachedValue;
 
         string filterKey = GetOrCacheComponentFilterKey(component);
-        bool value = DebugConsolePreferenceStore.GetBool(GetComponentPrefKey(filterKey), true);
+        string prefKey = GetComponentPrefKey(filterKey);
+        RegisterFilterPrefKey(_componentPrefKeyRegistry, ComponentRegistryPrefKey, prefKey);
+        bool value = DebugConsolePreferenceStore.GetBool(prefKey, true);
         _componentFilters[instanceId] = value;
         return value;
     }
@@ -202,7 +228,87 @@ public class DebugConsoleManager : MonoBehaviour
         _componentFilters[instanceId] = value;
 
         string filterKey = GetOrCacheComponentFilterKey(component);
-        DebugConsolePreferenceStore.SetBool(GetComponentPrefKey(filterKey), value);
+        string prefKey = GetComponentPrefKey(filterKey);
+        RegisterFilterPrefKey(_componentPrefKeyRegistry, ComponentRegistryPrefKey, prefKey);
+        DebugConsolePreferenceStore.SetBool(prefKey, value);
+        MarkChanged();
+    }
+
+
+    public void ResetAllFiltersToDefault()
+    {
+        _globalEnabled = true;
+        SaveGlobalSettings();
+
+        for (int i = 0; i < _typeFilters.Length; i++)
+        {
+            _typeFilters[i] = true;
+            SaveTypeFilter((DebugType)i, true);
+        }
+
+        foreach (string prefKey in _gameObjectPrefKeyRegistry)
+            DebugConsolePreferenceStore.DeleteKey(prefKey);
+
+        foreach (string prefKey in _componentPrefKeyRegistry)
+            DebugConsolePreferenceStore.DeleteKey(prefKey);
+
+        _gameObjectPrefKeyRegistry.Clear();
+        _componentPrefKeyRegistry.Clear();
+        SaveRegistry(GameObjectRegistryPrefKey, _gameObjectPrefKeyRegistry);
+        SaveRegistry(ComponentRegistryPrefKey, _componentPrefKeyRegistry);
+
+        _gameObjectFilters.Clear();
+        _componentFilters.Clear();
+        _gameObjectFilterKeys.Clear();
+        _componentFilterKeys.Clear();
+        MarkChanged();
+    }
+
+
+    private void MarkChanged()
+    {
+        _changeVersion++;
+    }
+
+    private void LoadRegistries()
+    {
+        LoadRegistry(GameObjectRegistryPrefKey, _gameObjectPrefKeyRegistry);
+        LoadRegistry(ComponentRegistryPrefKey, _componentPrefKeyRegistry);
+    }
+
+    private void LoadRegistry(string registryPrefKey, HashSet<string> target)
+    {
+        target.Clear();
+
+        string raw = DebugConsolePreferenceStore.GetString(registryPrefKey, string.Empty);
+        if (string.IsNullOrWhiteSpace(raw))
+            return;
+
+        string[] parts = raw.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 0; i < parts.Length; i++)
+            target.Add(parts[i]);
+    }
+
+    private void SaveRegistry(string registryPrefKey, HashSet<string> source)
+    {
+        if (source == null || source.Count == 0)
+        {
+            DebugConsolePreferenceStore.DeleteKey(registryPrefKey);
+            return;
+        }
+
+        DebugConsolePreferenceStore.SetString(registryPrefKey, string.Join("\n", source));
+    }
+
+    private void RegisterFilterPrefKey(HashSet<string> registry, string registryPrefKey, string prefKey)
+    {
+        if (string.IsNullOrWhiteSpace(prefKey))
+            return;
+
+        if (!registry.Add(prefKey))
+            return;
+
+        SaveRegistry(registryPrefKey, registry);
     }
 
     private void InitializeFilters()

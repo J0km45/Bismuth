@@ -21,10 +21,14 @@ public class DebugConsoleEditorWindow : EditorWindow
     private bool _collapsePreviousOnSelection = true;
     private bool _showTypeFilterPanel;
 
-    private int _focusedGameObjectId;
-    private int _focusedComponentId;
-    private string _focusedObjectName = string.Empty;
-    private string _focusedComponentName = string.Empty;
+    private readonly DebugConsoleFocusState _focusState = new();
+    private readonly List<DebugEntry> _visibleEntriesCache = new();
+    private int _cachedManagerChangeVersion = -1;
+    private string _cachedHierarchySearch = string.Empty;
+    private string _cachedLogSearch = string.Empty;
+    private int _cachedFocusedGameObjectId = -1;
+    private int _cachedFocusedComponentId = -1;
+    private bool _viewStateDirty;
 
     private GUIStyle _titleStyle;
     private GUIStyle _boxStyle;
@@ -91,7 +95,7 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private void OnDisable()
     {
-        SaveViewState();
+        FlushViewStateIfDirty(force: true);
         EditorApplication.update -= HandleEditorUpdate;
         EditorApplication.playModeStateChanged -= HandlePlayModeChanged;
         SceneManager.sceneLoaded -= HandleSceneLoaded;
@@ -112,6 +116,7 @@ public class DebugConsoleEditorWindow : EditorWindow
             _hierarchyScroll = Vector2.zero;
             _logScroll = Vector2.zero;
             ClearFocus();
+            InvalidateVisibleEntriesCache();
             Repaint();
         }
     }
@@ -132,6 +137,25 @@ public class DebugConsoleEditorWindow : EditorWindow
         DebugConsolePreferenceStore.SetBool($"{PrefKeyPrefix}.CollapsePrev", _collapsePreviousOnSelection);
         DebugConsolePreferenceStore.SetBool($"{PrefKeyPrefix}.ShowTypeFilterPanel", _showTypeFilterPanel);
         DebugConsolePreferenceStore.SetFloat($"{PrefKeyPrefix}.HierarchyPanelWidth", _hierarchyPanelWidth);
+        _viewStateDirty = false;
+    }
+
+    private void MarkViewStateDirty()
+    {
+        _viewStateDirty = true;
+    }
+
+    private void FlushViewStateIfDirty(bool force = false)
+    {
+        if (!_viewStateDirty && !force)
+            return;
+
+        SaveViewState();
+    }
+
+    private void InvalidateVisibleEntriesCache()
+    {
+        _cachedManagerChangeVersion = -1;
     }
 
     private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -143,6 +167,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         _selectedLogIndex = -1;
         _hierarchyScroll = Vector2.zero;
         ClearFocus();
+        InvalidateVisibleEntriesCache();
         Repaint();
     }
 
@@ -170,6 +195,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         DrawTypeFilterPanel(manager);
 
         DrawResizablePanels(manager);
+        FlushViewStateIfDirty();
     }
 
     private void InitStyles()
@@ -303,7 +329,7 @@ public class DebugConsoleEditorWindow : EditorWindow
                 if (next != current)
                 {
                     manager.SetTypeEnabled(type, next);
-                    SaveViewState();
+                    MarkViewStateDirty();
                 }
             }
 
@@ -412,7 +438,7 @@ public class DebugConsoleEditorWindow : EditorWindow
             ToggleGameObjectFocus = ToggleGameObjectFocus,
             ToggleComponentFocus = ToggleComponentFocus,
             ToggleExpandedSet = ToggleExpandedSet,
-            SaveState = SaveViewState
+            SaveState = MarkViewStateDirty
         };
 
         DebugConsoleHierarchyRenderer.Draw(context);
@@ -485,7 +511,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         if (nextObjectEnabled != objectEnabled)
         {
             manager.SetGameObjectEnabled(go, nextObjectEnabled);
-            SaveViewState();
+            MarkViewStateDirty();
         }
 
         GUIStyle objectStyle = GetObjectButtonStyle(objectEnabled, isObjectFocused, isComponentParentFocused);
@@ -534,7 +560,7 @@ public class DebugConsoleEditorWindow : EditorWindow
                 if (nextComponentEnabled != componentEnabled)
                 {
                     manager.SetComponentEnabled(component, nextComponentEnabled);
-                    SaveViewState();
+                    MarkViewStateDirty();
                 }
 
                 GUIStyle componentStyle = GetComponentButtonStyle(objectEnabled, isComponentFocused);
@@ -588,12 +614,12 @@ public class DebugConsoleEditorWindow : EditorWindow
             LastLogViewportHeight = _lastLogViewportHeight,
             LastMaxLogScrollY = _lastMaxLogScrollY,
             SelectedLogIndex = _selectedLogIndex,
-            Entries = manager.Entries,
+            Entries = GetVisibleEntries(manager),
             TitleStyle = _titleStyle,
             BoxStyle = _boxStyle,
             RichLabelStyle = _richLabelStyle,
             GetFocusSuffix = GetFocusSuffix,
-            ShouldDisplayEntry = entry => ShouldDisplayEntry(manager, entry),
+            ShouldDisplayEntry = _ => true,
             FocusEntry = FocusEntry,
             OpenEntryScript = OpenEntryScript
         };
@@ -742,20 +768,16 @@ public class DebugConsoleEditorWindow : EditorWindow
         if (entry.Context is GameObject go)
         {
             targetGameObject = go;
-            _focusedGameObjectId = go.GetInstanceID();
-            _focusedComponentId = 0;
-            _focusedObjectName = go.name;
-            _focusedComponentName = string.Empty;
+            _focusState.FocusGameObject(go.GetInstanceID(), go.name);
             PrepareSelectionExpansion(go.transform, true);
+            InvalidateVisibleEntriesCache();
         }
         else if (entry.Context is Component component)
         {
             targetGameObject = component.gameObject;
-            _focusedGameObjectId = component.gameObject.GetInstanceID();
-            _focusedComponentId = component.GetInstanceID();
-            _focusedObjectName = component.gameObject.name;
-            _focusedComponentName = component.GetType().Name;
+            _focusState.FocusComponent(component.gameObject.GetInstanceID(), component.GetInstanceID(), component.gameObject.name, component.GetType().Name);
             PrepareSelectionExpansion(component.transform, true);
+            InvalidateVisibleEntriesCache();
         }
 
         if (targetGameObject == null)
@@ -801,14 +823,14 @@ public class DebugConsoleEditorWindow : EditorWindow
         if (!manager.IsAllowed(entry.Type, entry.GameObjectId, entry.ComponentId))
             return false;
 
-        if (_focusedComponentId != 0)
+        if (_focusState.HasComponentFocus)
         {
-            if (entry.ComponentId != _focusedComponentId)
+            if (entry.ComponentId != _focusState.FocusedComponentId)
                 return false;
         }
-        else if (_focusedGameObjectId != 0)
+        else if (_focusState.HasGameObjectFocus)
         {
-            if (entry.GameObjectId != _focusedGameObjectId)
+            if (entry.GameObjectId != _focusState.FocusedGameObjectId)
                 return false;
         }
 
@@ -826,18 +848,16 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         int id = go.GetInstanceID();
 
-        if (_focusedGameObjectId == id && _focusedComponentId == 0)
+        if (_focusState.IsObjectFocused(id))
         {
             ClearFocus();
             return;
         }
 
-        _focusedGameObjectId = id;
-        _focusedComponentId = 0;
-        _focusedObjectName = go.name;
-        _focusedComponentName = string.Empty;
+        _focusState.FocusGameObject(id, go.name);
 
         PrepareSelectionExpansion(go.transform, true);
+        InvalidateVisibleEntriesCache();
         SyncUnityHierarchySelection(go);
     }
 
@@ -848,18 +868,16 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         int componentId = component.GetInstanceID();
 
-        if (_focusedComponentId == componentId)
+        if (_focusState.IsComponentFocused(componentId))
         {
             ClearFocus();
             return;
         }
 
-        _focusedGameObjectId = component.gameObject.GetInstanceID();
-        _focusedComponentId = componentId;
-        _focusedObjectName = component.gameObject.name;
-        _focusedComponentName = component.GetType().Name;
+        _focusState.FocusComponent(component.gameObject.GetInstanceID(), componentId, component.gameObject.name, component.GetType().Name);
 
         PrepareSelectionExpansion(component.transform, true);
+        InvalidateVisibleEntriesCache();
         SyncUnityHierarchySelection(component.gameObject);
     }
 
@@ -917,61 +935,23 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private void ClearFocus()
     {
-        _focusedGameObjectId = 0;
-        _focusedComponentId = 0;
-        _focusedObjectName = string.Empty;
-        _focusedComponentName = string.Empty;
+        _focusState.Clear();
+        InvalidateVisibleEntriesCache();
     }
 
     private string GetFocusLabel()
     {
-        if (_focusedComponentId != 0)
-            return $"Focus : {_focusedObjectName}/{_focusedComponentName}";
-
-        if (_focusedGameObjectId != 0)
-            return $"Focus : {_focusedObjectName} (All Components)";
-
-        return "Focus : All";
+        return _focusState.GetLabel();
     }
 
     private string GetFooterFocusLabel()
     {
-        if (_focusedComponentId != 0)
-        {
-            string objectName = TrimFooterFocusSegment(_focusedObjectName);
-            string componentName = TrimFooterFocusSegment(_focusedComponentName);
-
-            if (string.Equals(_focusedObjectName, _focusedComponentName, StringComparison.Ordinal))
-                return $"Focus : {objectName}";
-
-            return $"Focus : {objectName} / {componentName}";
-        }
-
-        if (_focusedGameObjectId != 0)
-            return $"Focus : {TrimFooterFocusSegment(_focusedObjectName)}";
-
-        return "Focus : All";
-    }
-
-    private string TrimFooterFocusSegment(string value)
-    {
-        if (string.IsNullOrEmpty(value))
-            return string.Empty;
-
-        return value.Length > FooterFocusSegmentMaxLength
-            ? value.Substring(0, FooterFocusSegmentMaxLength) + "..."
-            : value;
+        return _focusState.GetFooterLabel(FooterFocusSegmentMaxLength);
     }
 
     private string GetFocusSuffix()
     {
-        if (_focusedComponentId != 0)
-            return $"({_focusedObjectName}/{_focusedComponentName})";
-
-        if (_focusedGameObjectId != 0)
-            return $"({_focusedObjectName})";
-
-        return string.Empty;
+        return _focusState.GetSuffix();
     }
 
     private GUIStyle GetHierarchyRowStyle(bool isObjectFocused, bool isComponentParentFocused, bool isComponentFocused)
@@ -990,17 +970,17 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private bool IsFocusedObjectParent(int gameObjectId)
     {
-        return _focusedGameObjectId == gameObjectId && _focusedComponentId != 0;
+        return _focusState.IsFocusedObjectParent(gameObjectId);
     }
 
     private bool IsObjectFocused(int gameObjectId)
     {
-        return _focusedGameObjectId == gameObjectId && _focusedComponentId == 0;
+        return _focusState.IsObjectFocused(gameObjectId);
     }
 
     private bool IsComponentFocused(int componentId)
     {
-        return _focusedComponentId == componentId;
+        return _focusState.IsComponentFocused(componentId);
     }
 
     private GUIStyle GetObjectButtonStyle(bool objectEnabled, bool isObjectFocused, bool isComponentParentFocused)
@@ -1138,35 +1118,36 @@ public class DebugConsoleEditorWindow : EditorWindow
         if (global != manager.GlobalEnabled)
         {
             manager.GlobalEnabled = global;
-            SaveViewState();
+            InvalidateVisibleEntriesCache();
+            MarkViewStateDirty();
         }
 
         bool mirror = GUILayout.Toggle(manager.MirrorToUnityConsole, "Mirror Unity", GUILayout.Width(110f));
         if (mirror != manager.MirrorToUnityConsole)
         {
             manager.MirrorToUnityConsole = mirror;
-            SaveViewState();
+            MarkViewStateDirty();
         }
 
         bool autoScroll = GUILayout.Toggle(_autoScroll, "Auto Scroll", GUILayout.Width(100f));
         if (autoScroll != _autoScroll)
         {
             _autoScroll = autoScroll;
-            SaveViewState();
+            MarkViewStateDirty();
         }
 
         bool hideTransform = GUILayout.Toggle(_hideTransform, "Hide Transform", GUILayout.Width(120f));
         if (hideTransform != _hideTransform)
         {
             _hideTransform = hideTransform;
-            SaveViewState();
+            MarkViewStateDirty();
         }
 
         bool collapsePrevious = GUILayout.Toggle(_collapsePreviousOnSelection, "Collapse Prev", GUILayout.Width(120f));
         if (collapsePrevious != _collapsePreviousOnSelection)
         {
             _collapsePreviousOnSelection = collapsePrevious;
-            SaveViewState();
+            MarkViewStateDirty();
         }
     }
 
@@ -1175,26 +1156,31 @@ public class DebugConsoleEditorWindow : EditorWindow
         if (GUILayout.Button(typeButtonLabel, _toolbarButtonStyle, GUILayout.Width(160f)))
         {
             _showTypeFilterPanel = !_showTypeFilterPanel;
-            SaveViewState();
+            MarkViewStateDirty();
         }
 
         if (GUILayout.Button("All Types On", GUILayout.Width(100f)))
         {
             manager.SetAllTypes(true);
-            SaveViewState();
+            InvalidateVisibleEntriesCache();
+            MarkViewStateDirty();
         }
 
         if (GUILayout.Button("All Types Off", GUILayout.Width(100f)))
         {
             manager.SetAllTypes(false);
-            SaveViewState();
+            InvalidateVisibleEntriesCache();
+            MarkViewStateDirty();
         }
 
         if (GUILayout.Button("Reset Filters", GUILayout.Width(110f)))
             ResetFilterState(manager);
 
         if (GUILayout.Button("Clear Logs", GUILayout.Width(100f)))
+        {
             manager.ClearLogs();
+            InvalidateVisibleEntriesCache();
+        }
 
         if (GUILayout.Button("Clear Focus", GUILayout.Width(100f)))
             ClearFocus();
@@ -1213,7 +1199,8 @@ public class DebugConsoleEditorWindow : EditorWindow
         _expandedChildren.Clear();
         ClearFocus();
         GUI.FocusControl(null);
-        SaveViewState();
+        InvalidateVisibleEntriesCache();
+        MarkViewStateDirty();
     }
 
     private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
@@ -1226,7 +1213,12 @@ public class DebugConsoleEditorWindow : EditorWindow
     private void DrawHierarchySearchField(float fieldWidth, float labelWidth)
     {
         GUILayout.Label("Hierarchy Search", GUILayout.Width(labelWidth));
-        _hierarchySearch = GUILayout.TextField(_hierarchySearch, _searchTextFieldStyle, GUILayout.Width(fieldWidth));
+        string nextSearch = GUILayout.TextField(_hierarchySearch, _searchTextFieldStyle, GUILayout.Width(fieldWidth));
+        if (!string.Equals(nextSearch, _hierarchySearch, StringComparison.Ordinal))
+        {
+            _hierarchySearch = nextSearch;
+            InvalidateVisibleEntriesCache();
+        }
     }
 
     private void DrawLogSearchField(float labelWidth)
@@ -1268,16 +1260,39 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private int GetVisibleEntryCount(DebugConsoleManager manager)
     {
-        int count = 0;
+        return GetVisibleEntries(manager).Count;
+    }
+
+    private IReadOnlyList<DebugEntry> GetVisibleEntries(DebugConsoleManager manager)
+    {
+        if (manager == null)
+            return Array.Empty<DebugEntry>();
+
+        if (_cachedManagerChangeVersion == manager.ChangeVersion &&
+            string.Equals(_cachedHierarchySearch, _hierarchySearch, StringComparison.Ordinal) &&
+            string.Equals(_cachedLogSearch, _logSearch, StringComparison.Ordinal) &&
+            _cachedFocusedGameObjectId == _focusState.FocusedGameObjectId &&
+            _cachedFocusedComponentId == _focusState.FocusedComponentId)
+        {
+            return _visibleEntriesCache;
+        }
+
+        _visibleEntriesCache.Clear();
         IReadOnlyList<DebugEntry> entries = manager.Entries;
 
         for (int i = 0; i < entries.Count; i++)
         {
-            if (ShouldDisplayEntry(manager, entries[i]))
-                count++;
+            DebugEntry entry = entries[i];
+            if (ShouldDisplayEntry(manager, entry))
+                _visibleEntriesCache.Add(entry);
         }
 
-        return count;
+        _cachedManagerChangeVersion = manager.ChangeVersion;
+        _cachedHierarchySearch = _hierarchySearch;
+        _cachedLogSearch = _logSearch;
+        _cachedFocusedGameObjectId = _focusState.FocusedGameObjectId;
+        _cachedFocusedComponentId = _focusState.FocusedComponentId;
+        return _visibleEntriesCache;
     }
 
     private void UpdateHierarchyButtonWidths()
