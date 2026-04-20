@@ -1,18 +1,20 @@
+using UnityEngine.TextCore.LowLevel;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 {
     private const float FieldHeight = 24f;
-    private const int FontSize = 16;
+    private const float FontSize = 16f;
 
     private Canvas _canvas;
     private RectTransform _canvasRect;
-    private InputField _hierarchyInput;
-    private InputField _logInput;
+    private TMP_InputField _hierarchyInput;
+    private TMP_InputField _logInput;
     private RectTransform _hierarchyRectTransform;
     private RectTransform _logRectTransform;
-    private Font _dynamicFont;
+    private TMP_FontAsset _dynamicFontAsset;
 
     public string HierarchyText => _hierarchyInput != null ? _hierarchyInput.text : string.Empty;
     public string LogText => _logInput != null ? _logInput.text : string.Empty;
@@ -37,7 +39,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         _canvasRect.offsetMin = Vector2.zero;
         _canvasRect.offsetMax = Vector2.zero;
 
-        _dynamicFont = CreateDynamicFont();
+        _dynamicFontAsset = CreateDynamicTMPFontAsset();
 
         _hierarchyInput = CreateInputField("HierarchySearchInput", out _hierarchyRectTransform);
         _logInput = CreateInputField("LogSearchInput", out _logRectTransform);
@@ -90,9 +92,9 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         ApplyScreenRect(_logRectTransform, screenRect);
     }
 
-    private InputField CreateInputField(string objectName, out RectTransform rootRect)
+    private TMP_InputField CreateInputField(string objectName, out RectTransform rootRect)
     {
-        GameObject root = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(InputField));
+        GameObject root = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(TMP_InputField));
         root.transform.SetParent(transform, false);
 
         rootRect = root.GetComponent<RectTransform>();
@@ -105,47 +107,46 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         background.color = new Color(0.10f, 0.17f, 0.16f, 0.02f);
         background.raycastTarget = true;
 
-        InputField inputField = root.GetComponent<InputField>();
-        inputField.lineType = InputField.LineType.SingleLine;
-        inputField.contentType = InputField.ContentType.Standard;
+        TMP_InputField inputField = root.GetComponent<TMP_InputField>();
+        inputField.targetGraphic = background;
+        inputField.lineType = TMP_InputField.LineType.SingleLine;
+        inputField.contentType = TMP_InputField.ContentType.Standard;
+        inputField.richText = false;
         inputField.shouldHideMobileInput = false;
-        inputField.caretWidth = 2;
+        inputField.resetOnDeActivation = false;
+        inputField.restoreOriginalTextOnEscape = false;
+        inputField.customCaretColor = true;
         inputField.caretColor = new Color(0.78f, 0.93f, 0.89f, 1f);
         inputField.selectionColor = new Color(0.20f, 0.36f, 0.33f, 0.85f);
+        inputField.caretWidth = 2;
 
-        RectTransform viewportRect;
-        Text text = CreateTextChild(root.transform, "Text", out viewportRect, new Color(0.82f, 0.95f, 0.91f, 1f));
-        Text placeholder = CreateTextChild(root.transform, "Placeholder", out _, new Color(0.46f, 0.60f, 0.58f, 0.95f));
+        GameObject textArea = new GameObject("Text Area", typeof(RectTransform), typeof(RectMask2D));
+        textArea.transform.SetParent(root.transform, false);
+
+        RectTransform textAreaRect = textArea.GetComponent<RectTransform>();
+        textAreaRect.anchorMin = Vector2.zero;
+        textAreaRect.anchorMax = Vector2.one;
+        textAreaRect.offsetMin = new Vector2(8f, 3f);
+        textAreaRect.offsetMax = new Vector2(-8f, -3f);
+
+        TextMeshProUGUI placeholder = CreateTextChild(textArea.transform, "Placeholder", new Color(0.46f, 0.60f, 0.58f, 0.95f));
         placeholder.text = string.Empty;
 
+        TextMeshProUGUI text = CreateTextChild(textArea.transform, "Text", new Color(0.82f, 0.95f, 0.91f, 1f));
+
+        inputField.textViewport = textAreaRect;
         inputField.textComponent = text;
         inputField.placeholder = placeholder;
-        inputField.textViewport = viewportRect;
+
+        inputField.onSelect.AddListener(_ => inputField.ActivateInputField());
 
         return inputField;
     }
 
-    private Text CreateTextChild(Transform parent, string objectName, out RectTransform viewportRect, Color color)
+    private TextMeshProUGUI CreateTextChild(Transform parent, string objectName, Color color)
     {
-        Transform viewport = parent.Find("Viewport");
-        if (viewport == null)
-        {
-            GameObject viewportObject = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D));
-            viewportObject.transform.SetParent(parent, false);
-            viewportRect = viewportObject.GetComponent<RectTransform>();
-            viewportRect.anchorMin = Vector2.zero;
-            viewportRect.anchorMax = Vector2.one;
-            viewportRect.offsetMin = new Vector2(8f, 3f);
-            viewportRect.offsetMax = new Vector2(-8f, -3f);
-            viewport = viewportObject.transform;
-        }
-        else
-        {
-            viewportRect = viewport.GetComponent<RectTransform>();
-        }
-
-        GameObject textObject = new GameObject(objectName, typeof(RectTransform), typeof(Text));
-        textObject.transform.SetParent(viewport, false);
+        GameObject textObject = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(parent, false);
 
         RectTransform textRect = textObject.GetComponent<RectTransform>();
         textRect.anchorMin = Vector2.zero;
@@ -153,19 +154,19 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         textRect.offsetMin = Vector2.zero;
         textRect.offsetMax = Vector2.zero;
 
-        Text text = textObject.GetComponent<Text>();
-        text.font = _dynamicFont;
+        TextMeshProUGUI text = textObject.GetComponent<TextMeshProUGUI>();
+        text.font = _dynamicFontAsset;
         text.fontSize = FontSize;
-        text.supportRichText = false;
-        text.alignment = TextAnchor.MiddleLeft;
-        text.horizontalOverflow = HorizontalWrapMode.Overflow;
-        text.verticalOverflow = VerticalWrapMode.Truncate;
+        text.richText = false;
+        text.enableWordWrapping = false;
+        text.overflowMode = TextOverflowModes.Masking;
+        text.alignment = TextAlignmentOptions.MidlineLeft;
         text.color = color;
 
         return text;
     }
 
-    private Font CreateDynamicFont()
+    private TMP_FontAsset CreateDynamicTMPFontAsset()
     {
         string[] candidates =
         {
@@ -176,11 +177,21 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
             "Arial"
         };
 
-        Font font = Font.CreateDynamicFontFromOSFont(candidates, FontSize);
-        if (font == null)
-            font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        Font sourceFont = Font.CreateDynamicFontFromOSFont(candidates, Mathf.RoundToInt(FontSize));
+        if (sourceFont == null)
+            sourceFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
 
-        return font;
+        TMP_FontAsset fontAsset = TMP_FontAsset.CreateFontAsset(
+            sourceFont,
+            samplingPointSize: 90,
+            atlasPadding: 9,
+            renderMode: GlyphRenderMode.SDFAA,
+            atlasWidth: 1024,
+            atlasHeight: 1024,
+            atlasPopulationMode: AtlasPopulationMode.Dynamic,
+            enableMultiAtlasSupport: true);
+
+        return fontAsset;
     }
 
     private void ApplyScreenRect(RectTransform rectTransform, Rect screenRect)
