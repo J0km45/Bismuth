@@ -60,6 +60,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private readonly Color _footerInfoTextColor = new Color(0.96f, 0.84f, 0.22f, 1f);
 
     private const int MaxDisplayNameLength = 15;
+    private const int FooterFocusSegmentMaxLength = 16;
     private const float HierarchyRowHeight = 22f;
     private const float HierarchyToggleSize = 18f;
     private const float HierarchyFoldoutSize = 18f;
@@ -445,11 +446,12 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.EndScrollView();
 
         GUILayout.Space(4f);
-        string footerFocusText = GetFocusLabel();
+        string footerFocusFullText = GetFocusLabel();
+        string footerFocusDisplayText = GetFooterFocusLabel();
         string footerCountText = $"Count : {GetVisibleEntryCount(manager)}";
         float footerHorizontalPadding = 10f;
         float footerGap = 12f;
-        float footerFocusRequiredWidth = _footerLeftLabelStyle.CalcSize(new GUIContent(footerFocusText)).x;
+        float footerFocusRequiredWidth = _footerLeftLabelStyle.CalcSize(new GUIContent(footerFocusDisplayText)).x;
         float footerCountRequiredWidth = _footerRightLabelStyle.CalcSize(new GUIContent(footerCountText)).x;
         bool useTwoLineFooter = panelWidth < footerFocusRequiredWidth + footerCountRequiredWidth + (footerHorizontalPadding * 2f) + footerGap;
 
@@ -459,7 +461,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
             GUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
             GUILayout.Space(footerHorizontalPadding);
-            GUILayout.Label(new GUIContent(footerFocusText, footerFocusText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
+            GUILayout.Label(new GUIContent(footerFocusDisplayText, footerFocusFullText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
             GUILayout.Space(footerHorizontalPadding);
             GUILayout.EndHorizontal();
 
@@ -477,7 +479,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             GUILayout.Space(footerHorizontalPadding);
             float footerCountWidth = Mathf.Ceil(footerCountRequiredWidth) + 4f;
             float footerLeftWidth = Mathf.Max(60f, panelWidth - footerCountWidth - (footerHorizontalPadding * 2f) - footerGap);
-            GUILayout.Label(new GUIContent(footerFocusText, footerFocusText), _footerLeftLabelStyle, GUILayout.Width(footerLeftWidth), GUILayout.MinHeight(22f));
+            GUILayout.Label(new GUIContent(footerFocusDisplayText, footerFocusFullText), _footerLeftLabelStyle, GUILayout.Width(footerLeftWidth), GUILayout.MinHeight(22f));
             GUILayout.Space(footerGap);
             GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerRightLabelStyle, GUILayout.Width(footerCountWidth), GUILayout.MinHeight(22f));
             GUILayout.Space(footerHorizontalPadding);
@@ -897,6 +899,35 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             return $"Focus : {_focusedObjectName} (All Components)";
 
         return "Focus : All";
+    }
+
+    private string GetFooterFocusLabel()
+    {
+        if (_focusedComponentId != 0)
+        {
+            string objectName = TrimFooterFocusSegment(_focusedObjectName);
+            string componentName = TrimFooterFocusSegment(_focusedComponentName);
+
+            if (string.Equals(_focusedObjectName, _focusedComponentName, StringComparison.Ordinal))
+                return $"Focus : {objectName}";
+
+            return $"Focus : {objectName} / {componentName}";
+        }
+
+        if (_focusedGameObjectId != 0)
+            return $"Focus : {TrimFooterFocusSegment(_focusedObjectName)}";
+
+        return "Focus : All";
+    }
+
+    private string TrimFooterFocusSegment(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        return value.Length > FooterFocusSegmentMaxLength
+            ? value.Substring(0, FooterFocusSegmentMaxLength) + "..."
+            : value;
     }
 
     private string GetFocusSuffix()
