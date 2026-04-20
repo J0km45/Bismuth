@@ -3,6 +3,9 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem.UI;
+#endif
 
 public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 {
@@ -19,6 +22,8 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
     private Image _inputBlocker;
     private IMECompositionMode _previousImeCompositionMode = IMECompositionMode.Auto;
     private bool _imeCompositionCaptured;
+    private EventSystem _fallbackEventSystem;
+    private bool _ownsFallbackEventSystem;
 
     public string HierarchyText => _hierarchyInput != null ? _hierarchyInput.text : string.Empty;
     public string LogText => _logInput != null ? _logInput.text : string.Empty;
@@ -58,6 +63,9 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         if (_canvas == null)
             return;
 
+        if (visible)
+            EnsureEventSystem();
+
         _canvas.enabled = visible;
 
         if (_hierarchyInput != null)
@@ -65,6 +73,9 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 
         if (_logInput != null)
             _logInput.gameObject.SetActive(visible);
+
+        if (_ownsFallbackEventSystem && _fallbackEventSystem != null)
+            _fallbackEventSystem.gameObject.SetActive(visible);
 
         if (!visible)
             RestoreImeCompositionMode();
@@ -238,14 +249,64 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         if (inputField == null)
             return;
 
+        EnsureEventSystem();
+
         inputField.gameObject.SetActive(true);
 
-        if (EventSystem.current != null)
-            EventSystem.current.SetSelectedGameObject(inputField.gameObject);
+        EventSystem activeEventSystem = EventSystem.current != null ? EventSystem.current : _fallbackEventSystem;
+        if (activeEventSystem != null)
+            activeEventSystem.SetSelectedGameObject(inputField.gameObject);
 
         inputField.Select();
         inputField.ActivateInputField();
         inputField.MoveTextEnd(false);
+    }
+
+
+
+    private void EnsureEventSystem()
+    {
+        EventSystem activeEventSystem = EventSystem.current;
+        if (activeEventSystem != null)
+        {
+            if (_ownsFallbackEventSystem && _fallbackEventSystem != null && activeEventSystem != _fallbackEventSystem)
+            {
+                Destroy(_fallbackEventSystem.gameObject);
+                _fallbackEventSystem = null;
+                _ownsFallbackEventSystem = false;
+            }
+
+            return;
+        }
+
+        if (_fallbackEventSystem != null)
+        {
+            if (!_fallbackEventSystem.gameObject.activeSelf)
+                _fallbackEventSystem.gameObject.SetActive(true);
+
+            return;
+        }
+
+        EventSystem existingEventSystem = FindAnyObjectByType<EventSystem>();
+        if (existingEventSystem != null)
+        {
+            if (!existingEventSystem.gameObject.activeSelf)
+                existingEventSystem.gameObject.SetActive(true);
+
+            return;
+        }
+
+        GameObject eventSystemObject = new GameObject("RuntimeDebugConsoleEventSystem", typeof(EventSystem));
+        eventSystemObject.transform.SetParent(transform, false);
+
+#if ENABLE_INPUT_SYSTEM
+        eventSystemObject.AddComponent<InputSystemUIInputModule>();
+#else
+        eventSystemObject.AddComponent<StandaloneInputModule>();
+#endif
+
+        _fallbackEventSystem = eventSystemObject.GetComponent<EventSystem>();
+        _ownsFallbackEventSystem = true;
     }
 
     private TMP_InputField GetFocusedInput()
@@ -343,5 +404,12 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
     private void OnDisable()
     {
         RestoreImeCompositionMode();
+
+        if (_ownsFallbackEventSystem && _fallbackEventSystem != null)
+        {
+            Destroy(_fallbackEventSystem.gameObject);
+            _fallbackEventSystem = null;
+            _ownsFallbackEventSystem = false;
+        }
     }
 }
