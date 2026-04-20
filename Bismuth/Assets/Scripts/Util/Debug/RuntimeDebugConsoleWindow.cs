@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using TMPro;
@@ -27,6 +28,16 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private bool _imeCompositionCaptured;
     private bool _searchFieldFocusedThisFrame;
     private Rect _lastFocusedSearchFieldRect;
+
+    private enum SearchFieldFocus
+    {
+        None,
+        Hierarchy,
+        Log
+    }
+
+    private SearchFieldFocus _activeSearchField = SearchFieldFocus.None;
+    private GUIStyle _searchFieldContentStyle;
 
     private RuntimeDebugConsoleSearchOverlay _searchOverlay;
     private Rect _hierarchySearchScreenRect;
@@ -100,16 +111,14 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         SceneManager.sceneLoaded += HandleSceneLoaded;
         _stylesDirty = true;
         _titleStyle = null;
-        EnsureSearchOverlay();
+        DisableLegacySearchOverlay();
     }
 
     private void OnDisable()
     {
         SceneManager.sceneLoaded -= HandleSceneLoaded;
         RestoreImeCompositionMode();
-
-        if (_searchOverlay != null)
-            _searchOverlay.SetVisible(false);
+        DisableLegacySearchOverlay();
     }
 
     private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -120,7 +129,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _expandedChildren.Clear();
         _selectedLogIndex = -1;
         _hierarchyScroll = Vector2.zero;
+        _activeSearchField = SearchFieldFocus.None;
         ClearFocus();
+        DisableLegacySearchOverlay();
     }
 
     private void Update()
@@ -130,33 +141,32 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             _visible = !_visible;
 
             if (!_visible)
+            {
+                _activeSearchField = SearchFieldFocus.None;
                 RestoreImeCompositionMode();
+            }
         }
+
+        if (_visible)
+            HandleSearchFieldKeyboardInput();
     }
 
     private void OnGUI()
     {
-        EnsureSearchOverlay();
+        DisableLegacySearchOverlay();
 
         if (!_visible)
         {
-            if (_searchOverlay != null)
-                _searchOverlay.SetVisible(false);
-
             RestoreImeCompositionMode();
             return;
         }
 
         _searchFieldFocusedThisFrame = false;
-        _hierarchySearch = _searchOverlay != null ? _searchOverlay.HierarchyText : _hierarchySearch;
-        _logSearch = _searchOverlay != null ? _searchOverlay.LogText : _logSearch;
         _hierarchySearchScreenRect = Rect.zero;
         _logSearchScreenRect = Rect.zero;
 
         InitStyles();
         _windowRect = GUI.Window(91357, _windowRect, DrawWindow, "Runtime Debug Console");
-
-        UpdateSearchOverlayLayout();
 
         if (!_searchFieldFocusedThisFrame)
             RestoreImeCompositionMode();
@@ -186,37 +196,13 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _imeCompositionCaptured = false;
     }
 
-    private void EnsureSearchOverlay()
+    private void DisableLegacySearchOverlay()
     {
+        if (_searchOverlay == null)
+            _searchOverlay = GetComponentInChildren<RuntimeDebugConsoleSearchOverlay>(true);
+
         if (_searchOverlay != null)
-            return;
-
-        _searchOverlay = GetComponentInChildren<RuntimeDebugConsoleSearchOverlay>(true);
-
-        if (_searchOverlay == null)
-        {
-            GameObject overlayObject = new GameObject("RuntimeDebugConsoleSearchOverlay");
-            overlayObject.transform.SetParent(transform, false);
-            _searchOverlay = overlayObject.AddComponent<RuntimeDebugConsoleSearchOverlay>();
-        }
-
-        _searchOverlay.Initialize();
-    }
-
-    private void UpdateSearchOverlayLayout()
-    {
-        if (_searchOverlay == null)
-            return;
-
-        bool showOverlay = _visible;
-        _searchOverlay.SetVisible(showOverlay);
-
-        if (!showOverlay)
-            return;
-
-        _searchOverlay.SetHierarchyRect(_hierarchySearchScreenRect);
-        _searchOverlay.SetLogRect(_logSearchScreenRect);
-        _searchOverlay.SetTexts(_hierarchySearch, _logSearch);
+            _searchOverlay.SetVisible(false);
     }
 
     private Rect ToScreenRect(Rect guiRect)
@@ -1404,14 +1390,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.Label("Hierarchy Search", GUILayout.Width(labelWidth));
 
         Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, 24f, GUILayout.Width(fieldWidth), GUILayout.Height(24f));
-        GUI.Box(fieldRect, GUIContent.none, _searchTextFieldStyle);
         _hierarchySearchScreenRect = ToScreenRect(fieldRect);
-
-        if (_searchOverlay != null && _searchOverlay.IsHierarchyFocused)
-        {
-            _searchFieldFocusedThisFrame = true;
-            EnsureImeCompositionForSearchField(fieldRect);
-        }
+        DrawSearchInputField(fieldRect, SearchFieldFocus.Hierarchy, _hierarchySearch);
     }
 
     private void DrawLogSearchField(float labelWidth)
@@ -1419,26 +1399,136 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.Label("Log Search", GUILayout.Width(labelWidth));
 
         Rect fieldRect = GUILayoutUtility.GetRect(10f, 24f, GUILayout.ExpandWidth(true), GUILayout.Height(24f));
-        GUI.Box(fieldRect, GUIContent.none, _searchTextFieldStyle);
         _logSearchScreenRect = ToScreenRect(fieldRect);
-
-        if (_searchOverlay != null && _searchOverlay.IsLogFocused)
-        {
-            _searchFieldFocusedThisFrame = true;
-            EnsureImeCompositionForSearchField(fieldRect);
-        }
+        DrawSearchInputField(fieldRect, SearchFieldFocus.Log, _logSearch);
 
         if (GUILayout.Button("Clear Search", GUILayout.Width(100f)))
         {
             _hierarchySearch = string.Empty;
             _logSearch = string.Empty;
-
-            if (_searchOverlay != null)
-                _searchOverlay.ClearTexts();
-
+            _activeSearchField = SearchFieldFocus.None;
             GUI.FocusControl(null);
             RestoreImeCompositionMode();
         }
+    }
+
+    private void DrawSearchInputField(Rect fieldRect, SearchFieldFocus target, string committedText)
+    {
+        Event current = Event.current;
+        bool focused = _activeSearchField == target;
+
+        if (current.type == EventType.MouseDown && fieldRect.Contains(current.mousePosition))
+        {
+            _activeSearchField = target;
+            focused = true;
+            GUI.FocusControl(null);
+            current.Use();
+        }
+
+        GUI.Box(fieldRect, GUIContent.none, _searchTextFieldStyle);
+
+        if (focused)
+        {
+            _searchFieldFocusedThisFrame = true;
+            EnsureImeCompositionForSearchField(fieldRect);
+        }
+
+        string composition = focused ? Input.compositionString : string.Empty;
+        string displayText = committedText + composition;
+
+        Rect contentRect = new Rect(fieldRect.x + 4f, fieldRect.y + 1f, fieldRect.width - 8f, fieldRect.height - 2f);
+        GUI.Label(contentRect, displayText, _searchFieldContentStyle);
+
+        if (focused)
+            DrawSearchCaret(contentRect, displayText);
+    }
+
+    private void DrawSearchCaret(Rect contentRect, string displayText)
+    {
+        if ((Time.unscaledTime % 1f) > 0.5f)
+            return;
+
+        float textWidth = _searchFieldContentStyle.CalcSize(new GUIContent(displayText)).x;
+        float caretX = Mathf.Min(contentRect.x + 4f + textWidth, contentRect.xMax - 3f);
+        Rect caretRect = new Rect(caretX, contentRect.y + 4f, 1.5f, Mathf.Max(12f, contentRect.height - 8f));
+
+        Color previousColor = GUI.color;
+        GUI.color = new Color(0.82f, 0.95f, 0.91f, 0.95f);
+        GUI.DrawTexture(caretRect, Texture2D.whiteTexture);
+        GUI.color = previousColor;
+    }
+
+    private void HandleSearchFieldKeyboardInput()
+    {
+        if (_activeSearchField == SearchFieldFocus.None)
+            return;
+
+        string input = Input.inputString;
+        if (string.IsNullOrEmpty(input))
+            return;
+
+        for (int i = 0; i < input.Length; i++)
+        {
+            char ch = input[i];
+
+            if (ch == '\b')
+            {
+                if (string.IsNullOrEmpty(Input.compositionString))
+                    RemoveLastCharacterFromActiveSearchField();
+                continue;
+            }
+
+            if (ch == '\n' || ch == '\r')
+            {
+                _activeSearchField = SearchFieldFocus.None;
+                RestoreImeCompositionMode();
+                continue;
+            }
+
+            AppendToActiveSearchField(ch.ToString());
+        }
+    }
+
+    private void AppendToActiveSearchField(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return;
+
+        switch (_activeSearchField)
+        {
+            case SearchFieldFocus.Hierarchy:
+                _hierarchySearch += value;
+                break;
+            case SearchFieldFocus.Log:
+                _logSearch += value;
+                break;
+        }
+    }
+
+    private void RemoveLastCharacterFromActiveSearchField()
+    {
+        switch (_activeSearchField)
+        {
+            case SearchFieldFocus.Hierarchy:
+                _hierarchySearch = RemoveLastTextElement(_hierarchySearch);
+                break;
+            case SearchFieldFocus.Log:
+                _logSearch = RemoveLastTextElement(_logSearch);
+                break;
+        }
+    }
+
+    private string RemoveLastTextElement(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        int[] textElements = StringInfo.ParseCombiningCharacters(value);
+        if (textElements.Length == 0)
+            return string.Empty;
+
+        int lastIndex = textElements[textElements.Length - 1];
+        return value.Substring(0, lastIndex);
     }
 
     private float GetTopAreaWidth()
