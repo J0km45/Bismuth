@@ -686,14 +686,23 @@ public class DebugConsoleEditorWindow : EditorWindow
         EditorGUIUtility.PingObject(targetGameObject);
     }
 
-    private void ExpandParents(Transform target)
+    private void ExpandSelectionPath(Transform target, bool includeTargetDetails)
     {
         Transform current = target;
 
+        if (current == null)
+            return;
+
+        if (includeTargetDetails)
+            _expandedComponents.Add(current.gameObject.GetInstanceID());
+
         while (current.parent != null)
         {
-            _expandedChildren.Add(current.parent.gameObject.GetInstanceID());
-            current = current.parent;
+            Transform parent = current.parent;
+            int parentId = parent.gameObject.GetInstanceID();
+            _expandedComponents.Add(parentId);
+            _expandedChildren.Add(parentId);
+            current = parent;
         }
     }
 
@@ -776,10 +785,7 @@ public class DebugConsoleEditorWindow : EditorWindow
             _expandedChildren.Clear();
         }
 
-        if (includeDetails)
-            _expandedComponents.Add(target.gameObject.GetInstanceID());
-
-        ExpandParents(target);
+        ExpandSelectionPath(target, includeDetails);
     }
 
     private void ClearFocus()

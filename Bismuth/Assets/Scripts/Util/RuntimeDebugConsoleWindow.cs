@@ -441,9 +441,11 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.Space(4f);
         GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(30f));
         GUILayout.Space(10f);
-        GUILayout.Label(new GUIContent(GetFocusLabel(), GetFocusLabel()), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
+        float footerCountWidth = 100f;
+        float footerLeftWidth = Mathf.Max(80f, panelWidth - footerCountWidth - 32f);
+        GUILayout.Label(new GUIContent(GetFocusLabel(), GetFocusLabel()), _footerLeftLabelStyle, GUILayout.Width(footerLeftWidth), GUILayout.MinHeight(22f));
         GUILayout.Space(12f);
-        GUILayout.Label(new GUIContent($"Count : {GetVisibleEntryCount(manager)}", $"Count : {GetVisibleEntryCount(manager)}"), _footerRightLabelStyle, GUILayout.Width(100f), GUILayout.MinHeight(22f));
+        GUILayout.Label(new GUIContent($"Count : {GetVisibleEntryCount(manager)}", $"Count : {GetVisibleEntryCount(manager)}"), _footerRightLabelStyle, GUILayout.Width(footerCountWidth), GUILayout.MinHeight(22f));
         GUILayout.Space(10f);
         GUILayout.EndHorizontal();
         GUILayout.EndVertical();
@@ -568,7 +570,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     {
         GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
         GUILayout.BeginHorizontal();
-        GUILayout.Label($"Logs {GetFocusSuffix()}", _titleStyle);
+        GUILayout.Label(new GUIContent($"Logs {GetFocusSuffix()}", $"Logs {GetFocusSuffix()}"), _titleStyle, GUILayout.ExpandWidth(true));
         GUILayout.EndHorizontal();
 
         bool wasNearBottom = IsNearBottom(_lastMaxLogScrollY);
@@ -665,14 +667,23 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 #endif
     }
 
-    private void ExpandParents(Transform target)
+    private void ExpandSelectionPath(Transform target, bool includeTargetDetails)
     {
         Transform current = target;
 
+        if (current == null)
+            return;
+
+        if (includeTargetDetails)
+            _expandedComponents.Add(current.gameObject.GetInstanceID());
+
         while (current.parent != null)
         {
-            _expandedChildren.Add(current.parent.gameObject.GetInstanceID());
-            current = current.parent;
+            Transform parent = current.parent;
+            int parentId = parent.gameObject.GetInstanceID();
+            _expandedComponents.Add(parentId);
+            _expandedChildren.Add(parentId);
+            current = parent;
         }
     }
 
@@ -755,10 +766,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             _expandedChildren.Clear();
         }
 
-        if (includeDetails)
-            _expandedComponents.Add(target.gameObject.GetInstanceID());
-
-        ExpandParents(target);
+        ExpandSelectionPath(target, includeDetails);
     }
 
     private void ClearFocus()
