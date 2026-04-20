@@ -207,7 +207,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         _toggleRowRect = CreateRect(_windowRoot, "ToggleRow");
         HorizontalLayoutGroup toggleLayout = _toggleRowRect.gameObject.AddComponent<HorizontalLayoutGroup>();
-        toggleLayout.spacing = 24f;
+        toggleLayout.spacing = 28f;
         toggleLayout.padding = new RectOffset(4, 4, 0, 0);
         toggleLayout.childAlignment = TextAnchor.MiddleLeft;
         toggleLayout.childControlWidth = false;
@@ -221,7 +221,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
                 return;
             manager.GlobalEnabled = v;
             RequestRebuild();
-        }, 82f, 13f);
+        }, 96f, 13f);
 
         _mirrorToggle = CreateLabeledToggle(_toggleRowRect, "Mirror Unity", v =>
         {
@@ -230,20 +230,20 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
                 return;
             manager.MirrorToUnityConsole = v;
             RequestRebuild();
-        }, 110f, 13f);
+        }, 132f, 13f);
 
-        _autoScrollToggle = CreateLabeledToggle(_toggleRowRect, "Auto Scroll", v => _autoScroll = v, 102f, 13f);
+        _autoScrollToggle = CreateLabeledToggle(_toggleRowRect, "Auto Scroll", v => _autoScroll = v, 118f, 13f);
         _hideTransformToggle = CreateLabeledToggle(_toggleRowRect, "Hide Transform", v =>
         {
             _hideTransform = v;
             RequestRebuild();
-        }, 118f, 13f);
+        }, 144f, 13f);
         _collapsePrevToggle = CreateLabeledToggle(_toggleRowRect, "Collapse Prev", v => _collapsePreviousOnSelection = v, 190f);
-        _blockInputToggle = CreateLabeledToggle(_toggleRowRect, "Block Input", v => ApplyBlockInput(v), 102f, 13f);
+        _blockInputToggle = CreateLabeledToggle(_toggleRowRect, "Block Input", v => ApplyBlockInput(v), 118f, 13f);
 
         _buttonRowRect = CreateRect(_windowRoot, "ButtonRow");
         HorizontalLayoutGroup buttonLayout = _buttonRowRect.gameObject.AddComponent<HorizontalLayoutGroup>();
-        buttonLayout.spacing = 20f;
+        buttonLayout.spacing = 24f;
         buttonLayout.padding = new RectOffset(0, 0, 0, 0);
         buttonLayout.childAlignment = TextAnchor.MiddleLeft;
         buttonLayout.childControlWidth = false;
@@ -251,7 +251,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         buttonLayout.childForceExpandWidth = false;
         buttonLayout.childForceExpandHeight = false;
 
-        _typeFilterButton = CreateButton(_buttonRowRect, "Type Filter v (0/0)", ToggleTypeFilterPanel, out _typeFilterButtonLabel, 150f);
+        _typeFilterButton = CreateButton(_buttonRowRect, "Type Filter v (0/0)", ToggleTypeFilterPanel, out _typeFilterButtonLabel, 170f);
         CreateButton(_buttonRowRect, "All Types On", () =>
         {
             DebugConsoleManager manager = DebugConsoleManager.Instance;
@@ -260,7 +260,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             manager.SetAllTypes(true);
             SyncManagerStateToUi(manager);
             RequestRebuild();
-        }, out _, 120f);
+        }, out _, 140f);
 
         CreateButton(_buttonRowRect, "All Types Off", () =>
         {
@@ -270,7 +270,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             manager.SetAllTypes(false);
             SyncManagerStateToUi(manager);
             RequestRebuild();
-        }, out _, 120f);
+        }, out _, 140f);
 
         CreateButton(_buttonRowRect, "Clear Logs", () =>
         {
@@ -279,13 +279,13 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
                 return;
             manager.ClearLogs();
             RequestRebuild();
-        }, out _, 120f);
+        }, out _, 140f);
 
         CreateButton(_buttonRowRect, "Clear Focus", () =>
         {
             _focusState.Clear();
             RequestRebuild();
-        }, out _, 120f);
+        }, out _, 140f);
 
         _searchRowRect = CreateRect(_windowRoot, "SearchRow");
         CreateSearchArea();
@@ -320,12 +320,12 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private void CreateSearchArea()
     {
         RectTransform hierarchyLabelRect = CreateRect(_searchRowRect, "HierarchyLabel");
-        SetRect(hierarchyLabelRect, 0f, 0f, 0f, 1f, 0f, 0f, 140f, 0f);
+        SetRect(hierarchyLabelRect, 0f, 0f, 0f, 1f, 0f, 0f, 120f, 0f);
         TextMeshProUGUI hierarchyLabel = CreateText(hierarchyLabelRect, "Hierarchy Search", 20f, FontStyles.Normal, TextAlignmentOptions.Left);
         Stretch(hierarchyLabel.rectTransform, 0f, 0f, 0f, 0f);
 
         RectTransform hierarchyInputRect = CreateRect(_searchRowRect, "HierarchyInputRect");
-        SetRect(hierarchyInputRect, 0f, 0f, 0.42f, 1f, 150f, 0f, -8f, 0f);
+        SetRect(hierarchyInputRect, 0f, 0f, 0.42f, 1f, 126f, 0f, -8f, 0f);
         _hierarchySearchInput = CreateInputField(hierarchyInputRect, value =>
         {
             _hierarchySearch = value ?? string.Empty;
@@ -334,12 +334,12 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         Stretch(_hierarchySearchInput.GetComponent<RectTransform>(), 0f, 0f, 0f, 0f);
 
         RectTransform logLabelRect = CreateRect(_searchRowRect, "LogLabel");
-        SetRect(logLabelRect, 0.42f, 0f, 0.42f, 1f, 8f, 0f, 100f, 0f);
+        SetRect(logLabelRect, 0.42f, 0f, 0.42f, 1f, 8f, 0f, 90f, 0f);
         TextMeshProUGUI logLabel = CreateText(logLabelRect, "Log Search", 20f, FontStyles.Normal, TextAlignmentOptions.Left);
         Stretch(logLabel.rectTransform, 0f, 0f, 0f, 0f);
 
         RectTransform logInputRect = CreateRect(_searchRowRect, "LogInputRect");
-        SetRect(logInputRect, 0.42f, 0f, 0.92f, 1f, 118f, 0f, -8f, 0f);
+        SetRect(logInputRect, 0.42f, 0f, 0.92f, 1f, 102f, 0f, -8f, 0f);
         _logSearchInput = CreateInputField(logInputRect, value =>
         {
             _logSearch = value ?? string.Empty;
@@ -356,7 +356,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             _hierarchySearchInput.SetTextWithoutNotify(string.Empty);
             _logSearchInput.SetTextWithoutNotify(string.Empty);
             RequestRebuild();
-        }, out _, 140f);
+        }, out _, 120f);
         Stretch(clearRect.GetChild(0).GetComponent<RectTransform>(), 0f, 0f, 0f, 0f);
     }
 
@@ -457,8 +457,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (_showTypeFilterPanel)
         {
             _typeFilterPanelRect.gameObject.SetActive(true);
-            SetTopRect(_typeFilterPanelRect, 174f, 120f, 12f, 12f);
-            bodyTop = 304f;
+            SetTopRect(_typeFilterPanelRect, 174f, 78f, 12f, 12f);
+            bodyTop = 262f;
         }
         else
         {
@@ -1005,7 +1005,12 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         }
 
         string arrow = _showTypeFilterPanel ? "v" : ">";
-        _typeFilterButtonLabel.text = $"Type Filter {arrow} ({enabledCount}/{_typeToggles.Count})";
+        string label = $"Type Filter {arrow} ({enabledCount}/{_typeToggles.Count})";
+        _typeFilterButtonLabel.text = label;
+
+        LayoutElement layout = _typeFilterButton != null ? _typeFilterButton.GetComponent<LayoutElement>() : null;
+        if (layout != null)
+            layout.preferredWidth = Mathf.Max(170f, 44f + label.Length * 8f);
     }
 
     private void EnsureEventSystemExists()
@@ -1056,6 +1061,26 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         List<GameObject> roots = new();
         HashSet<int> seen = new();
 
+        Transform[] transforms = FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < transforms.Length; i++)
+        {
+            Transform transform = transforms[i];
+            if (transform == null)
+                continue;
+
+            GameObject gameObject = transform.gameObject;
+            if (!gameObject.scene.IsValid() || !gameObject.scene.isLoaded)
+                continue;
+
+            if (transform.parent != null)
+                continue;
+
+            if (!seen.Add(gameObject.GetInstanceID()))
+                continue;
+
+            roots.Add(gameObject);
+        }
+
         for (int i = 0; i < SceneManager.sceneCount; i++)
         {
             Scene scene = SceneManager.GetSceneAt(i);
@@ -1074,25 +1099,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
                 roots.Add(gameObject);
             }
-        }
-
-        GameObject[] allObjects = Resources.FindObjectsOfTypeAll<GameObject>();
-        for (int i = 0; i < allObjects.Length; i++)
-        {
-            GameObject gameObject = allObjects[i];
-            if (gameObject == null)
-                continue;
-
-            if (!gameObject.scene.IsValid() || !gameObject.scene.isLoaded)
-                continue;
-
-            if (gameObject.transform.parent != null)
-                continue;
-
-            if (!seen.Add(gameObject.GetInstanceID()))
-                continue;
-
-            roots.Add(gameObject);
         }
 
         roots.Sort((a, b) => string.CompareOrdinal(a.name, b.name));
@@ -1352,7 +1358,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         Text text = obj.GetComponent<Text>();
         text.font = _inputFont;
         text.text = value;
-        text.fontSize = 18;
+        text.fontSize = 16;
         text.color = color;
         text.alignment = TextAnchor.MiddleLeft;
         return text;
@@ -1432,15 +1438,12 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     {
         string[] candidates =
         {
-            "Malgun Gothic",
-            "맑은 고딕",
-            "Noto Sans CJK KR",
-            "Noto Sans KR",
             "Arial Unicode MS",
+            "Segoe UI",
             "Arial"
         };
 
-        Font sourceFont = Font.CreateDynamicFontFromOSFont(candidates, 18);
+        Font sourceFont = Font.CreateDynamicFontFromOSFont(candidates, 16);
         if (sourceFont == null)
             sourceFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
 
