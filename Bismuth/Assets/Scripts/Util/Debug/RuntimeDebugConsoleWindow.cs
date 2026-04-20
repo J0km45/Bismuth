@@ -386,7 +386,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private void DrawHierarchyPanel(DebugConsoleManager manager, float panelWidth)
     {
-        DebugConsoleHierarchyRenderContext context = new DebugConsoleHierarchyRenderContext
+        DebugConsoleHierarchyRenderContextShared context = new DebugConsoleHierarchyRenderContextShared
         {
             Manager = manager,
             PanelWidth = panelWidth,
@@ -426,7 +426,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             SaveState = MarkViewStateDirty
         };
 
-        DebugConsoleHierarchyRenderer.Draw(context);
+        DebugConsoleHierarchyRendererShared.Draw(context);
         _hierarchyScroll = context.Scroll;
     }
 
@@ -590,7 +590,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     {
-        DebugConsoleLogRenderContext context = new DebugConsoleLogRenderContext
+        DebugConsoleLogRenderContextShared context = new DebugConsoleLogRenderContextShared
         {
             PanelWidth = panelWidth,
             Scroll = _logScroll,
@@ -609,7 +609,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             OpenEntryScript = OpenEntryScript
         };
 
-        DebugConsoleLogRenderer.Draw(context);
+        DebugConsoleLogRendererShared.Draw(context);
         _logScroll = context.Scroll;
         _lastLogContentHeight = context.LastLogContentHeight;
         _lastLogViewportHeight = context.LastLogViewportHeight;

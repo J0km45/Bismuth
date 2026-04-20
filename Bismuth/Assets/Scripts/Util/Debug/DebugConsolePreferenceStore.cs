@@ -82,6 +82,21 @@ public static class DebugConsolePreferenceStore
 #endif
     }
 
+
+    public static void DeleteKey(string key)
+    {
+#if UNITY_EDITOR
+        if (EditorPrefs.HasKey(key))
+            EditorPrefs.DeleteKey(key);
+#else
+        if (PlayerPrefs.HasKey(key))
+        {
+            PlayerPrefs.DeleteKey(key);
+            PlayerPrefs.Save();
+        }
+#endif
+    }
+
     public static Rect GetRect(string key, Rect defaultValue)
     {
         string raw = GetString(key, string.Empty);
