@@ -35,7 +35,7 @@ public static class DebugConsoleLogRendererShared
         bool wasNearBottom = IsNearBottom(ctx.Scroll.y, ctx.LastMaxLogScrollY);
         float contentHeight = 0f;
 
-        ctx.Scroll = GUILayout.BeginScrollView(ctx.Scroll);
+        ctx.Scroll = GUILayout.BeginScrollView(ctx.Scroll, false, true);
 
         IReadOnlyList<DebugEntry> entries = ctx.Entries;
         float width = Mathf.Max(ctx.PanelWidth - 32f, 300f);

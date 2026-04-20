@@ -134,7 +134,8 @@ public static class DebugConsoleHierarchyRendererShared
         bool isObjectFocused = ctx.IsObjectFocused(id);
         bool isComponentParentFocused = ctx.IsFocusedObjectParent(id);
         bool showDetails = hasDetails && (detailsExpanded || forceOpenDetails);
-        bool showChildren = hasVisibleChildren && (childrenExpanded || forceOpenChildren);
+        bool canShowChildControls = hasVisibleChildren && isObjectFocused;
+        bool showChildren = hasVisibleChildren && (forceOpenChildren || (childrenExpanded && canShowChildControls));
 
         float objectLeadingSpace = depth * 18f;
         float rowContentWidth = GetHierarchyRowContentWidth(ctx);
@@ -214,21 +215,24 @@ public static class DebugConsoleHierarchyRendererShared
         if (!hasVisibleChildren)
             return;
 
-        float childLeadingSpace = (depth + 1) * 18f + ctx.HierarchyToggleSize + 8f + ctx.HierarchyToggleSize;
+        if (canShowChildControls)
+        {
+            float childLeadingSpace = (depth + 1) * 18f + ctx.HierarchyToggleSize + 8f + ctx.HierarchyToggleSize;
 
-        GUILayout.BeginHorizontal(GUILayout.Width(rowContentWidth), GUILayout.Height(ctx.HierarchyRowHeight));
-        GUILayout.Space((depth + 1) * 18f + ctx.HierarchyToggleSize + 8f);
-        GUILayout.Space(ctx.HierarchyToggleSize);
+            GUILayout.BeginHorizontal(GUILayout.Width(rowContentWidth), GUILayout.Height(ctx.HierarchyRowHeight));
+            GUILayout.Space((depth + 1) * 18f + ctx.HierarchyToggleSize + 8f);
+            GUILayout.Space(ctx.HierarchyToggleSize);
 
-        float childButtonWidth = GetHierarchyTextButtonWidth(ctx, rowContentWidth, childLeadingSpace, true, true);
-        if (GUILayout.Button(new GUIContent("하위 오브젝트", "하위 오브젝트"), ctx.LinkButtonStyle, GUILayout.Width(childButtonWidth), GUILayout.Height(ctx.HierarchyRowHeight)))
-            ctx.ToggleExpandedSet(ctx.ExpandedChildren, id);
+            float childButtonWidth = GetHierarchyTextButtonWidth(ctx, rowContentWidth, childLeadingSpace, true, true);
+            if (GUILayout.Button(new GUIContent("하위 오브젝트", "하위 오브젝트"), ctx.LinkButtonStyle, GUILayout.Width(childButtonWidth), GUILayout.Height(ctx.HierarchyRowHeight)))
+                ctx.ToggleExpandedSet(ctx.ExpandedChildren, id);
 
-        string childFoldoutLabel = showChildren ? "▾" : "▸";
-        if (GUILayout.Button(childFoldoutLabel, ctx.FoldoutButtonStyle, GUILayout.Width(ctx.HierarchyFoldoutSize), GUILayout.Height(ctx.HierarchyRowHeight)))
-            ctx.ToggleExpandedSet(ctx.ExpandedChildren, id);
+            string childFoldoutLabel = showChildren ? "▾" : "▸";
+            if (GUILayout.Button(childFoldoutLabel, ctx.FoldoutButtonStyle, GUILayout.Width(ctx.HierarchyFoldoutSize), GUILayout.Height(ctx.HierarchyRowHeight)))
+                ctx.ToggleExpandedSet(ctx.ExpandedChildren, id);
 
-        GUILayout.EndHorizontal();
+            GUILayout.EndHorizontal();
+        }
 
         if (!showChildren)
             return;
