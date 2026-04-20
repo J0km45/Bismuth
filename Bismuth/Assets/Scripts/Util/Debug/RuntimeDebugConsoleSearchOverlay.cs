@@ -3,9 +3,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem.UI;
-#endif
 
 public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 {
@@ -20,10 +17,6 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
     private RectTransform _logRectTransform;
     private TMP_FontAsset _dynamicFontAsset;
     private Image _inputBlocker;
-    private IMECompositionMode _previousImeCompositionMode = IMECompositionMode.Auto;
-    private bool _imeCompositionCaptured;
-    private EventSystem _fallbackEventSystem;
-    private bool _ownsFallbackEventSystem;
 
     public string HierarchyText => _hierarchyInput != null ? _hierarchyInput.text : string.Empty;
     public string LogText => _logInput != null ? _logInput.text : string.Empty;
@@ -63,9 +56,6 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         if (_canvas == null)
             return;
 
-        if (visible)
-            EnsureEventSystem();
-
         _canvas.enabled = visible;
 
         if (_hierarchyInput != null)
@@ -74,11 +64,6 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         if (_logInput != null)
             _logInput.gameObject.SetActive(visible);
 
-        if (_ownsFallbackEventSystem && _fallbackEventSystem != null)
-            _fallbackEventSystem.gameObject.SetActive(visible);
-
-        if (!visible)
-            RestoreImeCompositionMode();
     }
 
     public void SetInputBlockerVisible(bool visible)
@@ -131,24 +116,6 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         ApplyScreenRect(_logRectTransform, screenRect);
     }
 
-    private void LateUpdate()
-    {
-        TMP_InputField focusedInput = GetFocusedInput();
-        if (focusedInput == null)
-        {
-            RestoreImeCompositionMode();
-            return;
-        }
-
-        if (!_imeCompositionCaptured)
-        {
-            _previousImeCompositionMode = Input.imeCompositionMode;
-            _imeCompositionCaptured = true;
-        }
-
-        Input.imeCompositionMode = IMECompositionMode.On;
-        Input.compositionCursorPos = GetCompositionCursorPosition(focusedInput);
-    }
 
     private TMP_InputField CreateInputField(string objectName, out RectTransform rootRect)
     {
@@ -197,7 +164,6 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         inputField.placeholder = placeholder;
 
         inputField.onSelect.AddListener(_ => FocusInput(inputField));
-        inputField.onEndEdit.AddListener(_ => RestoreImeCompositionMode());
 
         AddPointerFocusTrigger(root, inputField);
 
@@ -249,97 +215,16 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         if (inputField == null)
             return;
 
-        EnsureEventSystem();
-
         inputField.gameObject.SetActive(true);
 
-        EventSystem activeEventSystem = EventSystem.current != null ? EventSystem.current : _fallbackEventSystem;
-        if (activeEventSystem != null)
-            activeEventSystem.SetSelectedGameObject(inputField.gameObject);
+        if (EventSystem.current != null)
+            EventSystem.current.SetSelectedGameObject(inputField.gameObject);
 
         inputField.Select();
         inputField.ActivateInputField();
         inputField.MoveTextEnd(false);
     }
 
-
-
-    private void EnsureEventSystem()
-    {
-        EventSystem activeEventSystem = EventSystem.current;
-        if (activeEventSystem != null)
-        {
-            if (_ownsFallbackEventSystem && _fallbackEventSystem != null && activeEventSystem != _fallbackEventSystem)
-            {
-                Destroy(_fallbackEventSystem.gameObject);
-                _fallbackEventSystem = null;
-                _ownsFallbackEventSystem = false;
-            }
-
-            return;
-        }
-
-        if (_fallbackEventSystem != null)
-        {
-            if (!_fallbackEventSystem.gameObject.activeSelf)
-                _fallbackEventSystem.gameObject.SetActive(true);
-
-            return;
-        }
-
-        EventSystem existingEventSystem = FindAnyObjectByType<EventSystem>();
-        if (existingEventSystem != null)
-        {
-            if (!existingEventSystem.gameObject.activeSelf)
-                existingEventSystem.gameObject.SetActive(true);
-
-            return;
-        }
-
-        GameObject eventSystemObject = new GameObject("RuntimeDebugConsoleEventSystem", typeof(EventSystem));
-        eventSystemObject.transform.SetParent(transform, false);
-
-#if ENABLE_INPUT_SYSTEM
-        eventSystemObject.AddComponent<InputSystemUIInputModule>();
-#else
-        eventSystemObject.AddComponent<StandaloneInputModule>();
-#endif
-
-        _fallbackEventSystem = eventSystemObject.GetComponent<EventSystem>();
-        _ownsFallbackEventSystem = true;
-    }
-
-    private TMP_InputField GetFocusedInput()
-    {
-        if (_hierarchyInput != null && _hierarchyInput.isFocused)
-            return _hierarchyInput;
-
-        if (_logInput != null && _logInput.isFocused)
-            return _logInput;
-
-        return null;
-    }
-
-    private Vector2 GetCompositionCursorPosition(TMP_InputField inputField)
-    {
-        RectTransform targetRect = inputField == _hierarchyInput ? _hierarchyRectTransform : _logRectTransform;
-        if (targetRect == null)
-            return new Vector2(16f, 16f);
-
-        Vector3[] corners = new Vector3[4];
-        targetRect.GetWorldCorners(corners);
-        Vector2 topLeft = RectTransformUtility.WorldToScreenPoint(null, corners[1]);
-        return new Vector2(topLeft.x + 12f, Screen.height - topLeft.y + 16f);
-    }
-
-    private void RestoreImeCompositionMode()
-    {
-        if (!_imeCompositionCaptured)
-            return;
-
-        Input.imeCompositionMode = _previousImeCompositionMode;
-        _imeCompositionCaptured = false;
-    }
 
     private TextMeshProUGUI CreateTextChild(Transform parent, string objectName, Color color)
     {
@@ -401,15 +286,4 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         rectTransform.sizeDelta = new Vector2(screenRect.width, Mathf.Max(FieldHeight, screenRect.height));
     }
 
-    private void OnDisable()
-    {
-        RestoreImeCompositionMode();
-
-        if (_ownsFallbackEventSystem && _fallbackEventSystem != null)
-        {
-            Destroy(_fallbackEventSystem.gameObject);
-            _fallbackEventSystem = null;
-            _ownsFallbackEventSystem = false;
-        }
-    }
 }

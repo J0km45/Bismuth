@@ -26,23 +26,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private string _hierarchySearch = string.Empty;
     private string _logSearch = string.Empty;
 
-    private const string HierarchySearchControlName = "DebugConsole_HierarchySearch";
-    private const string LogSearchControlName = "DebugConsole_LogSearch";
-    private IMECompositionMode _previousImeCompositionMode = IMECompositionMode.Auto;
-    private bool _imeCompositionCaptured;
-    private bool _searchFieldFocusedThisFrame;
-    private Rect _lastFocusedSearchFieldRect;
-
-    private enum SearchFieldFocus
-    {
-        None,
-        Hierarchy,
-        Log
-    }
-
-    private SearchFieldFocus _activeSearchField = SearchFieldFocus.None;
-    private GUIStyle _searchFieldContentStyle;
-
     private RuntimeDebugConsoleSearchOverlay _searchOverlay;
     private Rect _hierarchySearchScreenRect;
     private Rect _logSearchScreenRect;
@@ -144,7 +127,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _expandedChildren.Clear();
         _selectedLogIndex = -1;
         _hierarchyScroll = Vector2.zero;
-        _activeSearchField = SearchFieldFocus.None;
         ClearFocus();
 
         if (_searchOverlay != null)
@@ -1487,8 +1469,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         _hierarchySearchScreenRect = ToScreenRect(fieldRect);
 
-        if (_searchOverlay != null && _searchOverlay.IsHierarchyFocused)
-            _searchFieldFocusedThisFrame = true;
     }
 
     private void DrawLogSearchField(float labelWidth)
@@ -1501,8 +1481,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         _logSearchScreenRect = ToScreenRect(fieldRect);
 
-        if (_searchOverlay != null && _searchOverlay.IsLogFocused)
-            _searchFieldFocusedThisFrame = true;
 
         if (GUILayout.Button("Clear Search", GUILayout.Width(100f)))
         {
