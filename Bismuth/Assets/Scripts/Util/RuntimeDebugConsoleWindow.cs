@@ -127,7 +127,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _titleStyle = new GUIStyle(GUI.skin.label)
         {
             fontStyle = FontStyle.Bold,
-            fontSize = 13
+            fontSize = 13,
+            wordWrap = false,
+            clipping = TextClipping.Clip
         };
 
         _boxStyle = new GUIStyle(GUI.skin.box)
@@ -424,8 +426,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private void DrawHierarchyPanel(DebugConsoleManager manager, float panelWidth)
     {
         GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
+        float headerWidth = Mathf.Max(80f, panelWidth - _boxStyle.padding.left - _boxStyle.padding.right - 8f);
         GUILayout.BeginHorizontal();
-        GUILayout.Label("Scene Objects / Components", _titleStyle);
+        GUILayout.Label("Scene Objects / Components", _titleStyle, GUILayout.Width(headerWidth));
         GUILayout.EndHorizontal();
 
         _hierarchyScroll = GUILayout.BeginScrollView(_hierarchyScroll);
@@ -434,7 +437,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GameObject[] roots = activeScene.GetRootGameObjects();
 
         for (int i = 0; i < roots.Length; i++)
-            DrawGameObjectNode(manager, roots[i], 0);
+            DrawGameObjectNode(manager, roots[i], 0, panelWidth);
 
         GUILayout.EndScrollView();
 
@@ -451,7 +454,28 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.EndVertical();
     }
 
-    private void DrawGameObjectNode(DebugConsoleManager manager, GameObject go, int depth)
+    private float GetHierarchyTextButtonWidth(float panelWidth, float leadingSpace, bool reserveToggle, bool reserveFoldout)
+    {
+        float width = panelWidth;
+        width -= _boxStyle.padding.left + _boxStyle.padding.right;
+        width -= 24f;
+        width -= leadingSpace;
+
+        if (reserveToggle)
+            width -= HierarchyToggleSize + 4f;
+
+        if (reserveFoldout)
+            width -= HierarchyFoldoutSize + 4f;
+
+        return Mathf.Max(60f, width);
+    }
+
+    private float GetLogContentWidth(float panelWidth)
+    {
+        return Mathf.Max(140f, panelWidth - _boxStyle.padding.left - _boxStyle.padding.right - 58f);
+    }
+
+    private void DrawGameObjectNode(DebugConsoleManager manager, GameObject go, int depth, float panelWidth)
     {
         if (go == null)
             return;
@@ -479,9 +503,12 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         bool showDetails = hasDetails && (detailsExpanded || forceOpenDetails);
         bool showChildren = hasVisibleChildren && (childrenExpanded || forceOpenChildren);
 
+        float objectLeadingSpace = depth * 18f;
+        float objectButtonWidth = GetHierarchyTextButtonWidth(panelWidth, objectLeadingSpace, true, true);
+
         GUILayout.BeginVertical(GetHierarchyRowStyle(isObjectFocused, isComponentParentFocused, false));
         GUILayout.BeginHorizontal(GUILayout.Height(HierarchyRowHeight));
-        GUILayout.Space(depth * 18f);
+        GUILayout.Space(objectLeadingSpace);
 
         bool nextObjectEnabled = GUILayout.Toggle(objectEnabled, GUIContent.none, GUILayout.Width(HierarchyToggleSize), GUILayout.Height(HierarchyRowHeight));
         if (nextObjectEnabled != objectEnabled)
@@ -489,7 +516,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         GUIStyle objectStyle = GetObjectButtonStyle(objectEnabled, isObjectFocused, isComponentParentFocused);
         GUIContent objectContent = new GUIContent(GetDisplayName(go.name), go.name);
-        if (GUILayout.Button(objectContent, objectStyle, GUILayout.ExpandWidth(true), GUILayout.Height(HierarchyRowHeight)))
+        if (GUILayout.Button(objectContent, objectStyle, GUILayout.Width(objectButtonWidth), GUILayout.Height(HierarchyRowHeight)))
             ToggleGameObjectFocus(go);
 
         if (hasDetails)
@@ -514,6 +541,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             bool previousEnabled = GUI.enabled;
             GUI.enabled = objectEnabled;
 
+            float componentLeadingSpace = (depth + 1) * 18f + HierarchyToggleSize + 8f;
+            float componentButtonWidth = GetHierarchyTextButtonWidth(panelWidth, componentLeadingSpace, true, true);
+
             foreach (Component component in components)
             {
                 if (!ShouldShowComponent(component, go.name))
@@ -523,7 +553,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
                 GUILayout.BeginVertical(GetHierarchyRowStyle(false, false, isComponentFocused));
                 GUILayout.BeginHorizontal(GUILayout.Height(HierarchyRowHeight));
-                GUILayout.Space((depth + 1) * 18f + HierarchyToggleSize + 8f);
+                GUILayout.Space(componentLeadingSpace);
 
                 bool componentEnabled = manager.GetComponentEnabled(component);
                 bool nextComponentEnabled = GUILayout.Toggle(componentEnabled, GUIContent.none, GUILayout.Width(HierarchyToggleSize), GUILayout.Height(HierarchyRowHeight));
@@ -532,7 +562,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
                 GUIStyle componentStyle = GetComponentButtonStyle(objectEnabled, isComponentFocused);
                 GUIContent componentContent = new GUIContent(GetDisplayName(component.GetType().Name), component.GetType().Name);
-                if (GUILayout.Button(componentContent, componentStyle, GUILayout.ExpandWidth(true), GUILayout.Height(HierarchyRowHeight)))
+                if (GUILayout.Button(componentContent, componentStyle, GUILayout.Width(componentButtonWidth), GUILayout.Height(HierarchyRowHeight)))
                     ToggleComponentFocus(component);
 
                 GUILayout.Space(HierarchyFoldoutSize);
@@ -545,11 +575,14 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         if (hasVisibleChildren)
         {
+            float childLeadingSpace = (depth + 1) * 18f + HierarchyToggleSize + 8f + HierarchyToggleSize;
+            float childButtonWidth = GetHierarchyTextButtonWidth(panelWidth, childLeadingSpace, false, true);
+
             GUILayout.BeginHorizontal(GUILayout.Height(HierarchyRowHeight));
             GUILayout.Space((depth + 1) * 18f + HierarchyToggleSize + 8f);
             GUILayout.Space(HierarchyToggleSize);
 
-            if (GUILayout.Button("하위 오브젝트", _linkButtonStyle, GUILayout.ExpandWidth(true), GUILayout.Height(HierarchyRowHeight)))
+            if (GUILayout.Button(new GUIContent("하위 오브젝트", "하위 오브젝트"), _linkButtonStyle, GUILayout.Width(childButtonWidth), GUILayout.Height(HierarchyRowHeight)))
                 ToggleExpandedSet(_expandedChildren, id);
 
             string childFoldoutLabel = showChildren ? "▾" : "▸";
@@ -561,7 +594,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             if (showChildren)
             {
                 for (int i = 0; i < go.transform.childCount; i++)
-                    DrawGameObjectNode(manager, go.transform.GetChild(i).gameObject, depth + 1);
+                    DrawGameObjectNode(manager, go.transform.GetChild(i).gameObject, depth + 1, panelWidth);
             }
         }
     }
@@ -569,12 +602,14 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     {
         GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
+        float headerWidth = Mathf.Max(80f, panelWidth - _boxStyle.padding.left - _boxStyle.padding.right - 8f);
         GUILayout.BeginHorizontal();
-        GUILayout.Label(new GUIContent($"Logs {GetFocusSuffix()}", $"Logs {GetFocusSuffix()}"), _titleStyle, GUILayout.ExpandWidth(true));
+        GUILayout.Label(new GUIContent($"Logs {GetFocusSuffix()}", $"Logs {GetFocusSuffix()}"), _titleStyle, GUILayout.Width(headerWidth));
         GUILayout.EndHorizontal();
 
         bool wasNearBottom = IsNearBottom(_lastMaxLogScrollY);
         float contentHeight = 0f;
+        float logContentWidth = GetLogContentWidth(panelWidth);
 
         _logScroll = GUILayout.BeginScrollView(_logScroll);
 
@@ -586,7 +621,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             if (!ShouldDisplayEntry(manager, entry))
                 continue;
 
-            float drawnHeight = DrawLogEntry(entry, i, panelWidth);
+            float drawnHeight = DrawLogEntry(entry, i, logContentWidth);
             contentHeight += drawnHeight + 4f;
             GUILayout.Space(4f);
         }
@@ -604,13 +639,13 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.EndVertical();
     }
 
-    private float DrawLogEntry(DebugEntry entry, int index, float panelWidth)
+    private float DrawLogEntry(DebugEntry entry, int index, float contentWidth)
     {
         GUIContent content = new GUIContent(entry.RichText);
-        float estimatedWidth = Mathf.Max(200f, panelWidth - 32f);
+        float estimatedWidth = Mathf.Max(140f, contentWidth);
         float height = _richLabelStyle.CalcHeight(content, estimatedWidth);
 
-        Rect rect = GUILayoutUtility.GetRect(10f, height + 12f, GUILayout.ExpandWidth(true));
+        Rect rect = GUILayoutUtility.GetRect(estimatedWidth + 12f, height + 14f, GUILayout.ExpandWidth(true));
 
         Color previousColor = GUI.color;
         if (index == _selectedLogIndex)
@@ -619,7 +654,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUI.Box(rect, GUIContent.none);
         GUI.color = previousColor;
 
-        Rect labelRect = new Rect(rect.x + 6f, rect.y + 6f, rect.width - 12f, rect.height - 12f);
+        Rect labelRect = new Rect(rect.x + 6f, rect.y + 6f, estimatedWidth, rect.height - 12f);
         GUI.Label(labelRect, content, _richLabelStyle);
 
         if (Event.current.type == EventType.MouseDown && rect.Contains(Event.current.mousePosition))

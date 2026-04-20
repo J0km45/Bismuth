@@ -165,7 +165,9 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         _titleStyle = new GUIStyle(EditorStyles.boldLabel)
         {
-            fontSize = 13
+            fontSize = 13,
+            wordWrap = false,
+            clipping = TextClipping.Clip
         };
 
         _boxStyle = new GUIStyle("box")
@@ -445,33 +447,57 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private void DrawHierarchyPanel(DebugConsoleManager manager, float panelWidth)
     {
-        EditorGUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
-        EditorGUILayout.BeginHorizontal();
-        GUILayout.Label("Scene Objects / Components", _titleStyle);
-        EditorGUILayout.EndHorizontal();
+        GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
+        float headerWidth = Mathf.Max(80f, panelWidth - _boxStyle.padding.left - _boxStyle.padding.right - 8f);
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("Scene Objects / Components", _titleStyle, GUILayout.Width(headerWidth));
+        GUILayout.EndHorizontal();
 
-        _hierarchyScroll = EditorGUILayout.BeginScrollView(_hierarchyScroll);
+        _hierarchyScroll = GUILayout.BeginScrollView(_hierarchyScroll);
 
         Scene activeScene = SceneManager.GetActiveScene();
         GameObject[] roots = activeScene.GetRootGameObjects();
 
         for (int i = 0; i < roots.Length; i++)
-            DrawGameObjectNode(manager, roots[i], 0);
+            DrawGameObjectNode(manager, roots[i], 0, panelWidth);
 
-        EditorGUILayout.EndScrollView();
+        GUILayout.EndScrollView();
 
         GUILayout.Space(4f);
-        EditorGUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(30f));
+        GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(30f));
         GUILayout.Space(10f);
-        GUILayout.Label(new GUIContent(GetFocusLabel(), GetFocusLabel()), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
+        float footerCountWidth = 100f;
+        float footerLeftWidth = Mathf.Max(80f, panelWidth - footerCountWidth - 32f);
+        GUILayout.Label(new GUIContent(GetFocusLabel(), GetFocusLabel()), _footerLeftLabelStyle, GUILayout.Width(footerLeftWidth), GUILayout.MinHeight(22f));
         GUILayout.Space(12f);
-        GUILayout.Label(new GUIContent($"Count : {GetVisibleEntryCount(manager)}", $"Count : {GetVisibleEntryCount(manager)}"), _footerRightLabelStyle, GUILayout.Width(100f), GUILayout.MinHeight(22f));
+        GUILayout.Label(new GUIContent($"Count : {GetVisibleEntryCount(manager)}", $"Count : {GetVisibleEntryCount(manager)}"), _footerRightLabelStyle, GUILayout.Width(footerCountWidth), GUILayout.MinHeight(22f));
         GUILayout.Space(10f);
-        EditorGUILayout.EndHorizontal();
-        EditorGUILayout.EndVertical();
+        GUILayout.EndHorizontal();
+        GUILayout.EndVertical();
     }
 
-    private void DrawGameObjectNode(DebugConsoleManager manager, GameObject go, int depth)
+    private float GetHierarchyTextButtonWidth(float panelWidth, float leadingSpace, bool reserveToggle, bool reserveFoldout)
+    {
+        float width = panelWidth;
+        width -= _boxStyle.padding.left + _boxStyle.padding.right;
+        width -= 24f;
+        width -= leadingSpace;
+
+        if (reserveToggle)
+            width -= HierarchyToggleSize + 4f;
+
+        if (reserveFoldout)
+            width -= HierarchyFoldoutSize + 4f;
+
+        return Mathf.Max(60f, width);
+    }
+
+    private float GetLogContentWidth(float panelWidth)
+    {
+        return Mathf.Max(140f, panelWidth - _boxStyle.padding.left - _boxStyle.padding.right - 58f);
+    }
+
+    private void DrawGameObjectNode(DebugConsoleManager manager, GameObject go, int depth, float panelWidth)
     {
         if (go == null)
             return;
@@ -499,9 +525,12 @@ public class DebugConsoleEditorWindow : EditorWindow
         bool showDetails = hasDetails && (detailsExpanded || forceOpenDetails);
         bool showChildren = hasVisibleChildren && (childrenExpanded || forceOpenChildren);
 
+        float objectLeadingSpace = depth * 18f;
+        float objectButtonWidth = GetHierarchyTextButtonWidth(panelWidth, objectLeadingSpace, true, true);
+
         GUILayout.BeginVertical(GetHierarchyRowStyle(isObjectFocused, isComponentParentFocused, false));
         GUILayout.BeginHorizontal(GUILayout.Height(HierarchyRowHeight));
-        GUILayout.Space(depth * 18f);
+        GUILayout.Space(objectLeadingSpace);
 
         bool nextObjectEnabled = GUILayout.Toggle(objectEnabled, GUIContent.none, GUILayout.Width(HierarchyToggleSize), GUILayout.Height(HierarchyRowHeight));
         if (nextObjectEnabled != objectEnabled)
@@ -509,7 +538,7 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         GUIStyle objectStyle = GetObjectButtonStyle(objectEnabled, isObjectFocused, isComponentParentFocused);
         GUIContent objectContent = new GUIContent(GetDisplayName(go.name), go.name);
-        if (GUILayout.Button(objectContent, objectStyle, GUILayout.ExpandWidth(true), GUILayout.Height(HierarchyRowHeight)))
+        if (GUILayout.Button(objectContent, objectStyle, GUILayout.Width(objectButtonWidth), GUILayout.Height(HierarchyRowHeight)))
             ToggleGameObjectFocus(go);
 
         if (hasDetails)
@@ -534,6 +563,9 @@ public class DebugConsoleEditorWindow : EditorWindow
             bool previousEnabled = GUI.enabled;
             GUI.enabled = objectEnabled;
 
+            float componentLeadingSpace = (depth + 1) * 18f + HierarchyToggleSize + 8f;
+            float componentButtonWidth = GetHierarchyTextButtonWidth(panelWidth, componentLeadingSpace, true, true);
+
             foreach (Component component in components)
             {
                 if (!ShouldShowComponent(component, go.name))
@@ -543,7 +575,7 @@ public class DebugConsoleEditorWindow : EditorWindow
 
                 GUILayout.BeginVertical(GetHierarchyRowStyle(false, false, isComponentFocused));
                 GUILayout.BeginHorizontal(GUILayout.Height(HierarchyRowHeight));
-                GUILayout.Space((depth + 1) * 18f + HierarchyToggleSize + 8f);
+                GUILayout.Space(componentLeadingSpace);
 
                 bool componentEnabled = manager.GetComponentEnabled(component);
                 bool nextComponentEnabled = GUILayout.Toggle(componentEnabled, GUIContent.none, GUILayout.Width(HierarchyToggleSize), GUILayout.Height(HierarchyRowHeight));
@@ -552,7 +584,7 @@ public class DebugConsoleEditorWindow : EditorWindow
 
                 GUIStyle componentStyle = GetComponentButtonStyle(objectEnabled, isComponentFocused);
                 GUIContent componentContent = new GUIContent(GetDisplayName(component.GetType().Name), component.GetType().Name);
-                if (GUILayout.Button(componentContent, componentStyle, GUILayout.ExpandWidth(true), GUILayout.Height(HierarchyRowHeight)))
+                if (GUILayout.Button(componentContent, componentStyle, GUILayout.Width(componentButtonWidth), GUILayout.Height(HierarchyRowHeight)))
                     ToggleComponentFocus(component);
 
                 GUILayout.Space(HierarchyFoldoutSize);
@@ -565,11 +597,14 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         if (hasVisibleChildren)
         {
+            float childLeadingSpace = (depth + 1) * 18f + HierarchyToggleSize + 8f + HierarchyToggleSize;
+            float childButtonWidth = GetHierarchyTextButtonWidth(panelWidth, childLeadingSpace, false, true);
+
             GUILayout.BeginHorizontal(GUILayout.Height(HierarchyRowHeight));
             GUILayout.Space((depth + 1) * 18f + HierarchyToggleSize + 8f);
             GUILayout.Space(HierarchyToggleSize);
 
-            if (GUILayout.Button("하위 오브젝트", _linkButtonStyle, GUILayout.ExpandWidth(true), GUILayout.Height(HierarchyRowHeight)))
+            if (GUILayout.Button(new GUIContent("하위 오브젝트", "하위 오브젝트"), _linkButtonStyle, GUILayout.Width(childButtonWidth), GUILayout.Height(HierarchyRowHeight)))
                 ToggleExpandedSet(_expandedChildren, id);
 
             string childFoldoutLabel = showChildren ? "▾" : "▸";
@@ -581,7 +616,7 @@ public class DebugConsoleEditorWindow : EditorWindow
             if (showChildren)
             {
                 for (int i = 0; i < go.transform.childCount; i++)
-                    DrawGameObjectNode(manager, go.transform.GetChild(i).gameObject, depth + 1);
+                    DrawGameObjectNode(manager, go.transform.GetChild(i).gameObject, depth + 1, panelWidth);
             }
         }
     }
