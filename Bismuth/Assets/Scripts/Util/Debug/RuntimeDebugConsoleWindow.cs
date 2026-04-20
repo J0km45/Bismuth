@@ -7,6 +7,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.TextCore.LowLevel;
 using UnityEngine.UI;
+using Text = UnityEngine.UI.Text;
 
 public class RuntimeDebugConsoleWindow : MonoBehaviour
 {
@@ -52,8 +53,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private Button _typeFilterButton;
     private TextMeshProUGUI _typeFilterButtonLabel;
 
-    private TMP_InputField _hierarchySearchInput;
-    private TMP_InputField _logSearchInput;
+    private InputField _hierarchySearchInput;
+    private InputField _logSearchInput;
 
     private ScrollRect _hierarchyScrollRect;
     private RectTransform _hierarchyContent;
@@ -69,6 +70,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private readonly List<Behaviour> _blockedInputBehaviours = new();
 
     private TMP_FontAsset _fontAsset;
+    private Font _inputFont;
     private bool _showTypeFilterPanel = true;
     private float _nextRebuildTime;
     private int _lastManagerVersion = -1;
@@ -167,6 +169,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private void BuildUi()
     {
         _fontAsset = CreateDynamicFontAsset();
+        _inputFont = CreateDynamicUiFont();
 
         GameObject canvasObject = new GameObject("RuntimeDebugConsoleCanvas",
             typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(CanvasGroup));
@@ -300,49 +303,45 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private void CreateSearchArea()
     {
-        RectTransform hierarchyGroup = CreateRect(_searchRowRect, "HierarchyGroup");
-        SetRect(hierarchyGroup, 0f, 0f, 0.42f, 1f, 0f, 0f, -8f, 0f);
-        AddHorizontalLayout(hierarchyGroup, 8f, 0, 0, 0, 0);
+        RectTransform hierarchyLabelRect = CreateRect(_searchRowRect, "HierarchyLabel");
+        SetRect(hierarchyLabelRect, 0f, 0f, 0f, 1f, 0f, 0f, 140f, 0f);
+        TextMeshProUGUI hierarchyLabel = CreateText(hierarchyLabelRect, "Hierarchy Search", 20f, FontStyles.Normal, TextAlignmentOptions.Left);
+        Stretch(hierarchyLabel.rectTransform, 0f, 0f, 0f, 0f);
 
-        TextMeshProUGUI hierarchyLabel = CreateText(hierarchyGroup, "Hierarchy Search", 20f, FontStyles.Normal, TextAlignmentOptions.Left);
-        LayoutElement hierarchyLabelLayout = hierarchyLabel.gameObject.AddComponent<LayoutElement>();
-        hierarchyLabelLayout.preferredWidth = 150f;
-
-        _hierarchySearchInput = CreateInputField(hierarchyGroup, value =>
+        RectTransform hierarchyInputRect = CreateRect(_searchRowRect, "HierarchyInputRect");
+        SetRect(hierarchyInputRect, 0f, 0f, 0.42f, 1f, 150f, 0f, -8f, 0f);
+        _hierarchySearchInput = CreateInputField(hierarchyInputRect, value =>
         {
             _hierarchySearch = value ?? string.Empty;
             RequestRebuild();
         });
-        LayoutElement hierarchyInputLayout = _hierarchySearchInput.gameObject.GetComponent<LayoutElement>();
-        hierarchyInputLayout.flexibleWidth = 1f;
+        Stretch(_hierarchySearchInput.GetComponent<RectTransform>(), 0f, 0f, 0f, 0f);
 
-        RectTransform logGroup = CreateRect(_searchRowRect, "LogGroup");
-        SetRect(logGroup, 0.42f, 0f, 0.90f, 1f, 8f, 0f, -8f, 0f);
-        AddHorizontalLayout(logGroup, 8f, 0, 0, 0, 0);
+        RectTransform logLabelRect = CreateRect(_searchRowRect, "LogLabel");
+        SetRect(logLabelRect, 0.42f, 0f, 0.42f, 1f, 8f, 0f, 100f, 0f);
+        TextMeshProUGUI logLabel = CreateText(logLabelRect, "Log Search", 20f, FontStyles.Normal, TextAlignmentOptions.Left);
+        Stretch(logLabel.rectTransform, 0f, 0f, 0f, 0f);
 
-        TextMeshProUGUI logLabel = CreateText(logGroup, "Log Search", 20f, FontStyles.Normal, TextAlignmentOptions.Left);
-        LayoutElement logLabelLayout = logLabel.gameObject.AddComponent<LayoutElement>();
-        logLabelLayout.preferredWidth = 110f;
-
-        _logSearchInput = CreateInputField(logGroup, value =>
+        RectTransform logInputRect = CreateRect(_searchRowRect, "LogInputRect");
+        SetRect(logInputRect, 0.42f, 0f, 0.92f, 1f, 118f, 0f, -8f, 0f);
+        _logSearchInput = CreateInputField(logInputRect, value =>
         {
             _logSearch = value ?? string.Empty;
             RequestRebuild();
         });
-        LayoutElement logInputLayout = _logSearchInput.gameObject.GetComponent<LayoutElement>();
-        logInputLayout.flexibleWidth = 1f;
+        Stretch(_logSearchInput.GetComponent<RectTransform>(), 0f, 0f, 0f, 0f);
 
-        RectTransform clearGroup = CreateRect(_searchRowRect, "ClearGroup");
-        SetRect(clearGroup, 0.90f, 0f, 1f, 1f, 8f, 0f, 0f, 0f);
-        CreateButton(clearGroup, "Clear Search", () =>
+        RectTransform clearRect = CreateRect(_searchRowRect, "ClearSearchRect");
+        SetRect(clearRect, 0.92f, 0f, 1f, 1f, 8f, 0f, 0f, 0f);
+        CreateButton(clearRect, "Clear Search", () =>
         {
             _hierarchySearch = string.Empty;
             _logSearch = string.Empty;
             _hierarchySearchInput.SetTextWithoutNotify(string.Empty);
             _logSearchInput.SetTextWithoutNotify(string.Empty);
             RequestRebuild();
-        }, out _, 160f);
-        Stretch(clearGroup.GetChild(0).GetComponent<RectTransform>(), 0f, 0f, 0f, 0f);
+        }, out _, 140f);
+        Stretch(clearRect.GetChild(0).GetComponent<RectTransform>(), 0f, 0f, 0f, 0f);
     }
 
     private void CreateTypeToggleGrid()
@@ -1172,49 +1171,61 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         return button;
     }
 
-    private TMP_InputField CreateInputField(Transform parent, Action<string> onValueChanged)
+    private InputField CreateInputField(Transform parent, Action<string> onValueChanged)
     {
         RectTransform root = CreateRect(parent, "InputField");
-        LayoutElement layout = root.gameObject.AddComponent<LayoutElement>();
-        layout.preferredHeight = 34f;
-        layout.preferredWidth = 300f;
-
         Image background = root.gameObject.AddComponent<Image>();
-        background.color = new Color(0.11f, 0.14f, 0.19f, 1f);
+        background.color = new Color(0.09f, 0.12f, 0.17f, 1f);
         AddOutline(root.gameObject, new Color(0.28f, 0.34f, 0.44f, 1f));
 
-        TMP_InputField inputField = root.gameObject.AddComponent<TMP_InputField>();
-        inputField.lineType = TMP_InputField.LineType.SingleLine;
-        inputField.contentType = TMP_InputField.ContentType.Standard;
+        InputField inputField = root.gameObject.AddComponent<InputField>();
+        inputField.lineType = InputField.LineType.SingleLine;
+        inputField.contentType = InputField.ContentType.Standard;
+        inputField.shouldHideMobileInput = false;
+        inputField.caretWidth = 2;
         inputField.customCaretColor = true;
         inputField.caretColor = new Color(0.84f, 0.96f, 0.92f, 1f);
         inputField.selectionColor = new Color(0.24f, 0.40f, 0.36f, 0.95f);
-        inputField.caretWidth = 2;
-        inputField.shouldHideMobileInput = false;
-        inputField.resetOnDeActivation = false;
-        inputField.restoreOriginalTextOnEscape = false;
 
         RectTransform textArea = CreateRect(root, "TextArea");
-        Stretch(textArea, 8f, 8f, 5f, 5f);
+        Stretch(textArea, 10f, 10f, 5f, 5f);
         textArea.gameObject.AddComponent<RectMask2D>();
 
-        TextMeshProUGUI placeholder = CreateText(textArea, string.Empty, 19f, FontStyles.Normal, TextAlignmentOptions.Left);
+        Text text = CreateInputText(textArea, string.Empty, new Color(0.92f, 0.95f, 0.98f, 1f));
+        Stretch(text.rectTransform, 0f, 0f, 0f, 0f);
+        text.alignment = TextAnchor.MiddleLeft;
+        text.horizontalOverflow = HorizontalWrapMode.Overflow;
+        text.verticalOverflow = VerticalWrapMode.Truncate;
+        text.supportRichText = false;
+
+        Text placeholder = CreateInputText(textArea, string.Empty, new Color(0.52f, 0.62f, 0.66f, 0.72f));
         Stretch(placeholder.rectTransform, 0f, 0f, 0f, 0f);
         placeholder.text = string.Empty;
-        placeholder.color = new Color(0.52f, 0.62f, 0.66f, 0.72f);
+        placeholder.alignment = TextAnchor.MiddleLeft;
+        placeholder.horizontalOverflow = HorizontalWrapMode.Overflow;
+        placeholder.verticalOverflow = VerticalWrapMode.Truncate;
+        placeholder.supportRichText = false;
 
-        TextMeshProUGUI text = CreateText(textArea, string.Empty, 19f, FontStyles.Normal, TextAlignmentOptions.Left);
-        Stretch(text.rectTransform, 0f, 0f, 0f, 0f);
-        text.enableWordWrapping = false;
-        text.overflowMode = TextOverflowModes.Masking;
-
-        inputField.textViewport = textArea;
         inputField.textComponent = text;
         inputField.placeholder = placeholder;
         inputField.onValueChanged.AddListener(value => onValueChanged?.Invoke(value));
-
         return inputField;
     }
+
+    private Text CreateInputText(Transform parent, string value, Color color)
+    {
+        GameObject obj = new GameObject("Text", typeof(RectTransform), typeof(Text));
+        obj.transform.SetParent(parent, false);
+
+        Text text = obj.GetComponent<Text>();
+        text.font = _inputFont;
+        text.text = value;
+        text.fontSize = 18;
+        text.color = color;
+        text.alignment = TextAnchor.MiddleLeft;
+        return text;
+    }
+
 
     private void CreateSpacer(Transform parent, float width)
     {
@@ -1283,6 +1294,25 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             DebugLogLevel.Error => new Color(0.42f, 0.11f, 0.11f, 0.92f),
             _ => new Color(0.17f, 0.21f, 0.27f, 0.92f)
         };
+    }
+
+    private Font CreateDynamicUiFont()
+    {
+        string[] candidates =
+        {
+            "Malgun Gothic",
+            "맑은 고딕",
+            "Noto Sans CJK KR",
+            "Noto Sans KR",
+            "Arial Unicode MS",
+            "Arial"
+        };
+
+        Font sourceFont = Font.CreateDynamicFontFromOSFont(candidates, 18);
+        if (sourceFont == null)
+            sourceFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
+
+        return sourceFont;
     }
 
     private TMP_FontAsset CreateDynamicFontAsset()
