@@ -209,17 +209,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private void UpdateSearchOverlayLayout()
     {
-        if (_searchOverlay == null)
-            return;
-
-        bool showOverlay = _visible && _activeSearchField != SearchFieldFocus.None;
-        _searchOverlay.SetVisible(showOverlay);
-
-        if (!showOverlay)
-            return;
-
-        _searchOverlay.SetHierarchyRect(_hierarchySearchScreenRect);
-        _searchOverlay.SetLogRect(_logSearchScreenRect);
+        if (_searchOverlay != null)
+            _searchOverlay.SetVisible(false);
     }
 
     private Rect ToScreenRect(Rect guiRect)
@@ -382,18 +373,10 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         }
 
         DrawToolbar(manager);
-        DrawSearchBar();
-
-        if (Event.current.type == EventType.MouseDown &&
-            !_hierarchySearchScreenRect.Contains(ToScreenRect(new Rect(Event.current.mousePosition, Vector2.zero)).position) &&
-            !_logSearchScreenRect.Contains(ToScreenRect(new Rect(Event.current.mousePosition, Vector2.zero)).position))
-        {
-            _activeSearchField = SearchFieldFocus.None;
-
-            if (_searchOverlay != null)
-                _searchOverlay.SetVisible(false);
-        }
         DrawTypeFilterPanel(manager);
+
+        if (_searchOverlay != null)
+            _searchOverlay.SetVisible(false);
 
         DrawResizablePanels(manager);
 
@@ -963,11 +946,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
                 return false;
         }
 
-        if (string.IsNullOrWhiteSpace(_logSearch))
-            return true;
-
-        string searchPool = $"{entry.Message} {entry.SourceName} {entry.MemberName} {entry.Type} {entry.Time}";
-        return ContainsIgnoreCase(searchPool, _logSearch);
+        return true;
     }
 
     private void ToggleGameObjectFocus(GameObject go)
@@ -1252,25 +1231,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private bool ShouldShowGameObject(GameObject go)
     {
-        if (go == null)
-            return false;
-
-        if (string.IsNullOrWhiteSpace(_hierarchySearch))
-            return true;
-
-        if (ContainsIgnoreCase(go.name, _hierarchySearch))
-            return true;
-
-        if (HasMatchingComponent(go, _hierarchySearch))
-            return true;
-
-        for (int i = 0; i < go.transform.childCount; i++)
-        {
-            if (ShouldShowGameObject(go.transform.GetChild(i).gameObject))
-                return true;
-        }
-
-        return false;
+        return go != null;
     }
 
     private bool HasVisibleChildren(GameObject go)
@@ -1330,13 +1291,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (_hideTransform && component is Transform)
             return false;
 
-        if (string.IsNullOrWhiteSpace(_hierarchySearch))
-            return true;
-
-        if (ContainsIgnoreCase(ownerName, _hierarchySearch))
-            return true;
-
-        return ContainsIgnoreCase(component.GetType().Name, _hierarchySearch);
+        return true;
     }
 
 
