@@ -19,6 +19,7 @@ public class DebugConsoleEditorWindow : EditorWindow
     private bool _autoScroll = true;
     private bool _hideTransform = true;
     private bool _collapsePreviousOnSelection = true;
+    private bool _collapseLogs = true;
     private bool _showTypeFilterPanel;
 
     private int _focusedGameObjectId;
@@ -96,6 +97,8 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private const string SnapshotDirectoryPath = "Library/DebugConsole";
     private const string SnapshotFileName = "DebugConsoleEditorSnapshot.json";
+    private const int CurrentSnapshotVersion = 2;
+    private const string EditorStatePrefKey = "DebugConsoleEditorWindow.State";
     private const string ManagerPrefKeyPrefix = "DebugConsole.Manager";
     private const string GlobalEnabledPrefKey = ManagerPrefKeyPrefix + ".GlobalEnabled";
     private const string MirrorToUnityPrefKey = ManagerPrefKeyPrefix + ".MirrorToUnity";
@@ -108,6 +111,7 @@ public class DebugConsoleEditorWindow : EditorWindow
     [Serializable]
     private sealed class DebugConsoleEditorSnapshot
     {
+        public int SnapshotVersion;
         public string SceneName;
         public string CapturedAt;
         public bool GlobalEnabled;
@@ -164,6 +168,42 @@ public class DebugConsoleEditorWindow : EditorWindow
     }
 
 
+    [Serializable]
+    private sealed class DebugConsoleEditorUiState
+    {
+        public bool AutoScroll = true;
+        public bool HideTransform = true;
+        public bool CollapsePreviousOnSelection = true;
+        public bool CollapseLogs = true;
+        public bool ShowTypeFilterPanel;
+        public float HierarchyPanelWidth = 420f;
+        public Vector2 HierarchyScroll;
+        public Vector2 LogScroll;
+        public Vector2 TypeFilterScroll;
+        public int SelectedLogIndex = -1;
+        public string FocusedSnapshotGameObjectKey = string.Empty;
+        public string FocusedSnapshotComponentKey = string.Empty;
+        public string FocusedObjectName = string.Empty;
+        public string FocusedComponentName = string.Empty;
+        public List<string> ExpandedSnapshotDetails = new();
+        public List<string> ExpandedSnapshotChildren = new();
+    }
+
+    private sealed class LiveLogGroup
+    {
+        public DebugEntry Entry;
+        public int Count;
+        public int LastSourceIndex;
+    }
+
+    private sealed class SnapshotLogGroup
+    {
+        public SnapshotLogEntry Entry;
+        public int Count;
+        public int LastSourceIndex;
+    }
+
+
     [MenuItem("Tools/Debug/Runtime Debug Console Window")]
     public static void Open()
     {
@@ -181,6 +221,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         _hierarchyPanelWidth = DebugConsolePreferenceStore.GetFloat(HierarchyPanelWidthPrefKey, _hierarchyPanelWidth);
         _hierarchySearchFieldControl ??= new SearchField();
         _logSearchFieldControl ??= new SearchField();
+        LoadEditorUiState();
         LoadSnapshotFromDisk();
         ApplyStoredPreferencesToSnapshot(_lastSnapshot);
     }
@@ -190,6 +231,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         EditorApplication.update -= HandleEditorUpdate;
         EditorApplication.playModeStateChanged -= HandlePlayModeChanged;
         SceneManager.sceneLoaded -= HandleSceneLoaded;
+        SaveEditorUiState();
         DebugConsolePreferenceStore.SetFloat(HierarchyPanelWidthPrefKey, _hierarchyPanelWidth);
     }
 
@@ -212,23 +254,22 @@ public class DebugConsoleEditorWindow : EditorWindow
             ClearFocus();
             _lastCapturedManagerChangeVersion = -1;
             _nextSnapshotCaptureTime = 0d;
+            SaveEditorUiState();
             Repaint();
             return;
         }
 
         if (state == PlayModeStateChange.ExitingPlayMode)
         {
+            SaveEditorUiState();
             TryCaptureLiveSnapshot(true);
-            _selectedLogIndex = -1;
-            _hierarchyScroll = Vector2.zero;
-            _logScroll = Vector2.zero;
-            ClearFocus();
             Repaint();
             return;
         }
 
         if (state == PlayModeStateChange.EnteredEditMode)
         {
+            LoadEditorUiState();
             LoadSnapshotFromDisk();
             ApplyStoredPreferencesToSnapshot(_lastSnapshot);
             Repaint();
@@ -408,7 +449,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         {
             string foldoutLabel = showDetails ? "▾" : "▸";
             if (GUILayout.Button(foldoutLabel, _foldoutButtonStyle, GUILayout.Width(HierarchyFoldoutSize), GUILayout.Height(HierarchyRowHeight)))
-                ToggleExpandedSet(_expandedSnapshotDetails, node.PathKey);
+                ToggleSnapshotExpandedDetails(node.PathKey);
         }
         else
         {
@@ -468,11 +509,11 @@ public class DebugConsoleEditorWindow : EditorWindow
 
             float childButtonWidth = GetHierarchyTextButtonWidth(rowContentWidth, childLeadingSpace, true, true);
             if (GUILayout.Button(new GUIContent("하위 오브젝트", "하위 오브젝트"), _linkButtonStyle, GUILayout.Width(childButtonWidth), GUILayout.Height(HierarchyRowHeight)))
-                ToggleExpandedSet(_expandedSnapshotChildren, node.PathKey);
+                ToggleSnapshotExpandedChildren(node.PathKey);
 
             string childFoldoutLabel = showChildren ? "▾" : "▸";
             if (GUILayout.Button(childFoldoutLabel, _foldoutButtonStyle, GUILayout.Width(HierarchyFoldoutSize), GUILayout.Height(HierarchyRowHeight)))
-                ToggleExpandedSet(_expandedSnapshotChildren, node.PathKey);
+                ToggleSnapshotExpandedChildren(node.PathKey);
 
             GUILayout.EndHorizontal();
         }
@@ -482,6 +523,130 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         for (int i = 0; i < node.Children.Count; i++)
             DrawSnapshotGameObjectNode(node.Children[i], depth + 1, panelWidth);
+    }
+
+
+    private List<SnapshotLogGroup> BuildVisibleSnapshotLogGroups(DebugConsoleEditorSnapshot snapshot)
+    {
+        List<SnapshotLogGroup> groups = new List<SnapshotLogGroup>();
+        if (snapshot?.Entries == null)
+            return groups;
+
+        for (int i = 0; i < snapshot.Entries.Count; i++)
+        {
+            SnapshotLogEntry entry = snapshot.Entries[i];
+            if (!ShouldDisplaySnapshotEntry(entry))
+                continue;
+
+            if (_collapseLogs && groups.Count > 0)
+            {
+                SnapshotLogGroup lastGroup = groups[groups.Count - 1];
+                if (CanCollapseSnapshotEntries(lastGroup.Entry, entry))
+                {
+                    lastGroup.Entry = entry;
+                    lastGroup.Count++;
+                    lastGroup.LastSourceIndex = i;
+                    continue;
+                }
+            }
+
+            groups.Add(new SnapshotLogGroup
+            {
+                Entry = entry,
+                Count = 1,
+                LastSourceIndex = i
+            });
+        }
+
+        return groups;
+    }
+
+    private List<LiveLogGroup> BuildVisibleLiveLogGroups(DebugConsoleManager manager)
+    {
+        List<LiveLogGroup> groups = new List<LiveLogGroup>();
+        if (manager == null)
+            return groups;
+
+        IReadOnlyList<DebugEntry> entries = manager.Entries;
+        for (int i = 0; i < entries.Count; i++)
+        {
+            DebugEntry entry = entries[i];
+            if (!ShouldDisplayEntry(manager, entry))
+                continue;
+
+            if (_collapseLogs && groups.Count > 0)
+            {
+                LiveLogGroup lastGroup = groups[groups.Count - 1];
+                if (CanCollapseLiveEntries(lastGroup.Entry, entry))
+                {
+                    lastGroup.Entry = entry;
+                    lastGroup.Count++;
+                    lastGroup.LastSourceIndex = i;
+                    continue;
+                }
+            }
+
+            groups.Add(new LiveLogGroup
+            {
+                Entry = entry,
+                Count = 1,
+                LastSourceIndex = i
+            });
+        }
+
+        return groups;
+    }
+
+    private bool CanCollapseLiveEntries(DebugEntry left, DebugEntry right)
+    {
+        if (left == null || right == null)
+            return false;
+
+        return string.Equals(left.Message, right.Message, StringComparison.Ordinal) &&
+               string.Equals(left.SourceName, right.SourceName, StringComparison.Ordinal) &&
+               string.Equals(left.MemberName, right.MemberName, StringComparison.Ordinal) &&
+               string.Equals(left.ColorHex, right.ColorHex, StringComparison.Ordinal) &&
+               string.Equals(left.CallerFilePath, right.CallerFilePath, StringComparison.Ordinal) &&
+               left.LineNumber == right.LineNumber &&
+               left.CallerColumn == right.CallerColumn &&
+               left.Type == right.Type &&
+               left.Level == right.Level &&
+               left.GameObjectId == right.GameObjectId &&
+               left.ComponentId == right.ComponentId;
+    }
+
+    private bool CanCollapseSnapshotEntries(SnapshotLogEntry left, SnapshotLogEntry right)
+    {
+        if (left == null || right == null)
+            return false;
+
+        return string.Equals(left.Message, right.Message, StringComparison.Ordinal) &&
+               string.Equals(left.SourceName, right.SourceName, StringComparison.Ordinal) &&
+               string.Equals(left.MemberName, right.MemberName, StringComparison.Ordinal) &&
+               string.Equals(left.ColorHex, right.ColorHex, StringComparison.Ordinal) &&
+               string.Equals(left.CallerFilePath, right.CallerFilePath, StringComparison.Ordinal) &&
+               string.Equals(left.GameObjectKey, right.GameObjectKey, StringComparison.Ordinal) &&
+               string.Equals(left.ComponentKey, right.ComponentKey, StringComparison.Ordinal) &&
+               left.LineNumber == right.LineNumber &&
+               left.CallerColumn == right.CallerColumn &&
+               left.Type == right.Type &&
+               left.Level == right.Level &&
+               left.GameObjectId == right.GameObjectId &&
+               left.ComponentId == right.ComponentId;
+    }
+
+    private GUIContent BuildCollapsedLogContent(string richText, int repeatCount)
+    {
+        if (repeatCount <= 1 || string.IsNullOrWhiteSpace(richText))
+            return new GUIContent(richText ?? string.Empty);
+
+        string suffix = $" <color=#f1c232>(x{repeatCount})</color>";
+        int newLineIndex = richText.IndexOf('\n');
+        string collapsedText = newLineIndex >= 0
+            ? richText.Insert(newLineIndex, suffix)
+            : richText + suffix;
+
+        return new GUIContent(collapsedText);
     }
 
     private void DrawSnapshotLogPanel(DebugConsoleEditorSnapshot snapshot, float panelWidth)
@@ -497,18 +662,13 @@ public class DebugConsoleEditorWindow : EditorWindow
         _logScroll = EditorGUILayout.BeginScrollView(_logScroll);
 
         float width = Mathf.Max(panelWidth - 32f, 300f);
-        if (snapshot?.Entries != null)
+        List<SnapshotLogGroup> groups = BuildVisibleSnapshotLogGroups(snapshot);
+        for (int i = 0; i < groups.Count; i++)
         {
-            for (int i = 0; i < snapshot.Entries.Count; i++)
-            {
-                SnapshotLogEntry entry = snapshot.Entries[i];
-                if (!ShouldDisplaySnapshotEntry(entry))
-                    continue;
-
-                float drawnHeight = DrawSnapshotLogEntry(entry, i, width);
-                contentHeight += drawnHeight + 4f;
-                GUILayout.Space(4f);
-            }
+            SnapshotLogGroup group = groups[i];
+            float drawnHeight = DrawSnapshotLogEntry(group.Entry, group.LastSourceIndex, width, group.Count);
+            contentHeight += drawnHeight + 4f;
+            GUILayout.Space(4f);
         }
 
         EditorGUILayout.EndScrollView();
@@ -524,15 +684,15 @@ public class DebugConsoleEditorWindow : EditorWindow
         EditorGUILayout.EndVertical();
     }
 
-    private float DrawSnapshotLogEntry(SnapshotLogEntry entry, int index, float width)
+    private float DrawSnapshotLogEntry(SnapshotLogEntry entry, int sourceIndex, float width, int repeatCount)
     {
-        GUIContent content = new GUIContent(entry.RichText);
+        GUIContent content = BuildCollapsedLogContent(entry.RichText, repeatCount);
         float height = _richLabelStyle.CalcHeight(content, width);
 
         Rect rect = GUILayoutUtility.GetRect(10f, height + 12f, GUILayout.ExpandWidth(true));
 
         Color previousColor = GUI.color;
-        if (index == _selectedLogIndex)
+        if (sourceIndex == _selectedLogIndex)
             GUI.color = new Color(0.75f, 0.85f, 1f, 1f);
 
         GUI.Box(rect, GUIContent.none);
@@ -545,8 +705,9 @@ public class DebugConsoleEditorWindow : EditorWindow
             Event.current.button == 0 &&
             rect.Contains(Event.current.mousePosition))
         {
-            _selectedLogIndex = index;
+            _selectedLogIndex = sourceIndex;
             FocusSnapshotEntry(entry);
+            SaveEditorUiState();
 
             if (Event.current.clickCount >= 2)
                 OpenEntryScript(entry);
@@ -712,6 +873,7 @@ public class DebugConsoleEditorWindow : EditorWindow
             return;
 
         _lastSnapshot = CaptureSnapshot(manager);
+        SaveEditorUiState();
         SaveSnapshotToDisk(_lastSnapshot);
         _lastCapturedManagerChangeVersion = manager.ChangeVersion;
         _nextSnapshotCaptureTime = now + 0.35d;
@@ -721,6 +883,7 @@ public class DebugConsoleEditorWindow : EditorWindow
     {
         DebugConsoleEditorSnapshot snapshot = new DebugConsoleEditorSnapshot
         {
+            SnapshotVersion = CurrentSnapshotVersion,
             SceneName = SceneManager.GetActiveScene().name,
             CapturedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
             GlobalEnabled = manager.GlobalEnabled,
@@ -882,6 +1045,8 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         try
         {
+            snapshot.SnapshotVersion = CurrentSnapshotVersion;
+
             string filePath = GetSnapshotFilePath();
             string directoryPath = Path.GetDirectoryName(filePath);
             if (!string.IsNullOrWhiteSpace(directoryPath))
@@ -908,14 +1073,12 @@ public class DebugConsoleEditorWindow : EditorWindow
 
             string json = File.ReadAllText(filePath);
             _lastSnapshot = JsonUtility.FromJson<DebugConsoleEditorSnapshot>(json);
-            if (_lastSnapshot == null)
+            if (!TryUpgradeSnapshotToCurrentVersion(_lastSnapshot))
             {
                 _lastSnapshot = null;
                 return;
             }
 
-            _lastSnapshot.Roots ??= new List<SnapshotGameObjectNode>();
-            _lastSnapshot.Entries ??= new List<SnapshotLogEntry>();
             ApplyStoredPreferencesToSnapshot(_lastSnapshot);
         }
         catch (Exception exception)
@@ -923,6 +1086,150 @@ public class DebugConsoleEditorWindow : EditorWindow
             _lastSnapshot = null;
             Debug.LogWarning($"DebugConsoleEditorWindow snapshot load failed: {exception.Message}");
         }
+    }
+
+
+    private bool TryUpgradeSnapshotToCurrentVersion(DebugConsoleEditorSnapshot snapshot)
+    {
+        if (snapshot == null)
+            return false;
+
+        if (snapshot.SnapshotVersion > CurrentSnapshotVersion)
+            return false;
+
+        NormalizeSnapshot(snapshot);
+        snapshot.SnapshotVersion = CurrentSnapshotVersion;
+        return true;
+    }
+
+    private void NormalizeSnapshot(DebugConsoleEditorSnapshot snapshot)
+    {
+        if (snapshot == null)
+            return;
+
+        snapshot.Roots ??= new List<SnapshotGameObjectNode>();
+        snapshot.Entries ??= new List<SnapshotLogEntry>();
+
+        for (int i = 0; i < snapshot.Roots.Count; i++)
+            NormalizeSnapshotNode(snapshot.Roots[i]);
+
+        for (int i = 0; i < snapshot.Entries.Count; i++)
+        {
+            SnapshotLogEntry entry = snapshot.Entries[i];
+            if (entry == null)
+                continue;
+
+            entry.Time ??= string.Empty;
+            entry.Message ??= string.Empty;
+            entry.SourceName ??= string.Empty;
+            entry.MemberName ??= string.Empty;
+            entry.GameObjectKey ??= string.Empty;
+            entry.ComponentKey ??= string.Empty;
+            entry.GameObjectName ??= string.Empty;
+            entry.ComponentName ??= string.Empty;
+            entry.CallerFilePath ??= string.Empty;
+            if (string.IsNullOrWhiteSpace(entry.ColorHex))
+                entry.ColorHex = "#ffffff";
+            entry.CallerColumn = Mathf.Max(1, entry.CallerColumn);
+        }
+    }
+
+    private void NormalizeSnapshotNode(SnapshotGameObjectNode node)
+    {
+        if (node == null)
+            return;
+
+        node.Name ??= string.Empty;
+        node.PathKey ??= string.Empty;
+        node.Components ??= new List<SnapshotComponentNode>();
+        node.Children ??= new List<SnapshotGameObjectNode>();
+
+        for (int i = 0; i < node.Components.Count; i++)
+        {
+            SnapshotComponentNode component = node.Components[i];
+            if (component == null)
+                continue;
+
+            component.Name ??= string.Empty;
+            component.Key ??= string.Empty;
+        }
+
+        for (int i = 0; i < node.Children.Count; i++)
+            NormalizeSnapshotNode(node.Children[i]);
+    }
+
+
+    private void LoadEditorUiState()
+    {
+        string raw = DebugConsolePreferenceStore.GetString(EditorStatePrefKey, string.Empty);
+        if (string.IsNullOrWhiteSpace(raw))
+            return;
+
+        DebugConsoleEditorUiState state = JsonUtility.FromJson<DebugConsoleEditorUiState>(raw);
+        if (state == null)
+            return;
+
+        _autoScroll = state.AutoScroll;
+        _hideTransform = state.HideTransform;
+        _collapsePreviousOnSelection = state.CollapsePreviousOnSelection;
+        _collapseLogs = state.CollapseLogs;
+        _showTypeFilterPanel = state.ShowTypeFilterPanel;
+        _hierarchyPanelWidth = state.HierarchyPanelWidth > 0f ? state.HierarchyPanelWidth : _hierarchyPanelWidth;
+        _hierarchyScroll = state.HierarchyScroll;
+        _logScroll = state.LogScroll;
+        _typeFilterScroll = state.TypeFilterScroll;
+        _selectedLogIndex = state.SelectedLogIndex;
+        _focusedSnapshotGameObjectKey = state.FocusedSnapshotGameObjectKey ?? string.Empty;
+        _focusedSnapshotComponentKey = state.FocusedSnapshotComponentKey ?? string.Empty;
+        _focusedObjectName = state.FocusedObjectName ?? string.Empty;
+        _focusedComponentName = state.FocusedComponentName ?? string.Empty;
+
+        _expandedSnapshotDetails.Clear();
+        if (state.ExpandedSnapshotDetails != null)
+        {
+            for (int i = 0; i < state.ExpandedSnapshotDetails.Count; i++)
+            {
+                string key = state.ExpandedSnapshotDetails[i];
+                if (!string.IsNullOrWhiteSpace(key))
+                    _expandedSnapshotDetails.Add(key);
+            }
+        }
+
+        _expandedSnapshotChildren.Clear();
+        if (state.ExpandedSnapshotChildren != null)
+        {
+            for (int i = 0; i < state.ExpandedSnapshotChildren.Count; i++)
+            {
+                string key = state.ExpandedSnapshotChildren[i];
+                if (!string.IsNullOrWhiteSpace(key))
+                    _expandedSnapshotChildren.Add(key);
+            }
+        }
+    }
+
+    private void SaveEditorUiState()
+    {
+        DebugConsoleEditorUiState state = new DebugConsoleEditorUiState
+        {
+            AutoScroll = _autoScroll,
+            HideTransform = _hideTransform,
+            CollapsePreviousOnSelection = _collapsePreviousOnSelection,
+            CollapseLogs = _collapseLogs,
+            ShowTypeFilterPanel = _showTypeFilterPanel,
+            HierarchyPanelWidth = _hierarchyPanelWidth,
+            HierarchyScroll = _hierarchyScroll,
+            LogScroll = _logScroll,
+            TypeFilterScroll = _typeFilterScroll,
+            SelectedLogIndex = _selectedLogIndex,
+            FocusedSnapshotGameObjectKey = _focusedSnapshotGameObjectKey ?? string.Empty,
+            FocusedSnapshotComponentKey = _focusedSnapshotComponentKey ?? string.Empty,
+            FocusedObjectName = _focusedObjectName ?? string.Empty,
+            FocusedComponentName = _focusedComponentName ?? string.Empty,
+            ExpandedSnapshotDetails = new List<string>(_expandedSnapshotDetails),
+            ExpandedSnapshotChildren = new List<string>(_expandedSnapshotChildren)
+        };
+
+        DebugConsolePreferenceStore.SetString(EditorStatePrefKey, JsonUtility.ToJson(state));
     }
 
     private void ClearSavedSnapshot()
@@ -934,6 +1241,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         _expandedSnapshotDetails.Clear();
         _expandedSnapshotChildren.Clear();
         ClearFocus();
+        SaveEditorUiState();
 
         try
         {
@@ -1172,6 +1480,7 @@ public class DebugConsoleEditorWindow : EditorWindow
             _focusedObjectName = !string.IsNullOrWhiteSpace(entry.GameObjectName) ? entry.GameObjectName : entry.SourceName ?? string.Empty;
             _focusedComponentName = !string.IsNullOrWhiteSpace(entry.ComponentName) ? entry.ComponentName : string.Empty;
             PrepareSnapshotSelectionExpansion(_focusedSnapshotGameObjectKey, true);
+            SaveEditorUiState();
             return;
         }
 
@@ -1184,6 +1493,7 @@ public class DebugConsoleEditorWindow : EditorWindow
             _focusedObjectName = !string.IsNullOrWhiteSpace(entry.GameObjectName) ? entry.GameObjectName : entry.SourceName ?? string.Empty;
             _focusedComponentName = string.Empty;
             PrepareSnapshotSelectionExpansion(_focusedSnapshotGameObjectKey, true);
+            SaveEditorUiState();
         }
     }
 
@@ -1205,6 +1515,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         _focusedObjectName = node.Name ?? string.Empty;
         _focusedComponentName = string.Empty;
         PrepareSnapshotSelectionExpansion(node.PathKey, true);
+        SaveEditorUiState();
     }
 
     private void ToggleSnapshotComponentFocus(SnapshotGameObjectNode node, SnapshotComponentNode component)
@@ -1225,6 +1536,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         _focusedObjectName = node.Name ?? string.Empty;
         _focusedComponentName = component.Name ?? string.Empty;
         PrepareSnapshotSelectionExpansion(_focusedSnapshotGameObjectKey, true);
+        SaveEditorUiState();
     }
 
     private void PrepareSnapshotSelectionExpansion(string objectKey, bool includeDetails)
@@ -1434,6 +1746,8 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private void SaveSnapshotIfAvailable()
     {
+        SaveEditorUiState();
+
         if (_lastSnapshot != null)
             SaveSnapshotToDisk(_lastSnapshot);
     }
@@ -1458,15 +1772,31 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         bool autoScroll = GUILayout.Toggle(_autoScroll, "Auto Scroll", GUILayout.Width(100f));
         if (autoScroll != _autoScroll)
+        {
             _autoScroll = autoScroll;
+            SaveEditorUiState();
+        }
 
         bool hideTransform = GUILayout.Toggle(_hideTransform, "Hide Transform", GUILayout.Width(120f));
         if (hideTransform != _hideTransform)
+        {
             _hideTransform = hideTransform;
+            SaveEditorUiState();
+        }
 
         bool collapsePrevious = GUILayout.Toggle(_collapsePreviousOnSelection, "Collapse Prev", GUILayout.Width(120f));
         if (collapsePrevious != _collapsePreviousOnSelection)
+        {
             _collapsePreviousOnSelection = collapsePrevious;
+            SaveEditorUiState();
+        }
+
+        bool collapseLogs = GUILayout.Toggle(_collapseLogs, "Collapse Logs", GUILayout.Width(120f));
+        if (collapseLogs != _collapseLogs)
+        {
+            _collapseLogs = collapseLogs;
+            SaveEditorUiState();
+        }
     }
 
     private void DrawSnapshotToolbarToggleGroupWrapped(DebugConsoleEditorSnapshot snapshot, float availableWidth)
@@ -1518,7 +1848,10 @@ public class DebugConsoleEditorWindow : EditorWindow
                 {
                     bool value = GUILayout.Toggle(_autoScroll, "Auto Scroll", GUILayout.Width(100f));
                     if (value != _autoScroll)
+                    {
                         _autoScroll = value;
+                        SaveEditorUiState();
+                    }
                     break;
                 }
 
@@ -1526,7 +1859,10 @@ public class DebugConsoleEditorWindow : EditorWindow
                 {
                     bool value = GUILayout.Toggle(_hideTransform, "Hide Transform", GUILayout.Width(120f));
                     if (value != _hideTransform)
+                    {
                         _hideTransform = value;
+                        SaveEditorUiState();
+                    }
                     break;
                 }
 
@@ -1534,7 +1870,21 @@ public class DebugConsoleEditorWindow : EditorWindow
                 {
                     bool value = GUILayout.Toggle(_collapsePreviousOnSelection, "Collapse Prev", GUILayout.Width(120f));
                     if (value != _collapsePreviousOnSelection)
+                    {
                         _collapsePreviousOnSelection = value;
+                        SaveEditorUiState();
+                    }
+                    break;
+                }
+
+                case "Collapse Logs":
+                {
+                    bool value = GUILayout.Toggle(_collapseLogs, "Collapse Logs", GUILayout.Width(120f));
+                    if (value != _collapseLogs)
+                    {
+                        _collapseLogs = value;
+                        SaveEditorUiState();
+                    }
                     break;
                 }
             }
@@ -1547,7 +1897,10 @@ public class DebugConsoleEditorWindow : EditorWindow
     private void DrawSnapshotToolbarActionGroup(DebugConsoleEditorSnapshot snapshot, string typeButtonLabel)
     {
         if (GUILayout.Button(typeButtonLabel, GUILayout.Width(160f)))
+        {
             _showTypeFilterPanel = !_showTypeFilterPanel;
+            SaveEditorUiState();
+        }
 
         if (GUILayout.Button("All Types On", GUILayout.Width(100f)))
             SetAllSnapshotTypes(snapshot, true);
@@ -1592,7 +1945,10 @@ public class DebugConsoleEditorWindow : EditorWindow
             {
                 case "TypeFilter":
                     if (GUILayout.Button(typeButtonLabel, GUILayout.Width(width)))
-                        _showTypeFilterPanel = !_showTypeFilterPanel;
+                    {
+            _showTypeFilterPanel = !_showTypeFilterPanel;
+            SaveEditorUiState();
+        }
                     break;
 
                 case "All Types On":
@@ -1906,6 +2262,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         {
             _isDraggingPanelSplitter = false;
             DebugConsolePreferenceStore.SetFloat(HierarchyPanelWidthPrefKey, _hierarchyPanelWidth);
+            SaveEditorUiState();
             current.Use();
         }
 
@@ -2057,7 +2414,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         {
             string foldoutLabel = showDetails ? "▾" : "▸";
             if (GUILayout.Button(foldoutLabel, _foldoutButtonStyle, GUILayout.Width(HierarchyFoldoutSize), GUILayout.Height(HierarchyRowHeight)))
-                ToggleExpandedSet(_expandedComponents, id);
+                ToggleLiveExpandedDetails(go);
         }
         else
         {
@@ -2117,11 +2474,11 @@ public class DebugConsoleEditorWindow : EditorWindow
 
             float childButtonWidth = GetHierarchyTextButtonWidth(rowContentWidth, childLeadingSpace, true, true);
             if (GUILayout.Button(new GUIContent("하위 오브젝트", "하위 오브젝트"), _linkButtonStyle, GUILayout.Width(childButtonWidth), GUILayout.Height(HierarchyRowHeight)))
-                ToggleExpandedSet(_expandedChildren, id);
+                ToggleLiveExpandedChildren(go);
 
             string childFoldoutLabel = showChildren ? "▾" : "▸";
             if (GUILayout.Button(childFoldoutLabel, _foldoutButtonStyle, GUILayout.Width(HierarchyFoldoutSize), GUILayout.Height(HierarchyRowHeight)))
-                ToggleExpandedSet(_expandedChildren, id);
+                ToggleLiveExpandedChildren(go);
 
             GUILayout.EndHorizontal();
 
@@ -2145,17 +2502,13 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         _logScroll = EditorGUILayout.BeginScrollView(_logScroll);
 
-        IReadOnlyList<DebugEntry> entries = manager.Entries;
         float width = Mathf.Max(panelWidth - 32f, 300f);
+        List<LiveLogGroup> groups = BuildVisibleLiveLogGroups(manager);
 
-        for (int i = 0; i < entries.Count; i++)
+        for (int i = 0; i < groups.Count; i++)
         {
-            DebugEntry entry = entries[i];
-
-            if (!ShouldDisplayEntry(manager, entry))
-                continue;
-
-            float drawnHeight = DrawLogEntry(entry, i, width);
+            LiveLogGroup group = groups[i];
+            float drawnHeight = DrawLogEntry(group.Entry, group.LastSourceIndex, width, group.Count);
             contentHeight += drawnHeight + 4f;
             GUILayout.Space(4f);
         }
@@ -2173,15 +2526,15 @@ public class DebugConsoleEditorWindow : EditorWindow
         EditorGUILayout.EndVertical();
     }
 
-    private float DrawLogEntry(DebugEntry entry, int index, float width)
+    private float DrawLogEntry(DebugEntry entry, int sourceIndex, float width, int repeatCount)
     {
-        GUIContent content = new GUIContent(entry.RichText);
+        GUIContent content = BuildCollapsedLogContent(entry.RichText, repeatCount);
         float height = _richLabelStyle.CalcHeight(content, width);
 
         Rect rect = GUILayoutUtility.GetRect(10f, height + 12f, GUILayout.ExpandWidth(true));
 
         Color previousColor = GUI.color;
-        if (index == _selectedLogIndex)
+        if (sourceIndex == _selectedLogIndex)
             GUI.color = new Color(0.75f, 0.85f, 1f, 1f);
 
         GUI.Box(rect, GUIContent.none);
@@ -2194,8 +2547,9 @@ public class DebugConsoleEditorWindow : EditorWindow
             Event.current.button == 0 &&
             rect.Contains(Event.current.mousePosition))
         {
-            _selectedLogIndex = index;
+            _selectedLogIndex = sourceIndex;
             FocusEntry(entry);
+            SaveEditorUiState();
 
             if (Event.current.clickCount >= 2)
                 OpenEntryScript(entry);
@@ -2336,6 +2690,8 @@ public class DebugConsoleEditorWindow : EditorWindow
             targetGameObject = go;
             _focusedGameObjectId = go.GetInstanceID();
             _focusedComponentId = 0;
+            _focusedSnapshotGameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(go);
+            _focusedSnapshotComponentKey = string.Empty;
             _focusedObjectName = go.name;
             _focusedComponentName = string.Empty;
             PrepareSelectionExpansion(go.transform, true);
@@ -2345,6 +2701,8 @@ public class DebugConsoleEditorWindow : EditorWindow
             targetGameObject = component.gameObject;
             _focusedGameObjectId = component.gameObject.GetInstanceID();
             _focusedComponentId = component.GetInstanceID();
+            _focusedSnapshotGameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(component.gameObject);
+            _focusedSnapshotComponentKey = DebugConsoleFilterKeyUtility.GetComponentKey(component);
             _focusedObjectName = component.gameObject.name;
             _focusedComponentName = component.GetType().Name;
             PrepareSelectionExpansion(component.transform, true);
@@ -2355,6 +2713,7 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         Selection.activeGameObject = targetGameObject;
         EditorGUIUtility.PingObject(targetGameObject);
+        SaveEditorUiState();
     }
 
     private void ExpandSelectionPath(Transform target, bool includeTargetDetails)
@@ -2374,6 +2733,25 @@ public class DebugConsoleEditorWindow : EditorWindow
             _expandedComponents.Add(parentId);
             _expandedChildren.Add(parentId);
             current = parent;
+        }
+    }
+
+
+    private void MirrorLiveExpansionToSnapshot(Transform target, bool includeTargetDetails)
+    {
+        if (target == null)
+            return;
+
+        if (includeTargetDetails)
+            _expandedSnapshotDetails.Add(DebugConsoleFilterKeyUtility.GetGameObjectKey(target.gameObject));
+
+        Transform current = target;
+        while (current.parent != null)
+        {
+            current = current.parent;
+            string key = DebugConsoleFilterKeyUtility.GetGameObjectKey(current.gameObject);
+            _expandedSnapshotDetails.Add(key);
+            _expandedSnapshotChildren.Add(key);
         }
     }
 
@@ -2418,12 +2796,13 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         _focusedGameObjectId = id;
         _focusedComponentId = 0;
-        _focusedSnapshotGameObjectKey = string.Empty;
+        _focusedSnapshotGameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(go);
         _focusedSnapshotComponentKey = string.Empty;
         _focusedObjectName = go.name;
         _focusedComponentName = string.Empty;
 
         PrepareSelectionExpansion(go.transform, true);
+        SaveEditorUiState();
     }
 
     private void ToggleComponentFocus(Component component)
@@ -2441,12 +2820,13 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         _focusedGameObjectId = component.gameObject.GetInstanceID();
         _focusedComponentId = componentId;
-        _focusedSnapshotGameObjectKey = string.Empty;
-        _focusedSnapshotComponentKey = string.Empty;
+        _focusedSnapshotGameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(component.gameObject);
+        _focusedSnapshotComponentKey = DebugConsoleFilterKeyUtility.GetComponentKey(component);
         _focusedObjectName = component.gameObject.name;
         _focusedComponentName = component.GetType().Name;
 
         PrepareSelectionExpansion(component.transform, true);
+        SaveEditorUiState();
     }
 
     private void PrepareSelectionExpansion(Transform target, bool includeDetails)
@@ -2455,9 +2835,13 @@ public class DebugConsoleEditorWindow : EditorWindow
             return;
 
         if (_collapsePreviousOnSelection)
+        {
             PreserveExpansionWithinTopLevelRoot(target);
+            PreserveSnapshotExpansionWithinTopLevelRoot(DebugConsoleFilterKeyUtility.GetGameObjectKey(target.gameObject));
+        }
 
         ExpandSelectionPath(target, includeDetails);
+        MirrorLiveExpansionToSnapshot(target, includeDetails);
     }
 
     private void PreserveExpansionWithinTopLevelRoot(Transform target)
@@ -2509,6 +2893,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         _focusedComponentName = string.Empty;
         _focusedSnapshotGameObjectKey = string.Empty;
         _focusedSnapshotComponentKey = string.Empty;
+        SaveEditorUiState();
     }
 
     private string GetFocusLabel()
@@ -2703,6 +3088,38 @@ public class DebugConsoleEditorWindow : EditorWindow
             set.Add(key);
     }
 
+    private void ToggleLiveExpandedDetails(GameObject go)
+    {
+        if (go == null)
+            return;
+
+        ToggleExpandedSet(_expandedComponents, go.GetInstanceID());
+        ToggleExpandedSet(_expandedSnapshotDetails, DebugConsoleFilterKeyUtility.GetGameObjectKey(go));
+        SaveEditorUiState();
+    }
+
+    private void ToggleLiveExpandedChildren(GameObject go)
+    {
+        if (go == null)
+            return;
+
+        ToggleExpandedSet(_expandedChildren, go.GetInstanceID());
+        ToggleExpandedSet(_expandedSnapshotChildren, DebugConsoleFilterKeyUtility.GetGameObjectKey(go));
+        SaveEditorUiState();
+    }
+
+    private void ToggleSnapshotExpandedDetails(string key)
+    {
+        ToggleExpandedSet(_expandedSnapshotDetails, key);
+        SaveEditorUiState();
+    }
+
+    private void ToggleSnapshotExpandedChildren(string key)
+    {
+        ToggleExpandedSet(_expandedSnapshotChildren, key);
+        SaveEditorUiState();
+    }
+
     private int GetEnabledTypeCount(DebugConsoleManager manager)
     {
         int count = 0;
@@ -2812,6 +3229,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         ("Auto Scroll", 100f),
         ("Hide Transform", 120f),
         ("Collapse Prev", 120f),
+        ("Collapse Logs", 120f),
     };
 
     private readonly (string label, float width)[] _toolbarActionItems =
@@ -2835,15 +3253,31 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         bool autoScroll = GUILayout.Toggle(_autoScroll, "Auto Scroll", GUILayout.Width(100f));
         if (autoScroll != _autoScroll)
+        {
             _autoScroll = autoScroll;
+            SaveEditorUiState();
+        }
 
         bool hideTransform = GUILayout.Toggle(_hideTransform, "Hide Transform", GUILayout.Width(120f));
         if (hideTransform != _hideTransform)
+        {
             _hideTransform = hideTransform;
+            SaveEditorUiState();
+        }
 
         bool collapsePrevious = GUILayout.Toggle(_collapsePreviousOnSelection, "Collapse Prev", GUILayout.Width(120f));
         if (collapsePrevious != _collapsePreviousOnSelection)
+        {
             _collapsePreviousOnSelection = collapsePrevious;
+            SaveEditorUiState();
+        }
+
+        bool collapseLogs = GUILayout.Toggle(_collapseLogs, "Collapse Logs", GUILayout.Width(120f));
+        if (collapseLogs != _collapseLogs)
+        {
+            _collapseLogs = collapseLogs;
+            SaveEditorUiState();
+        }
     }
 
     private void DrawToolbarToggleGroupWrapped(DebugConsoleManager manager, float availableWidth)
@@ -2887,7 +3321,10 @@ public class DebugConsoleEditorWindow : EditorWindow
                 {
                     bool value = GUILayout.Toggle(_autoScroll, "Auto Scroll", GUILayout.Width(100f));
                     if (value != _autoScroll)
+                    {
                         _autoScroll = value;
+                        SaveEditorUiState();
+                    }
                     break;
                 }
 
@@ -2895,7 +3332,10 @@ public class DebugConsoleEditorWindow : EditorWindow
                 {
                     bool value = GUILayout.Toggle(_hideTransform, "Hide Transform", GUILayout.Width(120f));
                     if (value != _hideTransform)
+                    {
                         _hideTransform = value;
+                        SaveEditorUiState();
+                    }
                     break;
                 }
 
@@ -2903,7 +3343,21 @@ public class DebugConsoleEditorWindow : EditorWindow
                 {
                     bool value = GUILayout.Toggle(_collapsePreviousOnSelection, "Collapse Prev", GUILayout.Width(120f));
                     if (value != _collapsePreviousOnSelection)
+                    {
                         _collapsePreviousOnSelection = value;
+                        SaveEditorUiState();
+                    }
+                    break;
+                }
+
+                case "Collapse Logs":
+                {
+                    bool value = GUILayout.Toggle(_collapseLogs, "Collapse Logs", GUILayout.Width(120f));
+                    if (value != _collapseLogs)
+                    {
+                        _collapseLogs = value;
+                        SaveEditorUiState();
+                    }
                     break;
                 }
             }
@@ -2916,7 +3370,10 @@ public class DebugConsoleEditorWindow : EditorWindow
     private void DrawToolbarActionGroup(DebugConsoleManager manager, string typeButtonLabel)
     {
         if (GUILayout.Button(typeButtonLabel, GUILayout.Width(160f)))
+        {
             _showTypeFilterPanel = !_showTypeFilterPanel;
+            SaveEditorUiState();
+        }
 
         if (GUILayout.Button("All Types On", GUILayout.Width(100f)))
             manager.SetAllTypes(true);
@@ -2957,7 +3414,10 @@ public class DebugConsoleEditorWindow : EditorWindow
             {
                 case "TypeFilter":
                     if (GUILayout.Button(typeButtonLabel, GUILayout.Width(width)))
+                    {
                         _showTypeFilterPanel = !_showTypeFilterPanel;
+                        SaveEditorUiState();
+                    }
                     break;
 
                 case "All Types On":
@@ -3028,6 +3488,7 @@ public class DebugConsoleEditorWindow : EditorWindow
             _hierarchySearch = string.Empty;
             _logSearch = string.Empty;
             GUI.FocusControl(null);
+            SaveEditorUiState();
         }
     }
 

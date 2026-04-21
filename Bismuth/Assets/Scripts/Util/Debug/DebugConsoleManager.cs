@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -6,15 +7,93 @@ using Object = UnityEngine.Object;
 
 public class DebugConsoleManager : MonoBehaviour
 {
+    private sealed class DebugEntryRingBuffer : IReadOnlyList<DebugEntry>
+    {
+        private DebugEntry[] _buffer;
+        private int _start;
+        private int _count;
+
+        public DebugEntryRingBuffer(int capacity)
+        {
+            _buffer = new DebugEntry[Mathf.Max(1, capacity)];
+            _start = 0;
+            _count = 0;
+        }
+
+        public int Count => _count;
+        public int Capacity => _buffer.Length;
+
+        public DebugEntry this[int index]
+        {
+            get
+            {
+                if (index < 0 || index >= _count)
+                    throw new ArgumentOutOfRangeException(nameof(index));
+
+                return _buffer[(_start + index) % _buffer.Length];
+            }
+        }
+
+        public void Add(DebugEntry entry)
+        {
+            if (_count < _buffer.Length)
+            {
+                _buffer[(_start + _count) % _buffer.Length] = entry;
+                _count++;
+                return;
+            }
+
+            _buffer[_start] = entry;
+            _start = (_start + 1) % _buffer.Length;
+        }
+
+        public void Clear()
+        {
+            Array.Clear(_buffer, 0, _buffer.Length);
+            _start = 0;
+            _count = 0;
+        }
+
+        public void SetCapacity(int capacity)
+        {
+            capacity = Mathf.Max(1, capacity);
+            if (capacity == _buffer.Length)
+                return;
+
+            DebugEntry[] newBuffer = new DebugEntry[capacity];
+            int newCount = Mathf.Min(_count, capacity);
+            int sourceStartIndex = Mathf.Max(0, _count - newCount);
+
+            for (int i = 0; i < newCount; i++)
+                newBuffer[i] = this[sourceStartIndex + i];
+
+            _buffer = newBuffer;
+            _start = 0;
+            _count = newCount;
+        }
+
+        public IEnumerator<DebugEntry> GetEnumerator()
+        {
+            for (int i = 0; i < _count; i++)
+                yield return this[i];
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+    }
+
     public static DebugConsoleManager Instance { get; private set; }
 
-    [SerializeField] private int _maxEntries = 1000;
+    [SerializeField] private int _maxEntries = 2000;
     [SerializeField] private bool _globalEnabled = true;
     [SerializeField] private bool _mirrorToUnityConsole = false;
 
     private const string PrefKeyPrefix = "DebugConsole.Manager";
+    private const string MaxEntriesPrefKey = PrefKeyPrefix + ".MaxEntries";
 
-    private readonly List<DebugEntry> _entries = new();
+    private DebugEntryRingBuffer _entries;
     private bool[] _typeFilters;
     private readonly Dictionary<int, bool> _gameObjectFilters = new();
     private readonly Dictionary<int, bool> _componentFilters = new();
@@ -30,6 +109,23 @@ public class DebugConsoleManager : MonoBehaviour
     public int ChangeVersion => _changeVersion;
 
     public IReadOnlyList<DebugEntry> Entries => _entries;
+
+    public int MaxEntries
+    {
+        get => _maxEntries;
+        set
+        {
+            int nextValue = Mathf.Max(100, value);
+            if (_maxEntries == nextValue)
+                return;
+
+            _maxEntries = nextValue;
+            _entries ??= new DebugEntryRingBuffer(_maxEntries);
+            _entries.SetCapacity(_maxEntries);
+            DebugConsolePreferenceStore.SetInt(MaxEntriesPrefKey, _maxEntries);
+            MarkChanged();
+        }
+    }
 
     public bool GlobalEnabled
     {
@@ -83,6 +179,9 @@ public class DebugConsoleManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
+        _maxEntries = Mathf.Max(100, DebugConsolePreferenceStore.GetInt(MaxEntriesPrefKey, _maxEntries));
+        _entries = new DebugEntryRingBuffer(_maxEntries);
+
         InitializeFilters();
         LoadGlobalSettings();
         LoadTypeFilters();
@@ -112,10 +211,6 @@ public class DebugConsoleManager : MonoBehaviour
             return;
 
         _entries.Add(entry);
-
-        if (_entries.Count > _maxEntries)
-            _entries.RemoveAt(0);
-
         MarkChanged();
     }
 
@@ -234,7 +329,6 @@ public class DebugConsoleManager : MonoBehaviour
         MarkChanged();
     }
 
-
     public void ResetAllFiltersToDefault()
     {
         _globalEnabled = true;
@@ -263,7 +357,6 @@ public class DebugConsoleManager : MonoBehaviour
         _componentFilterKeys.Clear();
         MarkChanged();
     }
-
 
     private void MarkChanged()
     {
