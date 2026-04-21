@@ -1399,8 +1399,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         if (string.IsNullOrWhiteSpace(raw))
             return result;
 
-        string[] parts = raw.Split(new[] { ' 
-' }, StringSplitOptions.RemoveEmptyEntries);
+        string[] parts = raw.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
         for (int i = 0; i < parts.Length; i++)
             result.Add(parts[i]);
 
@@ -1415,8 +1414,7 @@ public class DebugConsoleEditorWindow : EditorWindow
             return;
         }
 
-        DebugConsolePreferenceStore.SetString(registryPrefKey, string.Join("
-", registry));
+        DebugConsolePreferenceStore.SetString(registryPrefKey, string.Join("\n", registry));
     }
 
     private string GetTypePrefKey(DebugType type)
