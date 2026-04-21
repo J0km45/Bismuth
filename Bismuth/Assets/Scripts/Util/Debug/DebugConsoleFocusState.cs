@@ -2,10 +2,10 @@ using System;
 
 public sealed class DebugConsoleFocusState
 {
-    public int FocusedGameObjectId { get; private set; }
-    public int FocusedComponentId { get; private set; }
-    public string FocusedObjectName { get; private set; } = string.Empty;
-    public string FocusedComponentName { get; private set; } = string.Empty;
+    public int FocusedGameObjectId { get; set; }
+    public int FocusedComponentId { get; set; }
+    public string FocusedObjectName { get; set; } = string.Empty;
+    public string FocusedComponentName { get; set; } = string.Empty;
 
     public bool HasGameObjectFocus => FocusedGameObjectId != 0;
     public bool HasComponentFocus => FocusedComponentId != 0;
