@@ -779,7 +779,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.Label(new GUIContent("Logs", string.IsNullOrEmpty(focusSuffix) ? "Logs" : $"Logs {focusSuffix}"), _titleStyle, GUILayout.ExpandWidth(true));
         GUILayout.EndHorizontal();
 
-        bool wasNearBottom = IsNearBottom(_lastMaxLogScrollY);
         float contentHeight = 0f;
         float logContentWidth = GetLogContentWidth(panelWidth);
 
@@ -805,8 +804,12 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _lastLogContentHeight = contentHeight + 8f;
         _lastMaxLogScrollY = Mathf.Max(0f, _lastLogContentHeight - _lastLogViewportHeight);
 
-        if (Event.current.type == EventType.Repaint && (_autoScroll || wasNearBottom || IsNearBottom(_lastMaxLogScrollY)))
-            _logScroll.y = _lastMaxLogScrollY + 4f;
+        if (Event.current.type == EventType.Repaint && _autoScroll)
+        {
+            Vector2 nextLogScroll = _logScroll;
+            nextLogScroll.y = _lastMaxLogScrollY + 4f;
+            _logScroll = nextLogScroll;
+        }
 
         GUILayout.EndVertical();
     }
@@ -1462,14 +1465,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         return source.Length > MaxDisplayNameLength ? source.Substring(0, MaxDisplayNameLength) + "..." : source;
     }
 
-    private bool IsNearBottom(float maxScrollY)
-    {
-        if (maxScrollY <= 0f)
-            return true;
-
-        float remaining = maxScrollY - _logScroll.y;
-        return remaining <= Mathf.Max(maxScrollY * 0.05f, 32f);
-    }
 
     private bool ContainsIgnoreCase(string source, string keyword)
     {

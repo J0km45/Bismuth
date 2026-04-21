@@ -691,7 +691,6 @@ public class DebugConsoleEditorWindow : EditorWindow
         GUILayout.Label($"Logs {GetFocusSuffix()}", _titleStyle);
         EditorGUILayout.EndHorizontal();
 
-        bool wasNearBottom = IsNearBottom(_lastMaxLogScrollY);
         float contentHeight = 0f;
 
         _logScroll = EditorGUILayout.BeginScrollView(_logScroll);
@@ -718,8 +717,12 @@ public class DebugConsoleEditorWindow : EditorWindow
         _lastLogContentHeight = contentHeight + 8f;
         _lastMaxLogScrollY = Mathf.Max(0f, _lastLogContentHeight - _lastLogViewportHeight);
 
-        if (Event.current.type == EventType.Repaint && (_autoScroll || wasNearBottom || IsNearBottom(_lastMaxLogScrollY)))
-            _logScroll.y = _lastMaxLogScrollY + 4f;
+        if (Event.current.type == EventType.Repaint && _autoScroll)
+        {
+            Vector2 nextLogScroll = _logScroll;
+            nextLogScroll.y = _lastMaxLogScrollY + 4f;
+            _logScroll = nextLogScroll;
+        }
 
         EditorGUILayout.EndVertical();
     }
@@ -1473,14 +1476,6 @@ public class DebugConsoleEditorWindow : EditorWindow
         return source.Length > MaxDisplayNameLength ? source.Substring(0, MaxDisplayNameLength) + "..." : source;
     }
 
-    private bool IsNearBottom(float maxScrollY)
-    {
-        if (maxScrollY <= 0f)
-            return true;
-
-        float remaining = maxScrollY - _logScroll.y;
-        return remaining <= Mathf.Max(maxScrollY * 0.05f, 32f);
-    }
 
     private bool ContainsIgnoreCase(string source, string keyword)
     {
