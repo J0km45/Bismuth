@@ -212,7 +212,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (_searchOverlay == null)
             return;
 
-        bool showOverlay = _visible;
+        bool overlayFocused = _searchOverlay.IsHierarchyFocused || _searchOverlay.IsLogFocused;
+        bool showOverlay = _visible && (_activeSearchField != SearchFieldFocus.None || overlayFocused);
         _searchOverlay.SetVisible(showOverlay);
 
         if (!showOverlay)
@@ -227,6 +228,11 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     {
         Vector2 topLeft = GUIUtility.GUIToScreenPoint(new Vector2(guiRect.xMin, guiRect.yMin));
         return new Rect(topLeft.x, topLeft.y, guiRect.width, guiRect.height);
+    }
+
+    private Vector2 ToScreenRectPosition(Vector2 guiPosition)
+    {
+        return GUIUtility.GUIToScreenPoint(guiPosition);
     }
 
     private void InitStyles()
@@ -387,6 +393,15 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         DrawTypeFilterPanel(manager);
 
         DrawResizablePanels(manager);
+
+        Event current = Event.current;
+        if (current.type == EventType.MouseDown && !_hierarchySearchScreenRect.Contains(ToScreenRectPosition(current.mousePosition)) && !_logSearchScreenRect.Contains(ToScreenRectPosition(current.mousePosition)))
+        {
+            _activeSearchField = SearchFieldFocus.None;
+
+            if (_searchOverlay != null && !_searchOverlay.IsHierarchyFocused && !_searchOverlay.IsLogFocused)
+                _searchOverlay.SetVisible(false);
+        }
 
         GUI.DragWindow(new Rect(0, 0, 10000, 24));
     }
@@ -1393,6 +1408,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             Rect screenRect = ToScreenRect(fieldRect);
             _hierarchySearchScreenRect = screenRect;
 
+            _activeSearchField = SearchFieldFocus.Hierarchy;
+
             if (_searchOverlay != null)
             {
                 _searchOverlay.SetVisible(true);
@@ -1422,6 +1439,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             Rect screenRect = ToScreenRect(fieldRect);
             _logSearchScreenRect = screenRect;
 
+            _activeSearchField = SearchFieldFocus.Log;
+
             if (_searchOverlay != null)
             {
                 _searchOverlay.SetVisible(true);
@@ -1440,9 +1459,13 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         {
             _hierarchySearch = string.Empty;
             _logSearch = string.Empty;
+            _activeSearchField = SearchFieldFocus.None;
 
             if (_searchOverlay != null)
+            {
                 _searchOverlay.ClearTexts();
+                _searchOverlay.SetVisible(false);
+            }
         }
     }
 

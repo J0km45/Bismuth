@@ -2,6 +2,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using UnityEngine.Events;
 using Text = UnityEngine.UI.Text;
 
 public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
@@ -16,6 +17,8 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
     private RectTransform _hierarchyRectTransform;
     private RectTransform _logRectTransform;
     private Font _dynamicFont;
+    private bool _pendingHierarchyFocus;
+    private bool _pendingLogFocus;
 
     public string HierarchyText => _hierarchyInput != null ? _hierarchyInput.text : string.Empty;
     public string LogText => _logInput != null ? _logInput.text : string.Empty;
@@ -56,10 +59,24 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         _canvas.enabled = visible;
 
         if (_hierarchyInput != null)
+        {
+            _hierarchyInput.interactable = visible;
+            _hierarchyInput.readOnly = !visible;
             _hierarchyInput.gameObject.SetActive(visible);
+        }
 
         if (_logInput != null)
+        {
+            _logInput.interactable = visible;
+            _logInput.readOnly = !visible;
             _logInput.gameObject.SetActive(visible);
+        }
+
+        if (!visible)
+        {
+            _pendingHierarchyFocus = false;
+            _pendingLogFocus = false;
+        }
     }
 
     public void FocusHierarchy()
@@ -69,9 +86,8 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 
         EnsureEventSystemExists();
         _hierarchyInput.gameObject.SetActive(true);
-        _hierarchyInput.Select();
-        _hierarchyInput.ActivateInputField();
-        _hierarchyInput.MoveTextEnd(false);
+        _pendingHierarchyFocus = true;
+        _pendingLogFocus = false;
     }
 
     public void FocusLog()
@@ -81,9 +97,8 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 
         EnsureEventSystemExists();
         _logInput.gameObject.SetActive(true);
-        _logInput.Select();
-        _logInput.ActivateInputField();
-        _logInput.MoveTextEnd(false);
+        _pendingLogFocus = true;
+        _pendingHierarchyFocus = false;
     }
 
     public void SetTexts(string hierarchyText, string logText)
@@ -91,10 +106,10 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         hierarchyText ??= string.Empty;
         logText ??= string.Empty;
 
-        if (_hierarchyInput != null && !_hierarchyInput.isFocused && _hierarchyInput.text != hierarchyText)
+        if (_hierarchyInput != null && !_hierarchyInput.isFocused && !_pendingHierarchyFocus && _hierarchyInput.text != hierarchyText)
             SetInputText(_hierarchyInput, hierarchyText);
 
-        if (_logInput != null && !_logInput.isFocused && _logInput.text != logText)
+        if (_logInput != null && !_logInput.isFocused && !_pendingLogFocus && _logInput.text != logText)
             SetInputText(_logInput, logText);
     }
 
@@ -141,6 +156,8 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         inputField.customCaretColor = true;
         inputField.caretColor = Color.black;
         inputField.selectionColor = new Color(0.62f, 0.78f, 1.00f, 0.85f);
+        inputField.onValueChanged.AddListener(_ => ClampSelection(inputField));
+        inputField.onEndEdit.AddListener(_ => ClampSelection(inputField));
 
         GameObject textArea = new GameObject("Text Area", typeof(RectTransform), typeof(RectMask2D));
         textArea.transform.SetParent(root.transform, false);
@@ -169,15 +186,56 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         if (inputField == null)
             return;
 
+        inputField.DeactivateInputField();
         inputField.text = value ?? string.Empty;
+        ClampSelection(inputField);
         ApplyInputVisuals(inputField);
         inputField.ForceLabelUpdate();
     }
 
     private void LateUpdate()
     {
+        if (_pendingHierarchyFocus)
+        {
+            _pendingHierarchyFocus = false;
+            ActivateInput(_hierarchyInput);
+        }
+
+        if (_pendingLogFocus)
+        {
+            _pendingLogFocus = false;
+            ActivateInput(_logInput);
+        }
+
         ApplyInputVisuals(_hierarchyInput);
         ApplyInputVisuals(_logInput);
+    }
+
+    private void ActivateInput(InputField inputField)
+    {
+        if (inputField == null)
+            return;
+
+        inputField.gameObject.SetActive(true);
+        ClampSelection(inputField);
+        inputField.Select();
+        inputField.ActivateInputField();
+        int textLength = inputField.text != null ? inputField.text.Length : 0;
+        inputField.caretPosition = textLength;
+        inputField.selectionAnchorPosition = textLength;
+        inputField.selectionFocusPosition = textLength;
+    }
+
+    private void ClampSelection(InputField inputField)
+    {
+        if (inputField == null)
+            return;
+
+        string currentText = inputField.text ?? string.Empty;
+        int textLength = currentText.Length;
+        inputField.caretPosition = Mathf.Clamp(inputField.caretPosition, 0, textLength);
+        inputField.selectionAnchorPosition = Mathf.Clamp(inputField.selectionAnchorPosition, 0, textLength);
+        inputField.selectionFocusPosition = Mathf.Clamp(inputField.selectionFocusPosition, 0, textLength);
     }
 
     private void ApplyInputVisuals(InputField inputField)
@@ -246,21 +304,13 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 
     private void ApplyScreenRect(RectTransform rectTransform, Rect screenRect)
     {
-        if (rectTransform == null || _canvasRect == null || screenRect.width <= 0f || screenRect.height <= 0f)
+        if (rectTransform == null || screenRect.width <= 0f || screenRect.height <= 0f)
             return;
 
         rectTransform.anchorMin = new Vector2(0f, 1f);
         rectTransform.anchorMax = new Vector2(0f, 1f);
         rectTransform.pivot = new Vector2(0f, 1f);
-
-        Vector2 localTopLeft;
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            _canvasRect,
-            new Vector2(screenRect.xMin, screenRect.yMin),
-            null,
-            out localTopLeft);
-
-        rectTransform.anchoredPosition = localTopLeft;
+        rectTransform.anchoredPosition = new Vector2(screenRect.xMin, -screenRect.yMin);
         rectTransform.sizeDelta = new Vector2(screenRect.width, Mathf.Max(FieldHeight, screenRect.height));
     }
 
