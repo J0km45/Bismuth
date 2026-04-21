@@ -444,6 +444,135 @@ public class DebugConsoleManager : MonoBehaviour
         MarkChanged();
     }
 
+
+[Serializable]
+private sealed class DebugConsoleStoredBoolValue
+{
+    public string Key;
+    public bool Value;
+}
+
+[Serializable]
+private sealed class DebugConsoleSettingsData
+{
+    public int MaxEntries = 2000;
+    public bool GlobalEnabled = true;
+    public bool MirrorToUnityConsole;
+    public bool ShowLogLevelLog = true;
+    public bool ShowLogLevelWarning = true;
+    public bool ShowLogLevelError = true;
+    public bool[] TypeFilters;
+    public List<DebugConsoleStoredBoolValue> GameObjectFilterValues = new();
+    public List<DebugConsoleStoredBoolValue> ComponentFilterValues = new();
+}
+
+public string ExportSettingsJson()
+{
+    DebugConsoleSettingsData data = new DebugConsoleSettingsData
+    {
+        MaxEntries = _maxEntries,
+        GlobalEnabled = _globalEnabled,
+        MirrorToUnityConsole = _mirrorToUnityConsole,
+        ShowLogLevelLog = _showLogLevelLog,
+        ShowLogLevelWarning = _showLogLevelWarning,
+        ShowLogLevelError = _showLogLevelError,
+        TypeFilters = (bool[])_typeFilters.Clone(),
+        GameObjectFilterValues = BuildStoredFilterValues(_gameObjectPrefKeyRegistry),
+        ComponentFilterValues = BuildStoredFilterValues(_componentPrefKeyRegistry)
+    };
+
+    return JsonUtility.ToJson(data, true);
+}
+
+public bool ImportSettingsJson(string json)
+{
+    if (string.IsNullOrWhiteSpace(json))
+        return false;
+
+    DebugConsoleSettingsData data = JsonUtility.FromJson<DebugConsoleSettingsData>(json);
+    if (data == null)
+        return false;
+
+    _maxEntries = Mathf.Max(100, data.MaxEntries);
+    DebugConsolePreferenceStore.SetInt(MaxEntriesPrefKey, _maxEntries);
+    _entries ??= new DebugEntryRingBuffer(_maxEntries);
+    _entries.SetCapacity(_maxEntries);
+
+    _globalEnabled = data.GlobalEnabled;
+    _mirrorToUnityConsole = data.MirrorToUnityConsole;
+    _showLogLevelLog = data.ShowLogLevelLog;
+    _showLogLevelWarning = data.ShowLogLevelWarning;
+    _showLogLevelError = data.ShowLogLevelError;
+    SaveGlobalSettings();
+    SaveAllLevelFilters();
+
+    for (int i = 0; i < _typeFilters.Length; i++)
+    {
+        bool value = data.TypeFilters == null || i >= data.TypeFilters.Length || data.TypeFilters[i];
+        _typeFilters[i] = value;
+        SaveTypeFilter((DebugType)i, value);
+    }
+
+    ClearStoredFilterRegistry(_gameObjectPrefKeyRegistry, GameObjectRegistryPrefKey);
+    ClearStoredFilterRegistry(_componentPrefKeyRegistry, ComponentRegistryPrefKey);
+    ApplyStoredFilterValues(data.GameObjectFilterValues, _gameObjectPrefKeyRegistry, GameObjectRegistryPrefKey);
+    ApplyStoredFilterValues(data.ComponentFilterValues, _componentPrefKeyRegistry, ComponentRegistryPrefKey);
+
+    _gameObjectFilters.Clear();
+    _componentFilters.Clear();
+    _gameObjectFilterKeys.Clear();
+    _componentFilterKeys.Clear();
+    MarkChanged();
+    return true;
+}
+
+private List<DebugConsoleStoredBoolValue> BuildStoredFilterValues(HashSet<string> registry)
+{
+    List<DebugConsoleStoredBoolValue> result = new List<DebugConsoleStoredBoolValue>();
+    foreach (string prefKey in registry)
+    {
+        if (string.IsNullOrWhiteSpace(prefKey))
+            continue;
+
+        result.Add(new DebugConsoleStoredBoolValue
+        {
+            Key = prefKey,
+            Value = DebugConsolePreferenceStore.GetBool(prefKey, true)
+        });
+    }
+
+    return result;
+}
+
+private void ApplyStoredFilterValues(List<DebugConsoleStoredBoolValue> values, HashSet<string> registry, string registryPrefKey)
+{
+    registry.Clear();
+
+    if (values != null)
+    {
+        for (int i = 0; i < values.Count; i++)
+        {
+            DebugConsoleStoredBoolValue value = values[i];
+            if (value == null || string.IsNullOrWhiteSpace(value.Key))
+                continue;
+
+            registry.Add(value.Key);
+            DebugConsolePreferenceStore.SetBool(value.Key, value.Value);
+        }
+    }
+
+    SaveRegistry(registryPrefKey, registry);
+}
+
+private void ClearStoredFilterRegistry(HashSet<string> registry, string registryPrefKey)
+{
+    foreach (string prefKey in registry)
+        DebugConsolePreferenceStore.DeleteKey(prefKey);
+
+    registry.Clear();
+    SaveRegistry(registryPrefKey, registry);
+}
+
     private void MarkChanged()
     {
         _changeVersion++;

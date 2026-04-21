@@ -23,6 +23,7 @@ public sealed class DebugEntry
     public string ColorHex;
     public string CallerFilePath;
     public int CallerColumn = 1;
+    public string StackTrace;
 
     public long SequenceId;
     public int FrameCount;

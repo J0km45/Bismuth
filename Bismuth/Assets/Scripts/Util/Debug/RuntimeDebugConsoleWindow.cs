@@ -9,6 +9,11 @@ using TMPro;
 
 public class RuntimeDebugConsoleWindow : MonoBehaviour
 {
+    private sealed class VisibleRuntimeLogEntry
+    {
+        public DebugEntry Entry;
+        public int SourceIndex;
+    }
     [SerializeField] private KeyCode _toggleKey = KeyCode.F1;
     [SerializeField] private bool _visible = false;
     [SerializeField] private Rect _windowRect = new Rect(20f, 20f, 1450f, 850f);
@@ -19,6 +24,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private Vector2 _hierarchyScroll;
     private Vector2 _logScroll;
     private Vector2 _typeFilterScroll;
+    private Vector2 _detailScroll;
 
     private string _hierarchySearch = string.Empty;
     private string _logSearch = string.Empty;
@@ -48,6 +54,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private Rect _logSearchScreenRect;
 
     private bool _showTypeFilterPanel;
+    private bool _showLogDetails = true;
+    private bool _stackTraceFoldout = true;
 
     private int _focusedGameObjectId;
     private int _focusedComponentId;
@@ -107,6 +115,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private float _lastLogContentHeight;
     private float _lastLogViewportHeight;
     private float _lastMaxLogScrollY;
+    private float _logDetailPanelHeight = 220f;
+    private readonly Dictionary<string, float> _rowHeightCache = new();
 
     private readonly HashSet<int> _expandedComponents = new();
     private readonly HashSet<int> _expandedChildren = new();
@@ -120,6 +130,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _titleStyle = null;
         _windowRect = DebugConsolePreferenceStore.GetRect(WindowRectPrefKey, _windowRect);
         _hierarchyPanelWidth = DebugConsolePreferenceStore.GetFloat(HierarchyPanelWidthPrefKey, _hierarchyPanelWidth);
+        _showLogDetails = DebugConsolePreferenceStore.GetBool(WindowRectPrefKey + ".ShowLogDetails", _showLogDetails);
+        _stackTraceFoldout = DebugConsolePreferenceStore.GetBool(WindowRectPrefKey + ".StackTraceFoldout", _stackTraceFoldout);
+        _logDetailPanelHeight = DebugConsolePreferenceStore.GetFloat(WindowRectPrefKey + ".LogDetailHeight", _logDetailPanelHeight);
         EnsureSearchOverlay();
         ApplyUiInputBlockState();
     }
@@ -770,46 +783,64 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         }
     }
 
-    private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
+
+private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
+{
+    GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
+    GUILayout.BeginHorizontal();
+    string focusSuffix = GetFocusSuffix();
+    GUILayout.Label(new GUIContent("Logs", string.IsNullOrEmpty(focusSuffix) ? "Logs" : $"Logs {focusSuffix}"), _titleStyle, GUILayout.ExpandWidth(true));
+    bool nextShowLogDetails = GUILayout.Toggle(_showLogDetails, "Details", GUILayout.Width(80f));
+    if (nextShowLogDetails != _showLogDetails)
     {
-        GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
-        GUILayout.BeginHorizontal();
-        string focusSuffix = GetFocusSuffix();
-        GUILayout.Label(new GUIContent("Logs", string.IsNullOrEmpty(focusSuffix) ? "Logs" : $"Logs {focusSuffix}"), _titleStyle, GUILayout.ExpandWidth(true));
-        GUILayout.EndHorizontal();
+        _showLogDetails = nextShowLogDetails;
+        SaveLayoutPreferences();
+    }
+    GUILayout.EndHorizontal();
 
-        float contentHeight = 0f;
-        float logContentWidth = GetLogContentWidth(panelWidth);
+    float logContentWidth = GetLogContentWidth(panelWidth);
+    float listViewportHeight = Mathf.Max(120f, _windowRect.height - (_showLogDetails ? _logDetailPanelHeight + 190f : 160f));
 
-        _logScroll = GUILayout.BeginScrollView(_logScroll, false, !_autoScroll, GUIStyle.none, GetLogVerticalScrollbarStyle());
+    List<VisibleRuntimeLogEntry> visibleEntries = BuildVisibleEntries(manager);
+    List<float> rowHeights = BuildRowHeights(visibleEntries, logContentWidth);
+    CalculateVisibleRange(rowHeights, _logScroll.y, listViewportHeight, out int startIndex, out int endIndex, out float topPadding, out float visibleHeight, out float totalHeight);
 
-        IReadOnlyList<DebugEntry> entries = manager.Entries;
-        for (int i = 0; i < entries.Count; i++)
-        {
-            DebugEntry entry = entries[i];
+    _logScroll = GUILayout.BeginScrollView(_logScroll, false, !_autoScroll, GUIStyle.none, GetLogVerticalScrollbarStyle(), GUILayout.MinHeight(listViewportHeight), GUILayout.ExpandHeight(true));
 
-            if (!ShouldDisplayEntry(manager, entry))
-                continue;
+    if (topPadding > 0f)
+        GUILayout.Space(topPadding);
 
-            float drawnHeight = DrawLogEntry(entry, i, logContentWidth);
-            contentHeight += drawnHeight + 4f;
-            GUILayout.Space(4f);
-        }
-
-        GUILayout.EndScrollView();
-
-        Rect scrollRect = GUILayoutUtility.GetLastRect();
-        _lastLogViewportHeight = scrollRect.height;
-        _lastLogContentHeight = contentHeight + 8f;
-        _lastMaxLogScrollY = Mathf.Max(0f, _lastLogContentHeight - _lastLogViewportHeight);
-
-        if (Event.current.type == EventType.Repaint && _autoScroll)
-            _logScroll.y = _lastMaxLogScrollY + 4f;
-
-        GUILayout.EndVertical();
+    for (int i = startIndex; i < endIndex; i++)
+    {
+        VisibleRuntimeLogEntry visibleEntry = visibleEntries[i];
+        DrawLogEntry(visibleEntry.Entry, visibleEntry.SourceIndex, logContentWidth);
+        GUILayout.Space(4f);
     }
 
-    private float DrawLogEntry(DebugEntry entry, int index, float contentWidth)
+    float bottomPadding = Mathf.Max(0f, totalHeight - topPadding - visibleHeight);
+    if (bottomPadding > 0f)
+        GUILayout.Space(bottomPadding);
+
+    GUILayout.EndScrollView();
+
+    Rect scrollRect = GUILayoutUtility.GetLastRect();
+    _lastLogViewportHeight = scrollRect.height;
+    _lastLogContentHeight = totalHeight;
+    _lastMaxLogScrollY = Mathf.Max(0f, _lastLogContentHeight - _lastLogViewportHeight);
+
+    if (Event.current.type == EventType.Repaint && _autoScroll)
+        _logScroll.y = _lastMaxLogScrollY + 4f;
+
+    if (_showLogDetails)
+    {
+        GUILayout.Space(4f);
+        DrawLiveLogDetailPanel(GetSelectedEntry(manager), panelWidth);
+    }
+
+    GUILayout.EndVertical();
+}
+
+private float DrawLogEntry(DebugEntry entry, int index, float contentWidth)
     {
         GUIContent content = new GUIContent(entry.RichText);
         float estimatedWidth = Mathf.Max(140f, contentWidth);
@@ -842,6 +873,178 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         return rect.height;
     }
+
+
+private List<VisibleRuntimeLogEntry> BuildVisibleEntries(DebugConsoleManager manager)
+{
+    List<VisibleRuntimeLogEntry> result = new List<VisibleRuntimeLogEntry>();
+    if (manager == null)
+        return result;
+
+    IReadOnlyList<DebugEntry> entries = manager.Entries;
+    for (int i = 0; i < entries.Count; i++)
+    {
+        DebugEntry entry = entries[i];
+        if (!ShouldDisplayEntry(manager, entry))
+            continue;
+
+        result.Add(new VisibleRuntimeLogEntry
+        {
+            Entry = entry,
+            SourceIndex = i
+        });
+    }
+
+    return result;
+}
+
+private List<float> BuildRowHeights(List<VisibleRuntimeLogEntry> entries, float width)
+{
+    List<float> heights = new List<float>(entries.Count);
+    for (int i = 0; i < entries.Count; i++)
+    {
+        DebugEntry entry = entries[i].Entry;
+        long sequence = entry != null ? entry.SequenceId : i;
+        string key = $"{sequence}:{Mathf.RoundToInt(width)}";
+        if (!_rowHeightCache.TryGetValue(key, out float height))
+        {
+            GUIContent content = new GUIContent(entry != null ? entry.RichText : string.Empty);
+            height = _richLabelStyle.CalcHeight(content, Mathf.Max(140f, width)) + 18f;
+            _rowHeightCache[key] = height;
+        }
+
+        heights.Add(height);
+    }
+
+    return heights;
+}
+
+private void CalculateVisibleRange(List<float> rowHeights, float scrollY, float viewportHeight, out int startIndex, out int endIndex, out float topPadding, out float visibleHeight, out float totalHeight)
+{
+    startIndex = 0;
+    endIndex = rowHeights != null ? rowHeights.Count : 0;
+    topPadding = 0f;
+    visibleHeight = 0f;
+    totalHeight = 0f;
+
+    if (rowHeights == null || rowHeights.Count == 0)
+        return;
+
+    const float overscan = 240f;
+    float minY = Mathf.Max(0f, scrollY - overscan);
+    float maxY = scrollY + Mathf.Max(0f, viewportHeight) + overscan;
+    float cumulative = 0f;
+    bool started = false;
+
+    for (int i = 0; i < rowHeights.Count; i++)
+    {
+        float rowHeight = rowHeights[i];
+        float rowStart = cumulative;
+        float rowEnd = cumulative + rowHeight;
+        totalHeight = rowEnd;
+
+        if (!started && rowEnd >= minY)
+        {
+            started = true;
+            startIndex = i;
+            topPadding = rowStart;
+        }
+
+        if (started)
+        {
+            visibleHeight += rowHeight;
+            endIndex = i + 1;
+            if (rowStart > maxY)
+                break;
+        }
+
+        cumulative = rowEnd;
+    }
+
+    if (!started)
+    {
+        startIndex = 0;
+        endIndex = rowHeights.Count;
+        topPadding = 0f;
+        visibleHeight = totalHeight;
+    }
+}
+
+private DebugEntry GetSelectedEntry(DebugConsoleManager manager)
+{
+    if (manager == null)
+        return null;
+
+    IReadOnlyList<DebugEntry> entries = manager.Entries;
+    if (_selectedLogIndex < 0 || _selectedLogIndex >= entries.Count)
+        return null;
+
+    return entries[_selectedLogIndex];
+}
+
+private void DrawLiveLogDetailPanel(DebugEntry entry, float panelWidth)
+{
+    GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.Height(_logDetailPanelHeight));
+    GUILayout.Label("Log Detail", _titleStyle);
+
+    if (entry == null)
+    {
+        GUILayout.Label("로그를 선택하면 상세 정보가 표시됩니다.", _dimLabelStyle);
+        GUILayout.EndVertical();
+        return;
+    }
+
+    _detailScroll = GUILayout.BeginScrollView(_detailScroll, GUILayout.Height(_logDetailPanelHeight - 28f));
+    GUILayout.Label($"Time : {entry.Time}", _dimLabelStyle);
+    GUILayout.Label($"Type : {entry.Type} / {entry.Level}", _dimLabelStyle);
+    GUILayout.Label($"Source : {entry.SourceName}", _dimLabelStyle);
+    GUILayout.Label($"Member : {entry.MemberName} : {Mathf.Max(1, entry.LineNumber)}", _dimLabelStyle);
+    GUILayout.Label($"Scene : {(string.IsNullOrWhiteSpace(entry.SceneKey) ? "-" : entry.SceneKey)}", _dimLabelStyle);
+    GUILayout.Label($"Path : {(string.IsNullOrWhiteSpace(entry.HierarchyPath) ? "-" : entry.HierarchyPath)}", _dimLabelStyle);
+    GUILayout.Label($"GameObject : {(string.IsNullOrWhiteSpace(entry.GameObjectName) ? "-" : entry.GameObjectName)}", _dimLabelStyle);
+    GUILayout.Label($"Component : {(string.IsNullOrWhiteSpace(entry.ComponentName) ? "-" : entry.ComponentName)}", _dimLabelStyle);
+    GUILayout.Label($"Frame : {entry.FrameCount}", _dimLabelStyle);
+    GUILayout.Space(4f);
+
+    GUILayout.Label("Message", _dimLabelStyle);
+    GUI.enabled = false;
+    GUILayout.TextArea(entry.Message ?? string.Empty, GUILayout.MinHeight(68f));
+    GUI.enabled = true;
+
+    if (!string.IsNullOrWhiteSpace(entry.CallerFilePath))
+        GUILayout.Label($"Caller File : {entry.CallerFilePath}", _dimLabelStyle);
+
+    bool nextFoldout = GUILayout.Toggle(_stackTraceFoldout, "Stack Trace", GUI.skin.button, GUILayout.Height(24f));
+    if (nextFoldout != _stackTraceFoldout)
+    {
+        _stackTraceFoldout = nextFoldout;
+        SaveLayoutPreferences();
+    }
+
+    if (_stackTraceFoldout)
+    {
+        GUI.enabled = false;
+        GUILayout.TextArea(string.IsNullOrWhiteSpace(entry.StackTrace) ? "(No Stack Trace)" : entry.StackTrace, GUILayout.MinHeight(96f));
+        GUI.enabled = true;
+    }
+
+    GUILayout.EndScrollView();
+    GUILayout.EndVertical();
+}
+
+private void ResetRuntimeLayoutToDefault()
+{
+    _hierarchyPanelWidth = 420f;
+    _logDetailPanelHeight = 220f;
+    _hierarchyScroll = Vector2.zero;
+    _logScroll = Vector2.zero;
+    _typeFilterScroll = Vector2.zero;
+    _detailScroll = Vector2.zero;
+    _showTypeFilterPanel = false;
+    _showLogDetails = true;
+    _stackTraceFoldout = true;
+    SaveLayoutPreferences();
+}
 
     private void OpenEntryScript(DebugEntry entry)
     {
@@ -1115,6 +1318,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     {
         DebugConsolePreferenceStore.SetRect(WindowRectPrefKey, _windowRect);
         DebugConsolePreferenceStore.SetFloat(HierarchyPanelWidthPrefKey, _hierarchyPanelWidth);
+        DebugConsolePreferenceStore.SetBool(WindowRectPrefKey + ".ShowLogDetails", _showLogDetails);
+        DebugConsolePreferenceStore.SetBool(WindowRectPrefKey + ".StackTraceFoldout", _stackTraceFoldout);
+        DebugConsolePreferenceStore.SetFloat(WindowRectPrefKey + ".LogDetailHeight", _logDetailPanelHeight);
     }
 
     private void ClearFocus()
@@ -1397,34 +1603,40 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             manager.SetLevelEnabled(DebugLogLevel.Error, showErrors);
     }
 
-    private void DrawToolbarActionGroup(DebugConsoleManager manager, string typeButtonLabel)
-    {
-        if (GUILayout.Button(typeButtonLabel, _toolbarButtonStyle, GUILayout.Width(160f)))
-            _showTypeFilterPanel = !_showTypeFilterPanel;
+private void DrawToolbarActionGroup(DebugConsoleManager manager, string typeButtonLabel)
+{
+    if (GUILayout.Button(typeButtonLabel, _toolbarButtonStyle, GUILayout.Width(160f)))
+        _showTypeFilterPanel = !_showTypeFilterPanel;
 
-        if (GUILayout.Button("All Types On", GUILayout.Width(100f)))
-            manager.SetAllTypes(true);
+    if (GUILayout.Button("All Types On", _toolbarButtonStyle, GUILayout.Width(100f)))
+        manager.SetAllTypes(true);
 
-        if (GUILayout.Button("All Types Off", GUILayout.Width(100f)))
-            manager.SetAllTypes(false);
+    if (GUILayout.Button("All Types Off", _toolbarButtonStyle, GUILayout.Width(100f)))
+        manager.SetAllTypes(false);
 
-        if (GUILayout.Button("All Levels", GUILayout.Width(100f)))
-            manager.SetAllLevels(true);
+    if (GUILayout.Button("All Levels", _toolbarButtonStyle, GUILayout.Width(100f)))
+        manager.SetAllLevels(true);
 
-        if (GUILayout.Button("Warn+", GUILayout.Width(80f)))
-            manager.SetWarningAndErrorOnly();
+    if (GUILayout.Button("Warn+", _toolbarButtonStyle, GUILayout.Width(80f)))
+        manager.SetWarningAndErrorOnly();
 
-        if (GUILayout.Button("Error Only", GUILayout.Width(100f)))
-            manager.SetErrorOnly();
+    if (GUILayout.Button("Error Only", _toolbarButtonStyle, GUILayout.Width(100f)))
+        manager.SetErrorOnly();
 
-        if (GUILayout.Button("Clear Logs", GUILayout.Width(100f)))
-            manager.ClearLogs();
+    if (GUILayout.Button("Clear Logs", _toolbarButtonStyle, GUILayout.Width(100f)))
+        manager.ClearLogs();
 
-        if (GUILayout.Button("Clear Focus", GUILayout.Width(100f)))
-            ClearFocus();
-    }
+    if (GUILayout.Button("Clear Focus", _toolbarButtonStyle, GUILayout.Width(100f)))
+        ClearFocus();
 
-    private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
+    if (GUILayout.Button("Reset Filters", _toolbarButtonStyle, GUILayout.Width(110f)))
+        manager.ResetAllFiltersToDefault();
+
+    if (GUILayout.Button("Reset Layout", _toolbarButtonStyle, GUILayout.Width(110f)))
+        ResetRuntimeLayoutToDefault();
+}
+
+private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
     {
         GUILayout.Label(GetFocusLabel(), _toolbarInfoLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(expanded ? 34f : 18f));
         GUILayout.Space(8f);

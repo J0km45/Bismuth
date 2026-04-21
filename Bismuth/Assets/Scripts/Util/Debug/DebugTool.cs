@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -133,6 +134,7 @@ public static class DebugTool
             ColorHex = color,
             CallerFilePath = filePath,
             CallerColumn = 1,
+            StackTrace = BuildStackTrace(filePath, lineNumber, memberName),
             SequenceId = ++_sequence,
             FrameCount = UnityEngine.Time.frameCount,
             CapturedAtIsoUtc = DateTime.UtcNow.ToString("O"),
@@ -247,8 +249,44 @@ public static class DebugTool
         }
     }
 
-    private static string GetColor(DebugType type)
+
+private static string BuildStackTrace(string filePath, int lineNumber, string memberName)
+{
+    try
     {
+        var trace = new System.Diagnostics.StackTrace(2, true);
+        string raw = trace.ToString();
+
+        StringBuilder builder = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(raw))
+            builder.Append(raw.Trim());
+
+        if (!string.IsNullOrWhiteSpace(filePath))
+        {
+            if (builder.Length > 0)
+                builder.AppendLine();
+
+            builder.Append("Caller : ");
+            builder.Append(Path.GetFileName(filePath));
+            builder.Append(" / ");
+            builder.Append(string.IsNullOrWhiteSpace(memberName) ? "-" : memberName);
+            builder.Append(" / line ");
+            builder.Append(Mathf.Max(1, lineNumber));
+        }
+
+        return builder.ToString();
+    }
+    catch
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+            return string.Empty;
+
+        return $"Caller : {Path.GetFileName(filePath)} / {memberName} / line {Mathf.Max(1, lineNumber)}";
+    }
+}
+
+private static string GetColor(DebugType type)
+{
         switch (type)
         {
             case DebugType.Game: return "#c6a1fa";
