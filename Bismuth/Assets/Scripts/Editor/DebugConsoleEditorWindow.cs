@@ -85,6 +85,71 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private int _selectedLogIndex = -1;
 
+    private DebugConsoleEditorSnapshot _lastSnapshot;
+    private double _nextSnapshotCaptureTime;
+    private int _lastCapturedManagerChangeVersion = -1;
+
+    private readonly HashSet<string> _expandedSnapshotDetails = new();
+    private readonly HashSet<string> _expandedSnapshotChildren = new();
+
+    private const string SnapshotDirectoryPath = "Library/DebugConsole";
+    private const string SnapshotFileName = "DebugConsoleEditorSnapshot.json";
+
+    [Serializable]
+    private sealed class DebugConsoleEditorSnapshot
+    {
+        public string SceneName;
+        public string CapturedAt;
+        public bool GlobalEnabled;
+        public bool MirrorToUnityConsole;
+        public bool[] TypeFilters;
+        public List<SnapshotGameObjectNode> Roots = new();
+        public List<SnapshotLogEntry> Entries = new();
+
+        public bool HasData => (Roots != null && Roots.Count > 0) || (Entries != null && Entries.Count > 0);
+    }
+
+    [Serializable]
+    private sealed class SnapshotGameObjectNode
+    {
+        public string Name;
+        public string PathKey;
+        public bool Enabled;
+        public List<SnapshotComponentNode> Components = new();
+        public List<SnapshotGameObjectNode> Children = new();
+    }
+
+    [Serializable]
+    private sealed class SnapshotComponentNode
+    {
+        public string Name;
+        public string Key;
+        public bool Enabled;
+    }
+
+    [Serializable]
+    private sealed class SnapshotLogEntry
+    {
+        public string Time;
+        public string Message;
+        public string SourceName;
+        public string MemberName;
+        public int LineNumber;
+        public DebugType Type;
+        public DebugLogLevel Level;
+        public int GameObjectId;
+        public int ComponentId;
+        public string ColorHex;
+        public string CallerFilePath;
+        public int CallerColumn = 1;
+        public bool WasVisibleAtCapture;
+
+        public string RichText =>
+            $"<color={ColorHex}>[{Time}] [{Type}] {Message}</color>" +
+            $"<color=#daa520>출처 : [{SourceName}.{MemberName} : {LineNumber}]</color>";
+    }
+
+
     [MenuItem("Tools/Debug/Runtime Debug Console Window")]
     public static void Open()
     {
@@ -102,6 +167,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         _hierarchyPanelWidth = DebugConsolePreferenceStore.GetFloat(HierarchyPanelWidthPrefKey, _hierarchyPanelWidth);
         _hierarchySearchFieldControl ??= new SearchField();
         _logSearchFieldControl ??= new SearchField();
+        LoadSnapshotFromDisk();
     }
 
     private void OnDisable()
@@ -115,18 +181,40 @@ public class DebugConsoleEditorWindow : EditorWindow
     private void HandleEditorUpdate()
     {
         if (EditorApplication.isPlaying)
+        {
+            TryCaptureLiveSnapshot(false);
             Repaint();
+        }
     }
 
     private void HandlePlayModeChanged(PlayModeStateChange state)
     {
-        if (state == PlayModeStateChange.EnteredPlayMode ||
-            state == PlayModeStateChange.ExitingPlayMode)
+        if (state == PlayModeStateChange.EnteredPlayMode)
         {
             _selectedLogIndex = -1;
             _hierarchyScroll = Vector2.zero;
             _logScroll = Vector2.zero;
             ClearFocus();
+            _lastCapturedManagerChangeVersion = -1;
+            _nextSnapshotCaptureTime = 0d;
+            Repaint();
+            return;
+        }
+
+        if (state == PlayModeStateChange.ExitingPlayMode)
+        {
+            TryCaptureLiveSnapshot(true);
+            _selectedLogIndex = -1;
+            _hierarchyScroll = Vector2.zero;
+            _logScroll = Vector2.zero;
+            ClearFocus();
+            Repaint();
+            return;
+        }
+
+        if (state == PlayModeStateChange.EnteredEditMode)
+        {
+            LoadSnapshotFromDisk();
             Repaint();
         }
     }
@@ -137,6 +225,8 @@ public class DebugConsoleEditorWindow : EditorWindow
         _titleStyle = null;
         _expandedComponents.Clear();
         _expandedChildren.Clear();
+        _expandedSnapshotDetails.Clear();
+        _expandedSnapshotChildren.Clear();
         _selectedLogIndex = -1;
         _hierarchyScroll = Vector2.zero;
         ClearFocus();
@@ -149,9 +239,7 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         if (!EditorApplication.isPlaying)
         {
-            EditorGUILayout.HelpBox("플레이 모드에서 Runtime Debug Console 데이터를 표시합니다.", MessageType.Info);
-            if (GUILayout.Button("Play"))
-                EditorApplication.isPlaying = true;
+            DrawSnapshotOrIdleView();
             return;
         }
 
@@ -162,11 +250,609 @@ public class DebugConsoleEditorWindow : EditorWindow
             return;
         }
 
+        TryCaptureLiveSnapshot(false);
         DrawToolbar(manager);
         DrawSearchBar();
         DrawTypeFilterPanel(manager);
 
         DrawResizablePanels(manager);
+    }
+
+
+    private void DrawSnapshotOrIdleView()
+    {
+        if (_lastSnapshot == null || !_lastSnapshot.HasData)
+        {
+            EditorGUILayout.HelpBox("플레이 모드에서 Runtime Debug Console 데이터를 표시합니다.", MessageType.Info);
+            if (GUILayout.Button("Play"))
+                EditorApplication.isPlaying = true;
+            return;
+        }
+
+        string sceneName = string.IsNullOrWhiteSpace(_lastSnapshot.SceneName) ? "(Unknown)" : _lastSnapshot.SceneName;
+        string capturedAt = string.IsNullOrWhiteSpace(_lastSnapshot.CapturedAt) ? "-" : _lastSnapshot.CapturedAt;
+
+        EditorGUILayout.HelpBox($"마지막 플레이 스냅샷을 표시합니다. Scene : {sceneName} / Captured : {capturedAt}", MessageType.Info);
+
+        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+        GUILayout.Label("Snapshot Mode (Read Only)", _titleStyle, GUILayout.ExpandWidth(true));
+
+        if (GUILayout.Button("Clear Focus", GUILayout.Width(100f)))
+            ClearFocus();
+
+        if (GUILayout.Button("Clear Snapshot", GUILayout.Width(120f)))
+        {
+            ClearSavedSnapshot();
+            return;
+        }
+
+        if (GUILayout.Button("Play", GUILayout.Width(100f)))
+            EditorApplication.isPlaying = true;
+
+        EditorGUILayout.EndHorizontal();
+
+        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
+        GUILayout.Label($"Global : {(_lastSnapshot.GlobalEnabled ? "On" : "Off")}", GUILayout.Width(110f));
+        GUILayout.Label($"Mirror Unity : {(_lastSnapshot.MirrorToUnityConsole ? "On" : "Off")}", GUILayout.Width(130f));
+        GUILayout.Label($"Count : {GetVisibleSnapshotEntryCount(_lastSnapshot)}", GUILayout.Width(120f));
+        GUILayout.FlexibleSpace();
+        EditorGUILayout.EndHorizontal();
+        GUILayout.Space(4f);
+
+        DrawSearchBar();
+        DrawSnapshotResizablePanels(_lastSnapshot);
+    }
+
+    private void DrawSnapshotResizablePanels(DebugConsoleEditorSnapshot snapshot)
+    {
+        float contentWidth = Mathf.Max(620f, position.width - 24f);
+        float maxHierarchyPanelWidth = Mathf.Max(MinHierarchyPanelWidth, contentWidth - MinLogPanelWidth - PanelSplitterWidth);
+
+        if (_hierarchyPanelWidth <= 0f)
+            _hierarchyPanelWidth = contentWidth * 0.42f;
+
+        _hierarchyPanelWidth = Mathf.Clamp(_hierarchyPanelWidth, MinHierarchyPanelWidth, maxHierarchyPanelWidth);
+        float logPanelWidth = Mathf.Max(MinLogPanelWidth, contentWidth - _hierarchyPanelWidth - PanelSplitterWidth);
+
+        EditorGUILayout.BeginHorizontal(GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
+        DrawSnapshotHierarchyPanel(snapshot, _hierarchyPanelWidth);
+        DrawPanelSplitter(contentWidth);
+        DrawSnapshotLogPanel(snapshot, logPanelWidth);
+        EditorGUILayout.EndHorizontal();
+    }
+
+    private void DrawSnapshotHierarchyPanel(DebugConsoleEditorSnapshot snapshot, float panelWidth)
+    {
+        GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("Scene Objects / Components", _titleStyle, GUILayout.ExpandWidth(true));
+        GUILayout.EndHorizontal();
+
+        _hierarchyScroll = GUILayout.BeginScrollView(_hierarchyScroll);
+
+        if (snapshot?.Roots != null)
+        {
+            for (int i = 0; i < snapshot.Roots.Count; i++)
+                DrawSnapshotGameObjectNode(snapshot.Roots[i], 0, panelWidth);
+        }
+
+        GUILayout.EndScrollView();
+
+        GUILayout.Space(4f);
+        string footerCountText = $"Count : {GetVisibleSnapshotEntryCount(snapshot)}";
+
+        GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(30f));
+        GUILayout.Space(10f);
+        GUILayout.Label("Focus : All", _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
+        GUILayout.Space(12f);
+        GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerRightLabelStyle, GUILayout.Width(100f), GUILayout.MinHeight(22f));
+        GUILayout.Space(10f);
+        GUILayout.EndHorizontal();
+        GUILayout.EndVertical();
+    }
+
+    private void DrawSnapshotGameObjectNode(SnapshotGameObjectNode node, int depth, float panelWidth)
+    {
+        if (node == null)
+            return;
+
+        if (!ShouldShowSnapshotGameObject(node))
+            return;
+
+        bool hasVisibleComponents = HasVisibleSnapshotComponents(node.Components, node.Name);
+        bool hasVisibleChildren = HasVisibleSnapshotChildren(node.Children);
+        bool hasDetails = hasVisibleComponents || hasVisibleChildren;
+
+        bool detailsExpanded = !string.IsNullOrWhiteSpace(node.PathKey) && _expandedSnapshotDetails.Contains(node.PathKey);
+        bool childrenExpanded = !string.IsNullOrWhiteSpace(node.PathKey) && _expandedSnapshotChildren.Contains(node.PathKey);
+
+        bool searchActive = !string.IsNullOrWhiteSpace(_hierarchySearch);
+        bool forceOpenDetails = searchActive && (HasMatchingSnapshotComponent(node, _hierarchySearch) || hasVisibleChildren);
+        bool forceOpenChildren = searchActive && hasVisibleChildren;
+
+        bool showDetails = hasDetails && (detailsExpanded || forceOpenDetails);
+        bool showChildren = hasVisibleChildren && (childrenExpanded || forceOpenChildren);
+
+        float objectLeadingSpace = depth * 18f;
+        float rowContentWidth = GetHierarchyRowContentWidth(panelWidth);
+
+        GUILayout.BeginVertical(GUILayout.Width(rowContentWidth));
+        GUILayout.BeginHorizontal(GUILayout.Width(rowContentWidth), GUILayout.Height(HierarchyRowHeight));
+        GUILayout.Space(objectLeadingSpace);
+
+        bool previousEnabled = GUI.enabled;
+        GUI.enabled = false;
+        GUILayout.Toggle(node.Enabled, GUIContent.none, GUILayout.Width(HierarchyToggleSize), GUILayout.Height(HierarchyRowHeight));
+
+        GUIStyle objectStyle = node.Enabled ? _linkButtonStyle : _disabledButtonStyle;
+        GUIContent objectContent = new GUIContent(GetDisplayName(node.Name), node.Name);
+        float objectButtonWidth = GetHierarchyTextButtonWidth(rowContentWidth, objectLeadingSpace, true, true);
+        GUILayout.Button(objectContent, objectStyle, GUILayout.Width(objectButtonWidth), GUILayout.Height(HierarchyRowHeight));
+        GUI.enabled = previousEnabled;
+
+        if (hasDetails)
+        {
+            string foldoutLabel = showDetails ? "▾" : "▸";
+            if (GUILayout.Button(foldoutLabel, _foldoutButtonStyle, GUILayout.Width(HierarchyFoldoutSize), GUILayout.Height(HierarchyRowHeight)))
+                ToggleExpandedSet(_expandedSnapshotDetails, node.PathKey);
+        }
+        else
+        {
+            GUILayout.Space(HierarchyFoldoutSize);
+        }
+
+        GUILayout.EndHorizontal();
+        GUILayout.EndVertical();
+
+        if (!showDetails)
+            return;
+
+        if (hasVisibleComponents)
+        {
+            float componentLeadingSpace = (depth + 1) * 18f + HierarchyToggleSize + 8f;
+
+            for (int i = 0; i < node.Components.Count; i++)
+            {
+                SnapshotComponentNode component = node.Components[i];
+                if (!ShouldShowSnapshotComponent(component, node.Name))
+                    continue;
+
+                GUILayout.BeginVertical(GUILayout.Width(rowContentWidth));
+                GUILayout.BeginHorizontal(GUILayout.Width(rowContentWidth), GUILayout.Height(HierarchyRowHeight));
+                GUILayout.Space(componentLeadingSpace);
+
+                previousEnabled = GUI.enabled;
+                GUI.enabled = false;
+                GUILayout.Toggle(component.Enabled, GUIContent.none, GUILayout.Width(HierarchyToggleSize), GUILayout.Height(HierarchyRowHeight));
+
+                GUIStyle componentStyle = component.Enabled ? _linkButtonStyle : _disabledButtonStyle;
+                GUIContent componentContent = new GUIContent(GetDisplayName(component.Name), component.Name);
+                float componentButtonWidth = GetHierarchyTextButtonWidth(rowContentWidth, componentLeadingSpace, true, true);
+                GUILayout.Button(componentContent, componentStyle, GUILayout.Width(componentButtonWidth), GUILayout.Height(HierarchyRowHeight));
+                GUI.enabled = previousEnabled;
+
+                GUILayout.Space(HierarchyFoldoutSize);
+                GUILayout.EndHorizontal();
+                GUILayout.EndVertical();
+            }
+        }
+
+        if (hasVisibleChildren)
+        {
+            float childLeadingSpace = (depth + 1) * 18f + HierarchyToggleSize + 8f + HierarchyToggleSize;
+
+            GUILayout.BeginHorizontal(GUILayout.Width(rowContentWidth), GUILayout.Height(HierarchyRowHeight));
+            GUILayout.Space((depth + 1) * 18f + HierarchyToggleSize + 8f);
+            GUILayout.Space(HierarchyToggleSize);
+
+            float childButtonWidth = GetHierarchyTextButtonWidth(rowContentWidth, childLeadingSpace, true, true);
+            if (GUILayout.Button(new GUIContent("하위 오브젝트", "하위 오브젝트"), _linkButtonStyle, GUILayout.Width(childButtonWidth), GUILayout.Height(HierarchyRowHeight)))
+                ToggleExpandedSet(_expandedSnapshotChildren, node.PathKey);
+
+            string childFoldoutLabel = showChildren ? "▾" : "▸";
+            if (GUILayout.Button(childFoldoutLabel, _foldoutButtonStyle, GUILayout.Width(HierarchyFoldoutSize), GUILayout.Height(HierarchyRowHeight)))
+                ToggleExpandedSet(_expandedSnapshotChildren, node.PathKey);
+
+            GUILayout.EndHorizontal();
+
+            if (showChildren)
+            {
+                for (int i = 0; i < node.Children.Count; i++)
+                    DrawSnapshotGameObjectNode(node.Children[i], depth + 1, panelWidth);
+            }
+        }
+    }
+
+    private void DrawSnapshotLogPanel(DebugConsoleEditorSnapshot snapshot, float panelWidth)
+    {
+        EditorGUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
+        EditorGUILayout.BeginHorizontal();
+        GUILayout.Label("Logs", _titleStyle);
+        EditorGUILayout.EndHorizontal();
+
+        _logScroll = EditorGUILayout.BeginScrollView(_logScroll);
+
+        float width = Mathf.Max(panelWidth - 32f, 300f);
+        if (snapshot?.Entries != null)
+        {
+            for (int i = 0; i < snapshot.Entries.Count; i++)
+            {
+                SnapshotLogEntry entry = snapshot.Entries[i];
+                if (!ShouldDisplaySnapshotEntry(entry))
+                    continue;
+
+                DrawSnapshotLogEntry(entry, i, width);
+                GUILayout.Space(4f);
+            }
+        }
+
+        EditorGUILayout.EndScrollView();
+        EditorGUILayout.EndVertical();
+    }
+
+    private float DrawSnapshotLogEntry(SnapshotLogEntry entry, int index, float width)
+    {
+        GUIContent content = new GUIContent(entry.RichText);
+        float height = _richLabelStyle.CalcHeight(content, width);
+
+        Rect rect = GUILayoutUtility.GetRect(10f, height + 12f, GUILayout.ExpandWidth(true));
+
+        Color previousColor = GUI.color;
+        if (index == _selectedLogIndex)
+            GUI.color = new Color(0.75f, 0.85f, 1f, 1f);
+
+        GUI.Box(rect, GUIContent.none);
+        GUI.color = previousColor;
+
+        Rect labelRect = new Rect(rect.x + 6f, rect.y + 6f, rect.width - 12f, rect.height - 12f);
+        GUI.Label(labelRect, content, _richLabelStyle);
+
+        if (Event.current.type == EventType.MouseDown &&
+            Event.current.button == 0 &&
+            rect.Contains(Event.current.mousePosition))
+        {
+            _selectedLogIndex = index;
+
+            if (Event.current.clickCount >= 2)
+                OpenEntryScript(entry);
+
+            Event.current.Use();
+        }
+
+        return rect.height;
+    }
+
+    private bool ShouldShowSnapshotGameObject(SnapshotGameObjectNode node)
+    {
+        if (node == null)
+            return false;
+
+        if (string.IsNullOrWhiteSpace(_hierarchySearch))
+            return true;
+
+        if (ContainsIgnoreCase(node.Name, _hierarchySearch))
+            return true;
+
+        if (HasMatchingSnapshotComponent(node, _hierarchySearch))
+            return true;
+
+        return HasVisibleSnapshotChildren(node.Children);
+    }
+
+    private bool HasMatchingSnapshotComponent(SnapshotGameObjectNode node, string keyword)
+    {
+        if (node?.Components == null)
+            return false;
+
+        for (int i = 0; i < node.Components.Count; i++)
+        {
+            SnapshotComponentNode component = node.Components[i];
+            if (ShouldShowSnapshotComponent(component, node.Name) && ContainsIgnoreCase(component.Name, keyword))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool HasVisibleSnapshotComponents(List<SnapshotComponentNode> components, string ownerName)
+    {
+        if (components == null || components.Count == 0)
+            return false;
+
+        for (int i = 0; i < components.Count; i++)
+        {
+            if (ShouldShowSnapshotComponent(components[i], ownerName))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool HasVisibleSnapshotChildren(List<SnapshotGameObjectNode> children)
+    {
+        if (children == null || children.Count == 0)
+            return false;
+
+        for (int i = 0; i < children.Count; i++)
+        {
+            if (ShouldShowSnapshotGameObject(children[i]))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool ShouldShowSnapshotComponent(SnapshotComponentNode component, string ownerName)
+    {
+        if (component == null)
+            return false;
+
+        if (_hideTransform && string.Equals(component.Name, nameof(Transform), StringComparison.Ordinal))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(_hierarchySearch))
+            return true;
+
+        if (ContainsIgnoreCase(ownerName, _hierarchySearch))
+            return true;
+
+        return ContainsIgnoreCase(component.Name, _hierarchySearch);
+    }
+
+    private bool ShouldDisplaySnapshotEntry(SnapshotLogEntry entry)
+    {
+        if (entry == null || !entry.WasVisibleAtCapture)
+            return false;
+
+        if (_lastSnapshot != null)
+        {
+            if (!_lastSnapshot.GlobalEnabled)
+                return false;
+
+            if (_lastSnapshot.TypeFilters != null)
+            {
+                int typeIndex = (int)entry.Type;
+                if (typeIndex >= 0 && typeIndex < _lastSnapshot.TypeFilters.Length && !_lastSnapshot.TypeFilters[typeIndex])
+                    return false;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(_logSearch))
+            return true;
+
+        string searchPool = $"{entry.Message} {entry.SourceName} {entry.MemberName} {entry.Type} {entry.Time}";
+        return ContainsIgnoreCase(searchPool, _logSearch);
+    }
+
+    private int GetVisibleSnapshotEntryCount(DebugConsoleEditorSnapshot snapshot)
+    {
+        if (snapshot?.Entries == null)
+            return 0;
+
+        int count = 0;
+        for (int i = 0; i < snapshot.Entries.Count; i++)
+        {
+            if (ShouldDisplaySnapshotEntry(snapshot.Entries[i]))
+                count++;
+        }
+
+        return count;
+    }
+
+    private void TryCaptureLiveSnapshot(bool force)
+    {
+        if (!EditorApplication.isPlaying)
+            return;
+
+        DebugConsoleManager manager = DebugConsoleManager.Instance;
+        if (manager == null)
+            return;
+
+        double now = EditorApplication.timeSinceStartup;
+        bool captureByInterval = now >= _nextSnapshotCaptureTime;
+        bool captureByChange = manager.ChangeVersion != _lastCapturedManagerChangeVersion;
+
+        if (!force && !captureByInterval && !captureByChange)
+            return;
+
+        _lastSnapshot = CaptureSnapshot(manager);
+        SaveSnapshotToDisk(_lastSnapshot);
+        _lastCapturedManagerChangeVersion = manager.ChangeVersion;
+        _nextSnapshotCaptureTime = now + 0.35d;
+    }
+
+    private DebugConsoleEditorSnapshot CaptureSnapshot(DebugConsoleManager manager)
+    {
+        DebugConsoleEditorSnapshot snapshot = new DebugConsoleEditorSnapshot
+        {
+            SceneName = SceneManager.GetActiveScene().name,
+            CapturedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+            GlobalEnabled = manager.GlobalEnabled,
+            MirrorToUnityConsole = manager.MirrorToUnityConsole,
+            TypeFilters = CaptureTypeFilters(manager),
+            Roots = new List<SnapshotGameObjectNode>(),
+            Entries = new List<SnapshotLogEntry>()
+        };
+
+        Scene activeScene = SceneManager.GetActiveScene();
+        if (activeScene.IsValid())
+        {
+            GameObject[] roots = activeScene.GetRootGameObjects();
+            for (int i = 0; i < roots.Length; i++)
+                snapshot.Roots.Add(CaptureSnapshotNode(manager, roots[i], GetHierarchyPath(roots[i].transform)));
+        }
+
+        IReadOnlyList<DebugEntry> entries = manager.Entries;
+        for (int i = 0; i < entries.Count; i++)
+        {
+            DebugEntry entry = entries[i];
+            if (entry == null)
+                continue;
+
+            snapshot.Entries.Add(new SnapshotLogEntry
+            {
+                Time = entry.Time ?? string.Empty,
+                Message = entry.Message ?? string.Empty,
+                SourceName = entry.SourceName ?? string.Empty,
+                MemberName = entry.MemberName ?? string.Empty,
+                LineNumber = entry.LineNumber,
+                Type = entry.Type,
+                Level = entry.Level,
+                GameObjectId = entry.GameObjectId,
+                ComponentId = entry.ComponentId,
+                ColorHex = string.IsNullOrWhiteSpace(entry.ColorHex) ? "#ffffff" : entry.ColorHex,
+                CallerFilePath = entry.CallerFilePath ?? string.Empty,
+                CallerColumn = Mathf.Max(1, entry.CallerColumn),
+                WasVisibleAtCapture = manager.IsAllowed(entry.Type, entry.GameObjectId, entry.ComponentId)
+            });
+        }
+
+        return snapshot;
+    }
+
+    private SnapshotGameObjectNode CaptureSnapshotNode(DebugConsoleManager manager, GameObject go, string pathKey)
+    {
+        SnapshotGameObjectNode node = new SnapshotGameObjectNode
+        {
+            Name = go != null ? go.name : "(Null)",
+            PathKey = pathKey,
+            Enabled = go != null && manager.GetGameObjectEnabled(go),
+            Components = new List<SnapshotComponentNode>(),
+            Children = new List<SnapshotGameObjectNode>()
+        };
+
+        if (go == null)
+            return node;
+
+        Component[] components = go.GetComponents<Component>();
+        for (int i = 0; i < components.Length; i++)
+        {
+            Component component = components[i];
+            string componentName = component != null ? component.GetType().Name : "Missing Script";
+            string componentKey = $"{pathKey}::{componentName}[{i}]";
+
+            node.Components.Add(new SnapshotComponentNode
+            {
+                Name = componentName,
+                Key = componentKey,
+                Enabled = component == null || manager.GetComponentEnabled(component)
+            });
+        }
+
+        for (int i = 0; i < go.transform.childCount; i++)
+        {
+            Transform child = go.transform.GetChild(i);
+            if (child == null)
+                continue;
+
+            node.Children.Add(CaptureSnapshotNode(manager, child.gameObject, GetHierarchyPath(child)));
+        }
+
+        return node;
+    }
+
+    private bool[] CaptureTypeFilters(DebugConsoleManager manager)
+    {
+        DebugType[] types = (DebugType[])Enum.GetValues(typeof(DebugType));
+        bool[] filters = new bool[types.Length];
+
+        for (int i = 0; i < types.Length; i++)
+            filters[i] = manager.GetTypeEnabled(types[i]);
+
+        return filters;
+    }
+
+    private string GetHierarchyPath(Transform target)
+    {
+        if (target == null)
+            return string.Empty;
+
+        Stack<string> stack = new Stack<string>();
+        Transform current = target;
+
+        while (current != null)
+        {
+            stack.Push($"{current.name}[{current.GetSiblingIndex()}]");
+            current = current.parent;
+        }
+
+        return string.Join("/", stack);
+    }
+
+    private string GetSnapshotFilePath()
+    {
+        return Path.Combine(Directory.GetCurrentDirectory(), SnapshotDirectoryPath, SnapshotFileName);
+    }
+
+    private void SaveSnapshotToDisk(DebugConsoleEditorSnapshot snapshot)
+    {
+        if (snapshot == null)
+            return;
+
+        try
+        {
+            string filePath = GetSnapshotFilePath();
+            string directoryPath = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrWhiteSpace(directoryPath))
+                Directory.CreateDirectory(directoryPath);
+
+            File.WriteAllText(filePath, JsonUtility.ToJson(snapshot, true));
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning($"DebugConsoleEditorWindow snapshot save failed: {exception.Message}");
+        }
+    }
+
+    private void LoadSnapshotFromDisk()
+    {
+        try
+        {
+            string filePath = GetSnapshotFilePath();
+            if (!File.Exists(filePath))
+            {
+                _lastSnapshot = null;
+                return;
+            }
+
+            string json = File.ReadAllText(filePath);
+            _lastSnapshot = JsonUtility.FromJson<DebugConsoleEditorSnapshot>(json);
+            if (_lastSnapshot == null)
+            {
+                _lastSnapshot = null;
+                return;
+            }
+
+            _lastSnapshot.Roots ??= new List<SnapshotGameObjectNode>();
+            _lastSnapshot.Entries ??= new List<SnapshotLogEntry>();
+        }
+        catch (Exception exception)
+        {
+            _lastSnapshot = null;
+            Debug.LogWarning($"DebugConsoleEditorWindow snapshot load failed: {exception.Message}");
+        }
+    }
+
+    private void ClearSavedSnapshot()
+    {
+        _lastSnapshot = null;
+        _selectedLogIndex = -1;
+        _hierarchyScroll = Vector2.zero;
+        _logScroll = Vector2.zero;
+        _expandedSnapshotDetails.Clear();
+        _expandedSnapshotChildren.Clear();
+        ClearFocus();
+
+        try
+        {
+            string filePath = GetSnapshotFilePath();
+            if (File.Exists(filePath))
+                File.Delete(filePath);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning($"DebugConsoleEditorWindow snapshot delete failed: {exception.Message}");
+        }
     }
 
     private void InitStyles()
@@ -760,6 +1446,19 @@ public class DebugConsoleEditorWindow : EditorWindow
 #endif
     }
 
+    private void OpenEntryScript(SnapshotLogEntry entry)
+    {
+#if UNITY_EDITOR
+        if (entry == null)
+            return;
+
+        if (!TryGetEntryScriptLocation(entry.CallerFilePath, entry.LineNumber, entry.CallerColumn, out MonoScript script, out int lineNumber, out int columnNumber))
+            return;
+
+        AssetDatabase.OpenAsset(script, Mathf.Max(1, lineNumber), Mathf.Max(1, columnNumber));
+#endif
+    }
+
 #if UNITY_EDITOR
     private bool TryGetEntryScriptLocation(DebugEntry entry, out MonoScript script, out int lineNumber, out int columnNumber)
     {
@@ -767,20 +1466,29 @@ public class DebugConsoleEditorWindow : EditorWindow
         lineNumber = 1;
         columnNumber = 1;
 
-        if (entry == null || string.IsNullOrWhiteSpace(entry.CallerFilePath))
+        if (entry == null)
             return false;
 
-        lineNumber = Mathf.Max(1, entry.LineNumber);
-        columnNumber = Mathf.Max(1, entry.CallerColumn);
+        return TryGetEntryScriptLocation(entry.CallerFilePath, entry.LineNumber, entry.CallerColumn, out script, out lineNumber, out columnNumber);
+    }
 
-        if (TryConvertCallerPathToAssetPath(entry.CallerFilePath, out string assetPath))
+    private bool TryGetEntryScriptLocation(string callerFilePath, int sourceLineNumber, int sourceColumnNumber, out MonoScript script, out int lineNumber, out int columnNumber)
+    {
+        script = null;
+        lineNumber = Mathf.Max(1, sourceLineNumber);
+        columnNumber = Mathf.Max(1, sourceColumnNumber);
+
+        if (string.IsNullOrWhiteSpace(callerFilePath))
+            return false;
+
+        if (TryConvertCallerPathToAssetPath(callerFilePath, out string assetPath))
         {
             script = AssetDatabase.LoadAssetAtPath<MonoScript>(assetPath);
             if (script != null)
                 return true;
         }
 
-        return TryFindScriptByFileName(entry.CallerFilePath, out script);
+        return TryFindScriptByFileName(callerFilePath, out script);
     }
 
     private bool TryConvertCallerPathToAssetPath(string callerFilePath, out string assetPath)
@@ -1177,6 +1885,17 @@ public class DebugConsoleEditorWindow : EditorWindow
             set.Remove(id);
         else
             set.Add(id);
+    }
+
+    private void ToggleExpandedSet(HashSet<string> set, string key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            return;
+
+        if (set.Contains(key))
+            set.Remove(key);
+        else
+            set.Add(key);
     }
 
     private int GetEnabledTypeCount(DebugConsoleManager manager)
