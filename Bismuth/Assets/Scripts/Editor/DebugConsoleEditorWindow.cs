@@ -35,6 +35,10 @@ public class DebugConsoleEditorWindow : EditorWindow
     private SearchField _hierarchySearchFieldControl;
     private SearchField _logSearchFieldControl;
 
+    private const float SearchLabelWidth = 52f;
+    private const float SearchFieldFixedWidth = 220f;
+    private const float SearchClearButtonWidth = 88f;
+
     private GUIStyle _titleStyle;
     private GUIStyle _boxStyle;
     private GUIStyle _richLabelStyle;
@@ -428,11 +432,11 @@ private sealed class DebugConsoleEditorBackupData
     {
         GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
         GUILayout.BeginHorizontal();
-        GUILayout.Label($"Scene Objects / Components {GetFocusSuffix()}", _titleStyle, GUILayout.ExpandWidth(true));
+        GUILayout.Label("Scene Objects / Components", _titleStyle, GUILayout.ExpandWidth(true));
         GUILayout.EndHorizontal();
         GUILayout.Space(4f);
         EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-        DrawHierarchySearchField(Mathf.Max(160f, panelWidth - 130f), 105f);
+        DrawHierarchySearchField();
         EditorGUILayout.EndHorizontal();
         GUILayout.Space(4f);
 
@@ -711,7 +715,7 @@ private void DrawSnapshotLogPanel(DebugConsoleEditorSnapshot snapshot, float pan
 {
     EditorGUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
     EditorGUILayout.BeginHorizontal();
-    GUILayout.Label($"Logs {GetFocusSuffix()}", _titleStyle);
+    GUILayout.Label("Logs", _titleStyle, GUILayout.ExpandWidth(true));
     bool nextShowLogDetails = GUILayout.Toggle(_showLogDetails, "Details", GUILayout.Width(70f));
     if (nextShowLogDetails != _showLogDetails)
     {
@@ -721,7 +725,7 @@ private void DrawSnapshotLogPanel(DebugConsoleEditorSnapshot snapshot, float pan
     EditorGUILayout.EndHorizontal();
     GUILayout.Space(4f);
     EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-    DrawLogSearchField(75f);
+    DrawLogSearchField();
     EditorGUILayout.EndHorizontal();
     GUILayout.Space(4f);
 
@@ -1086,19 +1090,35 @@ private float DrawSnapshotLogEntry(SnapshotLogEntry entry, int sourceIndex, floa
         if (!string.IsNullOrWhiteSpace(gameObjectKey))
             return;
 
-        if (entry?.Context is GameObject go)
+        try
         {
-            gameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(go);
-            gameObjectName = go.name;
-            return;
-        }
+            if (entry?.Context is GameObject go)
+            {
+                if (go == null)
+                    return;
 
-        if (entry?.Context is Component component)
+                gameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(go);
+                gameObjectName = go.name;
+                return;
+            }
+
+            if (entry?.Context is Component component)
+            {
+                if (component == null)
+                    return;
+
+                GameObject owner = component.gameObject;
+                if (owner == null)
+                    return;
+
+                gameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(owner);
+                componentKey = DebugConsoleFilterKeyUtility.GetComponentKey(component);
+                gameObjectName = owner.name;
+                componentName = component.GetType().Name;
+            }
+        }
+        catch (MissingReferenceException)
         {
-            gameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(component.gameObject);
-            componentKey = DebugConsoleFilterKeyUtility.GetComponentKey(component);
-            gameObjectName = component.gameObject.name;
-            componentName = component.GetType().Name;
         }
     }
 
@@ -2438,20 +2458,20 @@ private void DrawSnapshotToolbarActionGroupWrapped(DebugConsoleEditorSnapshot sn
         {
             EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
             float hierarchyWidth = Mathf.Clamp((availableWidth - 330f) * 0.42f, 160f, 320f);
-            DrawHierarchySearchField(hierarchyWidth, 105f);
+            DrawHierarchySearchField();
             GUILayout.Space(12f);
-            DrawLogSearchField(75f);
+            DrawLogSearchField();
             EditorGUILayout.EndHorizontal();
             GUILayout.Space(4f);
             return;
         }
 
         EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-        DrawHierarchySearchField(Mathf.Max(160f, availableWidth - 130f), 105f);
+        DrawHierarchySearchField();
         EditorGUILayout.EndHorizontal();
 
         EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-        DrawLogSearchField(75f);
+        DrawLogSearchField();
         EditorGUILayout.EndHorizontal();
         GUILayout.Space(4f);
     }
@@ -2576,7 +2596,7 @@ private void DrawSnapshotToolbarActionGroupWrapped(DebugConsoleEditorSnapshot sn
         GUILayout.EndHorizontal();
         GUILayout.Space(4f);
         EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-        DrawHierarchySearchField(Mathf.Max(160f, panelWidth - 130f), 105f);
+        DrawHierarchySearchField();
         EditorGUILayout.EndHorizontal();
         GUILayout.Space(4f);
 
@@ -2796,7 +2816,7 @@ private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
 {
     EditorGUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
     EditorGUILayout.BeginHorizontal();
-    GUILayout.Label($"Logs {GetFocusSuffix()}", _titleStyle);
+    GUILayout.Label("Logs", _titleStyle, GUILayout.ExpandWidth(true));
     bool nextShowLogDetails = GUILayout.Toggle(_showLogDetails, "Details", GUILayout.Width(70f));
     if (nextShowLogDetails != _showLogDetails)
     {
@@ -2806,7 +2826,7 @@ private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     EditorGUILayout.EndHorizontal();
     GUILayout.Space(4f);
     EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-    DrawLogSearchField(75f);
+    DrawLogSearchField();
     EditorGUILayout.EndHorizontal();
     GUILayout.Space(4f);
 
@@ -3467,39 +3487,55 @@ private void ApplyEditorUiState(DebugConsoleEditorUiState state)
         if (entry == null)
             return;
 
-        _focusedSnapshotGameObjectKey = string.Empty;
-        _focusedSnapshotComponentKey = string.Empty;
+        _focusedSnapshotGameObjectKey = entry.GameObjectKey ?? string.Empty;
+        _focusedSnapshotComponentKey = entry.ComponentKey ?? string.Empty;
+        _focusedObjectName = entry.GameObjectName ?? string.Empty;
+        _focusedComponentName = entry.ComponentName ?? string.Empty;
 
         GameObject targetGameObject = null;
 
-        if (entry.Context is GameObject go)
+        try
         {
-            targetGameObject = go;
-            _focusedGameObjectId = go.GetInstanceID();
-            _focusedComponentId = 0;
-            _focusedSnapshotGameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(go);
-            _focusedSnapshotComponentKey = string.Empty;
-            _focusedObjectName = go.name;
-            _focusedComponentName = string.Empty;
-            PrepareSelectionExpansion(go.transform, true);
+            if (entry.Context is GameObject go)
+            {
+                if (go != null)
+                {
+                    targetGameObject = go;
+                    _focusedGameObjectId = go.GetInstanceID();
+                    _focusedComponentId = 0;
+                    _focusedSnapshotGameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(go);
+                    _focusedSnapshotComponentKey = string.Empty;
+                    _focusedObjectName = go.name;
+                    _focusedComponentName = string.Empty;
+                    PrepareSelectionExpansion(go.transform, true);
+                }
+            }
+            else if (entry.Context is Component component)
+            {
+                if (component != null && component.gameObject != null)
+                {
+                    targetGameObject = component.gameObject;
+                    _focusedGameObjectId = component.gameObject.GetInstanceID();
+                    _focusedComponentId = component.GetInstanceID();
+                    _focusedSnapshotGameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(component.gameObject);
+                    _focusedSnapshotComponentKey = DebugConsoleFilterKeyUtility.GetComponentKey(component);
+                    _focusedObjectName = component.gameObject.name;
+                    _focusedComponentName = component.GetType().Name;
+                    PrepareSelectionExpansion(component.transform, true);
+                }
+            }
         }
-        else if (entry.Context is Component component)
+        catch (MissingReferenceException)
         {
-            targetGameObject = component.gameObject;
-            _focusedGameObjectId = component.gameObject.GetInstanceID();
-            _focusedComponentId = component.GetInstanceID();
-            _focusedSnapshotGameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(component.gameObject);
-            _focusedSnapshotComponentKey = DebugConsoleFilterKeyUtility.GetComponentKey(component);
-            _focusedObjectName = component.gameObject.name;
-            _focusedComponentName = component.GetType().Name;
-            PrepareSelectionExpansion(component.transform, true);
+            targetGameObject = null;
         }
 
-        if (targetGameObject == null)
-            return;
+        if (targetGameObject != null)
+        {
+            Selection.activeGameObject = targetGameObject;
+            EditorGUIUtility.PingObject(targetGameObject);
+        }
 
-        Selection.activeGameObject = targetGameObject;
-        EditorGUIUtility.PingObject(targetGameObject);
         SaveEditorUiState();
     }
 
@@ -4358,22 +4394,23 @@ private int GetWrappedSplitIndex((string label, float width)[] items, float avai
         GUILayout.Label($"Count : {manager.Entries.Count}", _toolbarInfoLabelStyle, GUILayout.Width(expanded ? 120f : 110f), GUILayout.MinHeight(expanded ? 30f : 18f));
     }
 
-    private void DrawHierarchySearchField(float fieldWidth, float labelWidth)
+    private void DrawHierarchySearchField()
     {
-        GUILayout.Label("Hierarchy Search", GUILayout.Width(labelWidth));
+        GUILayout.Label("Search", GUILayout.Width(SearchLabelWidth));
+        float fieldWidth = SearchFieldFixedWidth;
         Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, 20f, GUILayout.Width(fieldWidth), GUILayout.Height(20f));
         _hierarchySearch = (_hierarchySearchFieldControl ??= new SearchField()).OnGUI(fieldRect, _hierarchySearch);
     }
 
-    private void DrawLogSearchField(float labelWidth)
+    private void DrawLogSearchField()
     {
-        GUILayout.Label("Log Search", GUILayout.Width(labelWidth));
-        Rect fieldRect = GUILayoutUtility.GetRect(10f, 20f, GUILayout.ExpandWidth(true), GUILayout.Height(20f));
+        GUILayout.Label("Search", GUILayout.Width(SearchLabelWidth));
+        float fieldWidth = SearchFieldFixedWidth;
+        Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, 20f, GUILayout.Width(fieldWidth), GUILayout.Height(20f));
         _logSearch = (_logSearchFieldControl ??= new SearchField()).OnGUI(fieldRect, _logSearch);
 
-        if (GUILayout.Button("Clear Search", GUILayout.Width(100f)))
+        if (GUILayout.Button("Clear", GUILayout.Width(SearchClearButtonWidth)))
         {
-            _hierarchySearch = string.Empty;
             _logSearch = string.Empty;
             GUI.FocusControl(null);
             SaveEditorUiState();

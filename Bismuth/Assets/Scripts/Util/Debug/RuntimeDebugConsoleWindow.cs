@@ -50,6 +50,10 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private readonly Dictionary<EventSystem, bool> _eventSystemEnabledState = new Dictionary<EventSystem, bool>();
 
     private RuntimeDebugConsoleSearchOverlay _searchOverlay;
+
+    private const float SearchLabelWidth = 52f;
+    private const float SearchFieldFixedWidth = 220f;
+    private const float SearchClearButtonWidth = 72f;
     private Rect _hierarchySearchScreenRect;
     private Rect _logSearchScreenRect;
 
@@ -493,19 +497,19 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         {
             GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
             float hierarchyWidth = Mathf.Clamp((availableWidth - 330f) * 0.42f, 160f, 320f);
-            DrawHierarchySearchField(hierarchyWidth, 105f);
+            DrawHierarchySearchField();
             GUILayout.Space(12f);
-            DrawLogSearchField(75f);
+            DrawLogSearchField();
             GUILayout.EndHorizontal();
             return;
         }
 
         GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
-        DrawHierarchySearchField(Mathf.Max(160f, availableWidth - 130f), 105f);
+        DrawHierarchySearchField();
         GUILayout.EndHorizontal();
 
         GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
-        DrawLogSearchField(75f);
+        DrawLogSearchField();
         GUILayout.EndHorizontal();
     }
 
@@ -614,7 +618,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.EndHorizontal();
         GUILayout.Space(4f);
         GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
-        DrawHierarchySearchField(Mathf.Max(160f, panelWidth - 130f), 105f);
+        DrawHierarchySearchField();
         GUILayout.EndHorizontal();
         GUILayout.Space(4f);
 
@@ -793,8 +797,7 @@ private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
 {
     GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
     GUILayout.BeginHorizontal();
-    string focusSuffix = GetFocusSuffix();
-    GUILayout.Label(new GUIContent("Logs", string.IsNullOrEmpty(focusSuffix) ? "Logs" : $"Logs {focusSuffix}"), _titleStyle, GUILayout.ExpandWidth(true));
+    GUILayout.Label("Logs", _titleStyle, GUILayout.ExpandWidth(true));
     bool nextShowLogDetails = GUILayout.Toggle(_showLogDetails, "Details", GUILayout.Width(80f));
     if (nextShowLogDetails != _showLogDetails)
     {
@@ -804,7 +807,7 @@ private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     GUILayout.EndHorizontal();
     GUILayout.Space(4f);
     GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
-    DrawLogSearchField(75f);
+    DrawLogSearchField();
     GUILayout.EndHorizontal();
     GUILayout.Space(4f);
 
@@ -1154,25 +1157,41 @@ private void ResetRuntimeLayoutToDefault()
         if (entry == null)
             return;
 
+        _focusedObjectName = entry.GameObjectName ?? string.Empty;
+        _focusedComponentName = entry.ComponentName ?? string.Empty;
+
         GameObject targetGameObject = null;
 
-        if (entry.Context is GameObject go)
+        try
         {
-            targetGameObject = go;
-            _focusedGameObjectId = go.GetInstanceID();
-            _focusedComponentId = 0;
-            _focusedObjectName = go.name;
-            _focusedComponentName = string.Empty;
-            PrepareSelectionExpansion(go.transform, true);
+            if (entry.Context is GameObject go)
+            {
+                if (go != null)
+                {
+                    targetGameObject = go;
+                    _focusedGameObjectId = go.GetInstanceID();
+                    _focusedComponentId = 0;
+                    _focusedObjectName = go.name;
+                    _focusedComponentName = string.Empty;
+                    PrepareSelectionExpansion(go.transform, true);
+                }
+            }
+            else if (entry.Context is Component component)
+            {
+                if (component != null && component.gameObject != null)
+                {
+                    targetGameObject = component.gameObject;
+                    _focusedGameObjectId = component.gameObject.GetInstanceID();
+                    _focusedComponentId = component.GetInstanceID();
+                    _focusedObjectName = component.gameObject.name;
+                    _focusedComponentName = component.GetType().Name;
+                    PrepareSelectionExpansion(component.transform, true);
+                }
+            }
         }
-        else if (entry.Context is Component component)
+        catch (MissingReferenceException)
         {
-            targetGameObject = component.gameObject;
-            _focusedGameObjectId = component.gameObject.GetInstanceID();
-            _focusedComponentId = component.GetInstanceID();
-            _focusedObjectName = component.gameObject.name;
-            _focusedComponentName = component.GetType().Name;
-            PrepareSelectionExpansion(component.transform, true);
+            targetGameObject = null;
         }
 
         if (targetGameObject == null)
@@ -1653,10 +1672,11 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
         GUILayout.Label($"Count : {manager.Entries.Count}", _toolbarInfoLabelStyle, GUILayout.Width(expanded ? 120f : 110f), GUILayout.MinHeight(expanded ? 34f : 18f));
     }
 
-    private void DrawHierarchySearchField(float fieldWidth, float labelWidth)
+    private void DrawHierarchySearchField()
     {
-        GUILayout.Label("Hierarchy Search", GUILayout.Width(labelWidth));
+        GUILayout.Label("Search", GUILayout.Width(SearchLabelWidth));
 
+        float fieldWidth = SearchFieldFixedWidth;
         Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, 24f, GUILayout.Width(fieldWidth), GUILayout.Height(24f));
         GUI.Box(fieldRect, GUIContent.none, _searchTextFieldStyle);
         _hierarchySearchScreenRect = ToScreenRect(fieldRect);
@@ -1683,11 +1703,12 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
             _searchFieldFocusedThisFrame = true;
     }
 
-    private void DrawLogSearchField(float labelWidth)
+    private void DrawLogSearchField()
     {
-        GUILayout.Label("Log Search", GUILayout.Width(labelWidth));
+        GUILayout.Label("Search", GUILayout.Width(SearchLabelWidth));
 
-        Rect fieldRect = GUILayoutUtility.GetRect(10f, 24f, GUILayout.ExpandWidth(true), GUILayout.Height(24f));
+        float fieldWidth = SearchFieldFixedWidth;
+        Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, 24f, GUILayout.Width(fieldWidth), GUILayout.Height(24f));
         GUI.Box(fieldRect, GUIContent.none, _searchTextFieldStyle);
         _logSearchScreenRect = ToScreenRect(fieldRect);
 
@@ -1712,15 +1733,14 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
         if (_searchOverlay != null && _searchOverlay.IsLogFocused)
             _searchFieldFocusedThisFrame = true;
 
-        if (GUILayout.Button("Clear Search", GUILayout.Width(100f)))
+        if (GUILayout.Button("Clear", GUILayout.Width(SearchClearButtonWidth)))
         {
-            _hierarchySearch = string.Empty;
             _logSearch = string.Empty;
             _activeSearchField = SearchFieldFocus.None;
 
             if (_searchOverlay != null)
             {
-                _searchOverlay.ClearTexts();
+                _searchOverlay.SetTexts(_hierarchySearch, _logSearch);
                 _searchOverlay.SetVisible(false);
             }
         }
