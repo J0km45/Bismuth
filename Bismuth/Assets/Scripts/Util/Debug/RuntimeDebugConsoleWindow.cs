@@ -220,7 +220,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         _searchOverlay.SetHierarchyRect(_hierarchySearchScreenRect);
         _searchOverlay.SetLogRect(_logSearchScreenRect);
-        _searchOverlay.SetTexts(_hierarchySearch, _logSearch);
     }
 
     private Rect ToScreenRect(Rect guiRect)

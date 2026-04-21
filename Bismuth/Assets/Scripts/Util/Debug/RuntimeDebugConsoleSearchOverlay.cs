@@ -205,6 +205,9 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
             ActivateInput(_logInput);
         }
 
+        SafeClampSelection(_hierarchyInput);
+        SafeClampSelection(_logInput);
+
         ApplyInputVisuals(_hierarchyInput);
         ApplyInputVisuals(_logInput);
     }
@@ -217,6 +220,32 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         inputField.gameObject.SetActive(true);
         inputField.Select();
         inputField.ActivateInputField();
+
+        string currentText = inputField.text ?? string.Empty;
+        int safeLength = currentText.Length;
+        inputField.caretPosition = safeLength;
+        inputField.selectionAnchorPosition = safeLength;
+        inputField.selectionFocusPosition = safeLength;
+        inputField.ForceLabelUpdate();
+    }
+
+
+    private void SafeClampSelection(InputField inputField)
+    {
+        if (inputField == null || !inputField.gameObject.activeSelf)
+            return;
+
+        string currentText = inputField.text ?? string.Empty;
+        int safeLength = currentText.Length;
+
+        if (inputField.caretPosition > safeLength)
+            inputField.caretPosition = safeLength;
+
+        if (inputField.selectionAnchorPosition > safeLength)
+            inputField.selectionAnchorPosition = safeLength;
+
+        if (inputField.selectionFocusPosition > safeLength)
+            inputField.selectionFocusPosition = safeLength;
     }
 
     private void ApplyInputVisuals(InputField inputField)
