@@ -144,7 +144,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         rootRect.sizeDelta = new Vector2(240f, FieldHeight);
 
         Image background = root.GetComponent<Image>();
-        background.color = new Color(0.08f, 0.11f, 0.16f, 0.28f);
+        background.color = new Color(0.96f, 0.97f, 0.99f, 0.92f);
         background.raycastTarget = true;
 
         InputField inputField = root.GetComponent<InputField>();
@@ -155,7 +155,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         inputField.caretWidth = 2;
         inputField.customCaretColor = true;
         inputField.caretColor = Color.black;
-        inputField.selectionColor = new Color(0.62f, 0.78f, 1.00f, 0.85f);
+        inputField.selectionColor = new Color(0.48f, 0.70f, 1.00f, 0.85f);
         inputField.onValueChanged.AddListener(_ => ClampSelection(inputField));
         inputField.onEndEdit.AddListener(_ => ClampSelection(inputField));
 
@@ -245,7 +245,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 
         if (inputField.textComponent != null)
         {
-            inputField.textComponent.color = new Color(0.08f, 0.08f, 0.08f, 1f);
+            inputField.textComponent.color = new Color(0.05f, 0.05f, 0.05f, 1f);
             inputField.textComponent.fontStyle = FontStyle.Bold;
             inputField.textComponent.fontSize = FontSize;
             inputField.textComponent.material = null;
@@ -254,7 +254,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         Text placeholderText = inputField.placeholder as Text;
         if (placeholderText != null)
         {
-            placeholderText.color = new Color(0.45f, 0.45f, 0.45f, 0.95f);
+            placeholderText.color = new Color(0.42f, 0.45f, 0.50f, 0.95f);
             placeholderText.fontStyle = FontStyle.Normal;
             placeholderText.fontSize = FontSize;
             placeholderText.material = null;
