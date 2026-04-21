@@ -117,12 +117,14 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _windowRect = DebugConsolePreferenceStore.GetRect(WindowRectPrefKey, _windowRect);
         _hierarchyPanelWidth = DebugConsolePreferenceStore.GetFloat(HierarchyPanelWidthPrefKey, _hierarchyPanelWidth);
         EnsureSearchOverlay();
+        ApplyUiInputBlockState();
     }
 
     private void OnDisable()
     {
         SceneManager.sceneLoaded -= HandleSceneLoaded;
         SaveLayoutPreferences();
+        RestoreEventSystems();
 
         if (_searchOverlay != null)
             _searchOverlay.SetVisible(false);
@@ -141,22 +143,68 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         if (_searchOverlay != null)
             _searchOverlay.SetVisible(false);
+
+        ApplyUiInputBlockState();
     }
 
     private void Update()
     {
         if (Input.GetKeyDown(_toggleKey))
+            SetConsoleVisible(!_visible);
+    }
+
+
+    private void SetConsoleVisible(bool visible)
+    {
+        _visible = visible;
+        ApplyUiInputBlockState();
+
+        if (!_visible)
         {
-            _visible = !_visible;
+            SaveLayoutPreferences();
 
-            if (!_visible)
-            {
-                SaveLayoutPreferences();
-
-                if (_searchOverlay != null)
-                    _searchOverlay.SetVisible(false);
-            }
+            if (_searchOverlay != null)
+                _searchOverlay.SetVisible(false);
         }
+    }
+
+    private void ApplyUiInputBlockState()
+    {
+        if (_visible)
+            DisableSceneEventSystems();
+        else
+            RestoreEventSystems();
+    }
+
+    private void DisableSceneEventSystems()
+    {
+        EventSystem[] eventSystems = FindObjectsByType<EventSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < eventSystems.Length; i++)
+        {
+            EventSystem eventSystem = eventSystems[i];
+            if (eventSystem == null)
+                continue;
+
+            if (!_eventSystemEnabledState.ContainsKey(eventSystem))
+                _eventSystemEnabledState[eventSystem] = eventSystem.enabled;
+
+            eventSystem.enabled = false;
+        }
+    }
+
+    private void RestoreEventSystems()
+    {
+        List<EventSystem> keys = new List<EventSystem>(_eventSystemEnabledState.Keys);
+        for (int i = 0; i < keys.Count; i++)
+        {
+            EventSystem eventSystem = keys[i];
+            if (eventSystem == null)
+                continue;
+
+            eventSystem.enabled = _eventSystemEnabledState[eventSystem];
+        }
+
+        _eventSystemEnabledState.Clear();
     }
 
     private void OnGUI()
@@ -364,11 +412,18 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private void DrawWindow(int windowId)
     {
+        Rect closeButtonRect = new Rect(_windowRect.width - 30f, 4f, 22f, 18f);
+        if (GUI.Button(closeButtonRect, "X", _closeButtonStyle))
+        {
+            SetConsoleVisible(false);
+            GUIUtility.ExitGUI();
+        }
+
         DebugConsoleManager manager = DebugConsoleManager.Instance;
         if (manager == null)
         {
             GUILayout.Label("DebugConsoleManager가 없습니다.");
-            GUI.DragWindow(new Rect(0, 0, 10000, 20));
+            GUI.DragWindow(new Rect(0, 0, Mathf.Max(0f, _windowRect.width - 36f), 20f));
             return;
         }
 
@@ -380,7 +435,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         DrawResizablePanels(manager);
 
-        GUI.DragWindow(new Rect(0, 0, 10000, 24));
+        GUI.DragWindow(new Rect(0, 0, Mathf.Max(0f, _windowRect.width - 36f), 24f));
     }
 
     private void DrawToolbar(DebugConsoleManager manager)
