@@ -124,6 +124,7 @@ public class DebugConsoleEditorWindow : EditorWindow
     private const string SnapshotDirectoryPath = "Library/DebugConsole";
     private const string SnapshotFileName = "DebugConsoleEditorSnapshot.json";
     private const int CurrentSnapshotVersion = 3;
+    private const int MaxSnapshotHierarchyDepth = 8;
     private const string EditorStatePrefKey = "DebugConsoleEditorWindow.State";
     private const string ManagerPrefKeyPrefix = "DebugConsole.Manager";
     private const string GlobalEnabledPrefKey = ManagerPrefKeyPrefix + ".GlobalEnabled";
@@ -670,12 +671,19 @@ private sealed class DebugConsoleEditorBackupData
 
         if (requiresRefresh)
         {
-            _cachedLiveLogGroups = BuildVisibleLiveLogGroups(manager);
-            _cachedLiveRowHeights = BuildLiveRowHeights(_cachedLiveLogGroups, width);
-            _cachedLiveLogChangeVersion = manager.ChangeVersion;
-            _cachedLiveLogSignature = signature;
-            _cachedLiveLogWidth = width;
+            bool canRefreshNow = Event.current == null || Event.current.type == EventType.Layout || _cachedLiveLogGroups == null || _cachedLiveRowHeights == null;
+            if (canRefreshNow)
+            {
+                _cachedLiveLogGroups = BuildVisibleLiveLogGroups(manager);
+                _cachedLiveRowHeights = BuildLiveRowHeights(_cachedLiveLogGroups, width);
+                _cachedLiveLogChangeVersion = manager.ChangeVersion;
+                _cachedLiveLogSignature = signature;
+                _cachedLiveLogWidth = width;
+            }
         }
+
+        _cachedLiveLogGroups ??= new List<LiveLogGroup>();
+        _cachedLiveRowHeights ??= new List<float>();
 
         groups = _cachedLiveLogGroups;
         rowHeights = _cachedLiveRowHeights;
@@ -803,7 +811,7 @@ private void DrawSnapshotLogPanel(DebugConsoleEditorSnapshot snapshot, float pan
     if (bottomPadding > 0f)
         GUILayout.Space(bottomPadding);
 
-    EditorGUILayout.EndScrollView();
+    GUILayout.EndScrollView();
 
     Rect scrollRect = GUILayoutUtility.GetLastRect();
     _lastLogViewportHeight = scrollRect.height;
@@ -811,7 +819,11 @@ private void DrawSnapshotLogPanel(DebugConsoleEditorSnapshot snapshot, float pan
     _lastMaxLogScrollY = Mathf.Max(0f, _lastLogContentHeight - _lastLogViewportHeight);
 
     if (Event.current.type == EventType.Repaint && _autoScroll)
-        _logScroll.y = _lastMaxLogScrollY + 4f;
+    {
+        Vector2 nextScroll = _logScroll;
+        nextScroll.y = _lastMaxLogScrollY + 4f;
+        _logScroll = nextScroll;
+    }
 
     if (_showLogDetails)
     {
@@ -1045,7 +1057,7 @@ private float DrawSnapshotLogEntry(SnapshotLogEntry entry, int sourceIndex, floa
         {
             GameObject[] roots = activeScene.GetRootGameObjects();
             for (int i = 0; i < roots.Length; i++)
-                snapshot.Roots.Add(CaptureSnapshotNode(manager, roots[i]));
+                snapshot.Roots.Add(CaptureSnapshotNode(manager, roots[i], 0));
         }
 
         IReadOnlyList<DebugEntry> entries = manager.Entries;
@@ -1089,7 +1101,7 @@ private float DrawSnapshotLogEntry(SnapshotLogEntry entry, int sourceIndex, floa
         return snapshot;
     }
 
-    private SnapshotGameObjectNode CaptureSnapshotNode(DebugConsoleManager manager, GameObject go)
+    private SnapshotGameObjectNode CaptureSnapshotNode(DebugConsoleManager manager, GameObject go, int depth)
     {
         string objectKey = go != null ? DebugConsoleFilterKeyUtility.GetGameObjectKey(go) : string.Empty;
         SnapshotGameObjectNode node = new SnapshotGameObjectNode
@@ -1127,7 +1139,8 @@ private float DrawSnapshotLogEntry(SnapshotLogEntry entry, int sourceIndex, floa
             if (child == null)
                 continue;
 
-            node.Children.Add(CaptureSnapshotNode(manager, child.gameObject));
+            if (depth + 1 < MaxSnapshotHierarchyDepth)
+                node.Children.Add(CaptureSnapshotNode(manager, child.gameObject, depth + 1));
         }
 
         return node;

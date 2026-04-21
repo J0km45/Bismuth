@@ -874,7 +874,11 @@ private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     _lastMaxLogScrollY = Mathf.Max(0f, _lastLogContentHeight - _lastLogViewportHeight);
 
     if (Event.current.type == EventType.Repaint && _autoScroll)
-        _logScroll.y = _lastMaxLogScrollY + 4f;
+    {
+        Vector2 nextScroll = _logScroll;
+        nextScroll.y = _lastMaxLogScrollY + 4f;
+        _logScroll = nextScroll;
+    }
 
     if (_showLogDetails)
     {
@@ -950,12 +954,19 @@ private void GetVisibleEntriesAndHeights(DebugConsoleManager manager, float widt
 
     if (requiresRefresh)
     {
-        _cachedVisibleEntries = BuildVisibleEntries(manager);
-        _cachedVisibleRowHeights = BuildRowHeights(_cachedVisibleEntries, width);
-        _cachedVisibleEntriesChangeVersion = manager.ChangeVersion;
-        _cachedVisibleEntriesSignature = signature;
-        _cachedVisibleEntriesWidth = width;
+        bool canRefreshNow = Event.current == null || Event.current.type == EventType.Layout || _cachedVisibleEntries == null || _cachedVisibleRowHeights == null;
+        if (canRefreshNow)
+        {
+            _cachedVisibleEntries = BuildVisibleEntries(manager);
+            _cachedVisibleRowHeights = BuildRowHeights(_cachedVisibleEntries, width);
+            _cachedVisibleEntriesChangeVersion = manager.ChangeVersion;
+            _cachedVisibleEntriesSignature = signature;
+            _cachedVisibleEntriesWidth = width;
+        }
     }
+
+    _cachedVisibleEntries ??= new List<VisibleRuntimeLogEntry>();
+    _cachedVisibleRowHeights ??= new List<float>();
 
     visibleEntries = _cachedVisibleEntries;
     rowHeights = _cachedVisibleRowHeights;
