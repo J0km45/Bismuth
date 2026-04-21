@@ -4,6 +4,7 @@ using System.IO;
 using System.Globalization;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.EventSystems;
 using TMPro;
 
 public class RuntimeDebugConsoleWindow : MonoBehaviour
@@ -38,6 +39,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private SearchFieldFocus _activeSearchField = SearchFieldFocus.None;
     private GUIStyle _searchFieldContentStyle;
+    private GUIStyle _closeButtonStyle;
+
+    private readonly Dictionary<EventSystem, bool> _eventSystemEnabledState = new Dictionary<EventSystem, bool>();
 
     private RuntimeDebugConsoleSearchOverlay _searchOverlay;
     private Rect _hierarchySearchScreenRect;
@@ -152,7 +156,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (Input.GetKeyDown(_toggleKey))
             SetConsoleVisible(!_visible);
     }
-
 
     private void SetConsoleVisible(bool visible)
     {
