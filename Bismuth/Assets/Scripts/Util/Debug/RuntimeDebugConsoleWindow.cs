@@ -28,6 +28,10 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private string _hierarchySearch = string.Empty;
     private string _logSearch = string.Empty;
+    private string _pendingHierarchySearch = string.Empty;
+    private string _pendingLogSearch = string.Empty;
+    private float _hierarchySearchApplyTime;
+    private float _logSearchApplyTime;
 
     private const string HierarchySearchControlName = "DebugConsole_HierarchySearch";
     private const string LogSearchControlName = "DebugConsole_LogSearch";
@@ -54,6 +58,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private const float SearchLabelWidth = 48f;
     private const float SearchFieldFixedWidth = 160f;
     private const float SearchClearButtonWidth = 56f;
+    private const float SearchDebounceDelay = 0.2f;
+    private const bool UseCompactLogRows = true;
+    private const float CompactLogRowHeight = 34f;
     private Rect _hierarchySearchScreenRect;
     private Rect _logSearchScreenRect;
 
@@ -143,6 +150,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _showLogDetails = DebugConsolePreferenceStore.GetBool(WindowRectPrefKey + ".ShowLogDetails", _showLogDetails);
         _stackTraceFoldout = DebugConsolePreferenceStore.GetBool(WindowRectPrefKey + ".StackTraceFoldout", _stackTraceFoldout);
         _logDetailPanelHeight = DebugConsolePreferenceStore.GetFloat(WindowRectPrefKey + ".LogDetailHeight", _logDetailPanelHeight);
+        _pendingHierarchySearch = _hierarchySearch;
+        _pendingLogSearch = _logSearch;
         EnsureSearchOverlay();
         ApplyUiInputBlockState();
     }
@@ -178,6 +187,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     {
         if (Input.GetKeyDown(_toggleKey))
             SetConsoleVisible(!_visible);
+
+        ProcessSearchDebounce();
     }
 
     private void SetConsoleVisible(bool visible)
@@ -245,8 +256,23 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             return;
         }
 
-        _hierarchySearch = _searchOverlay != null ? _searchOverlay.HierarchyText : _hierarchySearch;
-        _logSearch = _searchOverlay != null ? _searchOverlay.LogText : _logSearch;
+        if (_searchOverlay != null)
+        {
+            string nextHierarchySearch = _searchOverlay.HierarchyText;
+            string nextLogSearch = _searchOverlay.LogText;
+
+            if (!string.Equals(nextHierarchySearch, _pendingHierarchySearch, StringComparison.Ordinal))
+            {
+                _pendingHierarchySearch = nextHierarchySearch;
+                _hierarchySearchApplyTime = Time.unscaledTime + SearchDebounceDelay;
+            }
+
+            if (!string.Equals(nextLogSearch, _pendingLogSearch, StringComparison.Ordinal))
+            {
+                _pendingLogSearch = nextLogSearch;
+                _logSearchApplyTime = Time.unscaledTime + SearchDebounceDelay;
+            }
+        }
         _hierarchySearchScreenRect = Rect.zero;
         _logSearchScreenRect = Rect.zero;
 
@@ -861,11 +887,13 @@ private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
 
 private float DrawLogEntry(DebugEntry entry, int index, float contentWidth)
     {
-        GUIContent content = new GUIContent(entry.RichText);
+        string displayText = UseCompactLogRows ? entry.SummaryRichText : entry.RichText;
+        int repeatCount = entry != null ? Mathf.Max(1, entry.RepeatCount) : 1;
+        GUIContent content = BuildCollapsedLogContent(displayText, repeatCount);
         float estimatedWidth = Mathf.Max(140f, contentWidth);
-        float height = _richLabelStyle.CalcHeight(content, estimatedWidth);
+        float rowHeight = UseCompactLogRows ? CompactLogRowHeight : _richLabelStyle.CalcHeight(content, estimatedWidth) + 14f;
 
-        Rect rect = GUILayoutUtility.GetRect(0f, height + 14f, GUILayout.ExpandWidth(true));
+        Rect rect = GUILayoutUtility.GetRect(0f, rowHeight, GUILayout.ExpandWidth(true));
 
         Color previousColor = GUI.color;
         if (index == _selectedLogIndex)
@@ -899,6 +927,7 @@ private string BuildVisibleEntriesSignature(DebugConsoleManager manager)
 {
     return string.Join("|",
         manager != null ? manager.ChangeVersion : -1,
+        UseCompactLogRows,
         _logSearch ?? string.Empty,
         _focusedGameObjectId,
         _focusedComponentId);
@@ -958,8 +987,16 @@ private List<VisibleRuntimeLogEntry> BuildVisibleEntries(DebugConsoleManager man
 private List<float> BuildRowHeights(List<VisibleRuntimeLogEntry> entries, float width)
 {
     List<float> heights = new List<float>(entries.Count);
+    float rowHeight = UseCompactLogRows ? CompactLogRowHeight : 0f;
+
     for (int i = 0; i < entries.Count; i++)
     {
+        if (UseCompactLogRows)
+        {
+            heights.Add(rowHeight);
+            continue;
+        }
+
         DebugEntry entry = entries[i].Entry;
         long sequence = entry != null ? entry.SequenceId : i;
         string key = $"{sequence}:{Mathf.RoundToInt(width)}";
@@ -1716,6 +1753,42 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
         GUILayout.Label($"Count : {manager.Entries.Count}", _toolbarInfoLabelStyle, GUILayout.Width(expanded ? 120f : 110f), GUILayout.MinHeight(expanded ? 34f : 18f));
     }
 
+    private void ProcessSearchDebounce()
+    {
+        bool changed = false;
+        float now = Time.unscaledTime;
+
+        if (!string.Equals(_hierarchySearch, _pendingHierarchySearch, StringComparison.Ordinal) &&
+            now >= _hierarchySearchApplyTime)
+        {
+            _hierarchySearch = _pendingHierarchySearch;
+            _hierarchyScroll = Vector2.zero;
+            changed = true;
+        }
+
+        if (!string.Equals(_logSearch, _pendingLogSearch, StringComparison.Ordinal) &&
+            now >= _logSearchApplyTime)
+        {
+            _logSearch = _pendingLogSearch;
+            _logScroll = Vector2.zero;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            _cachedVisibleEntriesChangeVersion = -1;
+        }
+    }
+
+    private GUIContent BuildCollapsedLogContent(string richText, int repeatCount)
+    {
+        if (repeatCount <= 1 || string.IsNullOrWhiteSpace(richText))
+            return new GUIContent(richText ?? string.Empty);
+
+        string suffix = $" <color=#f1c232>(x{repeatCount})</color>";
+        return new GUIContent(richText + suffix);
+    }
+
     private void DrawHierarchySearchField()
     {
         DrawHierarchySearchField(SearchLabelWidth + SearchFieldFixedWidth + 12f);
@@ -1741,7 +1814,7 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
             {
                 _searchOverlay.SetVisible(true);
                 _searchOverlay.SetHierarchyRect(screenRect);
-                _searchOverlay.SetTexts(_hierarchySearch, _logSearch);
+                _searchOverlay.SetTexts(_pendingHierarchySearch, _pendingLogSearch);
                 _searchOverlay.FocusHierarchy();
             }
 
@@ -1777,7 +1850,7 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
             {
                 _searchOverlay.SetVisible(true);
                 _searchOverlay.SetLogRect(screenRect);
-                _searchOverlay.SetTexts(_hierarchySearch, _logSearch);
+                _searchOverlay.SetTexts(_pendingHierarchySearch, _pendingLogSearch);
                 _searchOverlay.FocusLog();
             }
 
@@ -1789,12 +1862,14 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
 
         if (GUILayout.Button("Clear", GUILayout.Width(SearchClearButtonWidth)))
         {
+            _pendingLogSearch = string.Empty;
             _logSearch = string.Empty;
+            _logSearchApplyTime = 0f;
             _activeSearchField = SearchFieldFocus.None;
 
             if (_searchOverlay != null)
             {
-                _searchOverlay.SetTexts(_hierarchySearch, _logSearch);
+                _searchOverlay.SetTexts(_pendingHierarchySearch, _pendingLogSearch);
                 _searchOverlay.SetVisible(false);
             }
         }

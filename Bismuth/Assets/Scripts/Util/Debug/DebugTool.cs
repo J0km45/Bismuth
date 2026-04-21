@@ -1,3 +1,6 @@
+using System;
+using System.IO;
+using System.Text;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -7,6 +10,8 @@ using Object = UnityEngine.Object;
 /// </summary>
 public static class DebugTool
 {
+    private static long _sequence;
+
     public static void Log(
         string text,
         DebugType type,
@@ -91,12 +96,58 @@ public static class DebugTool
         string filePath,
         int lineNumber)
     {
-        DebugConsoleManager manager = DebugConsoleManager.Instance;
+        GetTargetIds(context, out int gameObjectId, out int componentId);
 
+        DebugConsoleManager manager = DebugConsoleManager.Instance;
         if (manager != null && !manager.IsAllowed(type, context))
             return;
 
-        DebugEntry entry = DebugEntryFactory.Create(level, text, type, context, memberName, filePath, lineNumber);
+        ResolveTargetMetadata(
+            context,
+            out string sceneKey,
+            out string hierarchyPath,
+            out string gameObjectKey,
+            out string componentKey,
+            out string gameObjectName,
+            out string componentName,
+            out string componentTypeName);
+
+        string color = GetColor(type);
+        string fileName = Path.GetFileNameWithoutExtension(filePath);
+        string sourceName = GetSourceName(context, fileName);
+
+        if (memberName == ".ctor")
+            memberName = "생성자";
+
+        DebugEntry entry = new DebugEntry
+        {
+            Time = DateTime.Now.ToString("HH:mm:ss.fff"),
+            Message = text,
+            SourceName = sourceName,
+            MemberName = memberName,
+            LineNumber = lineNumber,
+            Type = type,
+            Level = level,
+            Context = context,
+            GameObjectId = gameObjectId,
+            ComponentId = componentId,
+            ColorHex = color,
+            CallerFilePath = filePath,
+            CallerColumn = 1,
+            StackTrace = BuildStackTrace(filePath, lineNumber, memberName),
+            SequenceId = ++_sequence,
+            FrameCount = UnityEngine.Time.frameCount,
+            CapturedAtIsoUtc = DateTime.UtcNow.ToString("O"),
+            SceneKey = sceneKey,
+            HierarchyPath = hierarchyPath,
+            GameObjectKey = gameObjectKey,
+            ComponentKey = componentKey,
+            GameObjectName = gameObjectName,
+            ComponentName = componentName,
+            ComponentTypeName = componentTypeName
+        };
+
+        entry.RefreshDerivedFields();
 
         if (manager != null)
         {
@@ -109,6 +160,77 @@ public static class DebugTool
         {
             PrintToUnityConsole(entry);
         }
+    }
+
+    private static void ResolveTargetMetadata(
+        Object context,
+        out string sceneKey,
+        out string hierarchyPath,
+        out string gameObjectKey,
+        out string componentKey,
+        out string gameObjectName,
+        out string componentName,
+        out string componentTypeName)
+    {
+        sceneKey = string.Empty;
+        hierarchyPath = string.Empty;
+        gameObjectKey = string.Empty;
+        componentKey = string.Empty;
+        gameObjectName = string.Empty;
+        componentName = string.Empty;
+        componentTypeName = string.Empty;
+
+        if (context is GameObject go)
+        {
+            sceneKey = DebugConsoleFilterKeyUtility.GetSceneKey(go);
+            hierarchyPath = DebugConsoleFilterKeyUtility.GetHierarchyPath(go.transform);
+            gameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(go);
+            gameObjectName = go.name;
+            return;
+        }
+
+        if (context is Component component)
+        {
+            sceneKey = DebugConsoleFilterKeyUtility.GetSceneKey(component.gameObject);
+            hierarchyPath = DebugConsoleFilterKeyUtility.GetHierarchyPath(component.transform);
+            gameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(component.gameObject);
+            componentKey = DebugConsoleFilterKeyUtility.GetComponentKey(component);
+            gameObjectName = component.gameObject.name;
+            componentName = component.GetType().Name;
+            componentTypeName = component.GetType().FullName;
+        }
+    }
+
+    private static void GetTargetIds(Object context, out int gameObjectId, out int componentId)
+    {
+        gameObjectId = 0;
+        componentId = 0;
+
+        if (context is GameObject go)
+        {
+            gameObjectId = go.GetInstanceID();
+            return;
+        }
+
+        if (context is Component component)
+        {
+            gameObjectId = component.gameObject.GetInstanceID();
+            componentId = component.GetInstanceID();
+        }
+    }
+
+    private static string GetSourceName(Object context, string fallbackFileName)
+    {
+        if (context == null)
+            return fallbackFileName;
+
+        if (context is Component component)
+            return $"{component.gameObject.name}/{component.GetType().Name}";
+
+        if (context is GameObject go)
+            return go.name;
+
+        return context.name;
     }
 
     private static void PrintToUnityConsole(DebugEntry entry)
@@ -126,6 +248,65 @@ public static class DebugTool
             default:
                 Debug.Log(entry.RichText, entry.Context);
                 break;
+        }
+    }
+
+
+private static string BuildStackTrace(string filePath, int lineNumber, string memberName)
+{
+    try
+    {
+        var trace = new System.Diagnostics.StackTrace(2, true);
+        string raw = trace.ToString();
+
+        StringBuilder builder = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(raw))
+            builder.Append(raw.Trim());
+
+        if (!string.IsNullOrWhiteSpace(filePath))
+        {
+            if (builder.Length > 0)
+                builder.AppendLine();
+
+            builder.Append("Caller : ");
+            builder.Append(Path.GetFileName(filePath));
+            builder.Append(" / ");
+            builder.Append(string.IsNullOrWhiteSpace(memberName) ? "-" : memberName);
+            builder.Append(" / line ");
+            builder.Append(Mathf.Max(1, lineNumber));
+        }
+
+        return builder.ToString();
+    }
+    catch
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+            return string.Empty;
+
+        return $"Caller : {Path.GetFileName(filePath)} / {memberName} / line {Mathf.Max(1, lineNumber)}";
+    }
+}
+
+private static string GetColor(DebugType type)
+{
+        switch (type)
+        {
+            case DebugType.Game: return "#c6a1fa";
+            case DebugType.Unit: return "#d9c61c";
+            case DebugType.Synergy: return "#f0847f";
+            case DebugType.Summon: return "#5eaad9";
+            case DebugType.Combine: return "#F45911";
+            case DebugType.Wave: return "#c53d34";
+            case DebugType.Board: return "#bdd3b5";
+            case DebugType.Enemy: return "#19cd48";
+            case DebugType.UI: return "#b15b8b";
+            case DebugType.Data: return "#e4ada4";
+            case DebugType.Merge: return "#0eb6a6";
+            case DebugType.Reforge: return "#A35ED3";
+            case DebugType.Catalog: return "#D6EA15";
+            case DebugType.Missing: return "#ffff00";
+            case DebugType.Default: return "#251f59";
+            default: return "#ffffff";
         }
     }
 }

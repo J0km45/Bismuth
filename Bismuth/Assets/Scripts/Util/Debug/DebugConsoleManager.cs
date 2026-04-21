@@ -34,6 +34,18 @@ public class DebugConsoleManager : MonoBehaviour
             }
         }
 
+        public bool TryGetLast(out DebugEntry entry)
+        {
+            if (_count <= 0)
+            {
+                entry = null;
+                return false;
+            }
+
+            entry = this[_count - 1];
+            return entry != null;
+        }
+
         public void Add(DebugEntry entry)
         {
             if (_count < _buffer.Length)
@@ -92,6 +104,8 @@ public class DebugConsoleManager : MonoBehaviour
     [SerializeField] private bool _showLogLevelLog = true;
     [SerializeField] private bool _showLogLevelWarning = true;
     [SerializeField] private bool _showLogLevelError = true;
+    [SerializeField] private bool _coalesceDuplicateLogs = true;
+    [SerializeField] private int _maxLogsPerFrame = 40;
 
     public const string PreferencePrefix = "DebugConsole.Manager";
     private const string PrefKeyPrefix = PreferencePrefix;
@@ -111,6 +125,11 @@ public class DebugConsoleManager : MonoBehaviour
 
     private int _changeVersion;
     public int ChangeVersion => _changeVersion;
+
+    private int _currentFrameNumber = -1;
+    private int _acceptedLogCountThisFrame;
+    private int _droppedLogCountThisFrame;
+    private int _pendingDroppedSummaryCount;
 
     public IReadOnlyList<DebugEntry> Entries => _entries;
 
@@ -215,9 +234,114 @@ public class DebugConsoleManager : MonoBehaviour
         if (entry == null)
             return;
 
+        InitializeFrameStateIfNeeded();
+        FlushPendingDroppedSummaryIfNeeded(entry.FrameCount);
+
+        if (_maxLogsPerFrame > 0 && _acceptedLogCountThisFrame >= _maxLogsPerFrame)
+        {
+            _droppedLogCountThisFrame++;
+            _pendingDroppedSummaryCount++;
+            return;
+        }
+
+        _acceptedLogCountThisFrame++;
+        AddEntryInternal(entry);
+    }
+
+    private void LateUpdate()
+    {
+        if (_pendingDroppedSummaryCount > 0)
+            FlushPendingDroppedSummaryIfNeeded(Time.frameCount + 1);
+    }
+
+    private void InitializeFrameStateIfNeeded()
+    {
+        int frameNumber = Time.frameCount;
+        if (_currentFrameNumber == frameNumber)
+            return;
+
+        if (_pendingDroppedSummaryCount > 0)
+            FlushPendingDroppedSummaryIfNeeded(frameNumber);
+
+        _currentFrameNumber = frameNumber;
+        _acceptedLogCountThisFrame = 0;
+        _droppedLogCountThisFrame = 0;
+    }
+
+    private void FlushPendingDroppedSummaryIfNeeded(int frameNumber)
+    {
+        if (_pendingDroppedSummaryCount <= 0)
+            return;
+
+        DebugEntry summaryEntry = BuildDroppedSummaryEntry(_pendingDroppedSummaryCount, frameNumber);
+        _pendingDroppedSummaryCount = 0;
+        _droppedLogCountThisFrame = 0;
+        AddEntryInternal(summaryEntry);
+    }
+
+    private void AddEntryInternal(DebugEntry entry)
+    {
+        entry.RepeatCount = Mathf.Max(1, entry.RepeatCount);
+        entry.RefreshDerivedFields();
+
+        if (_coalesceDuplicateLogs && _entries.TryGetLast(out DebugEntry lastEntry) && CanCoalesce(lastEntry, entry))
+        {
+            lastEntry.Time = entry.Time;
+            lastEntry.FrameCount = entry.FrameCount;
+            lastEntry.CapturedAtIsoUtc = entry.CapturedAtIsoUtc;
+            lastEntry.RepeatCount += entry.RepeatCount;
+            lastEntry.RefreshDerivedFields();
+            MarkChanged();
+            return;
+        }
+
         _entries.Add(entry);
         MarkChanged();
     }
+
+    private bool CanCoalesce(DebugEntry left, DebugEntry right)
+    {
+        if (left == null || right == null)
+            return false;
+
+        return string.Equals(left.CollapseKey, right.CollapseKey, StringComparison.Ordinal);
+    }
+
+    private DebugEntry BuildDroppedSummaryEntry(int droppedCount, int frameNumber)
+    {
+        DebugEntry entry = new DebugEntry
+        {
+            Time = DateTime.Now.ToString("HH:mm:ss.fff"),
+            Message = $"동일 프레임에서 로그 {droppedCount}개가 생략되었습니다.",
+            SourceName = nameof(DebugConsoleManager),
+            MemberName = nameof(AddEntry),
+            LineNumber = 0,
+            Type = DebugType.Default,
+            Level = DebugLogLevel.Warning,
+            Context = this,
+            GameObjectId = gameObject != null ? gameObject.GetInstanceID() : 0,
+            ComponentId = GetInstanceID(),
+            ColorHex = "#ffcc00",
+            CallerFilePath = string.Empty,
+            CallerColumn = 1,
+            StackTrace = string.Empty,
+            SequenceId = DateTime.UtcNow.Ticks,
+            FrameCount = frameNumber,
+            CapturedAtIsoUtc = DateTime.UtcNow.ToString("O"),
+            SceneKey = gameObject != null && gameObject.scene.IsValid() ? gameObject.scene.name : string.Empty,
+            HierarchyPath = gameObject != null ? gameObject.name : string.Empty,
+            GameObjectKey = gameObject != null ? gameObject.scene.name + "/" + gameObject.name : string.Empty,
+            ComponentKey = nameof(DebugConsoleManager),
+            GameObjectName = gameObject != null ? gameObject.name : nameof(DebugConsoleManager),
+            ComponentName = nameof(DebugConsoleManager),
+            ComponentTypeName = GetType().FullName,
+            RepeatCount = 1
+        };
+
+        entry.RefreshDerivedFields();
+        return entry;
+    }
+
 
     public void ClearLogs()
     {

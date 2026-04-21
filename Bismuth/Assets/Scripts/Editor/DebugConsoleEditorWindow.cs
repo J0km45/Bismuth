@@ -16,6 +16,10 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private string _hierarchySearch = string.Empty;
     private string _logSearch = string.Empty;
+    private string _pendingHierarchySearch = string.Empty;
+    private string _pendingLogSearch = string.Empty;
+    private double _hierarchySearchApplyTime;
+    private double _logSearchApplyTime;
 
     private bool _autoScroll = true;
     private bool _hideTransform = true;
@@ -38,6 +42,9 @@ public class DebugConsoleEditorWindow : EditorWindow
     private const float SearchLabelWidth = 48f;
     private const float SearchFieldFixedWidth = 160f;
     private const float SearchClearButtonWidth = 56f;
+    private const double SearchDebounceDelay = 0.2d;
+    private const bool UseCompactLogRows = true;
+    private const float CompactLogRowHeight = 34f;
 
     private GUIStyle _titleStyle;
     private GUIStyle _boxStyle;
@@ -285,7 +292,11 @@ private sealed class DebugConsoleEditorBackupData
         _hierarchyPanelWidth = DebugConsolePreferenceStore.GetFloat(HierarchyPanelWidthPrefKey, _hierarchyPanelWidth);
         _hierarchySearchFieldControl ??= new SearchField();
         _logSearchFieldControl ??= new SearchField();
+        _pendingHierarchySearch = _hierarchySearch;
+        _pendingLogSearch = _logSearch;
         LoadEditorUiState();
+        _pendingHierarchySearch = _hierarchySearch;
+        _pendingLogSearch = _logSearch;
         LoadSnapshotFromDisk();
         ApplyStoredPreferencesToSnapshot(_lastSnapshot);
     }
@@ -301,6 +312,9 @@ private sealed class DebugConsoleEditorBackupData
 
     private void HandleEditorUpdate()
     {
+        if (ProcessSearchDebounce())
+            Repaint();
+
         if (EditorApplication.isPlaying)
         {
             TryCaptureLiveSnapshot(false);
@@ -631,6 +645,7 @@ private sealed class DebugConsoleEditorBackupData
         return string.Join("|",
             manager != null ? manager.ChangeVersion : -1,
             _collapseLogs,
+            UseCompactLogRows,
             _logSearch ?? string.Empty,
             _focusedGameObjectId,
             _focusedComponentId,
@@ -679,13 +694,15 @@ private sealed class DebugConsoleEditorBackupData
             if (!ShouldDisplayEntry(manager, entry))
                 continue;
 
+            int repeatCount = Mathf.Max(1, entry.RepeatCount);
+
             if (_collapseLogs && groups.Count > 0)
             {
                 LiveLogGroup lastGroup = groups[groups.Count - 1];
                 if (CanCollapseLiveEntries(lastGroup.Entry, entry))
                 {
                     lastGroup.Entry = entry;
-                    lastGroup.Count++;
+                    lastGroup.Count += repeatCount;
                     lastGroup.LastSourceIndex = i;
                     continue;
                 }
@@ -694,7 +711,7 @@ private sealed class DebugConsoleEditorBackupData
             groups.Add(new LiveLogGroup
             {
                 Entry = entry,
-                Count = 1,
+                Count = repeatCount,
                 LastSourceIndex = i
             });
         }
@@ -707,17 +724,7 @@ private sealed class DebugConsoleEditorBackupData
         if (left == null || right == null)
             return false;
 
-        return string.Equals(left.Message, right.Message, StringComparison.Ordinal) &&
-               string.Equals(left.SourceName, right.SourceName, StringComparison.Ordinal) &&
-               string.Equals(left.MemberName, right.MemberName, StringComparison.Ordinal) &&
-               string.Equals(left.ColorHex, right.ColorHex, StringComparison.Ordinal) &&
-               string.Equals(left.CallerFilePath, right.CallerFilePath, StringComparison.Ordinal) &&
-               left.LineNumber == right.LineNumber &&
-               left.CallerColumn == right.CallerColumn &&
-               left.Type == right.Type &&
-               left.Level == right.Level &&
-               left.GameObjectId == right.GameObjectId &&
-               left.ComponentId == right.ComponentId;
+        return string.Equals(left.CollapseKey, right.CollapseKey, StringComparison.Ordinal);
     }
 
     private bool CanCollapseSnapshotEntries(SnapshotLogEntry left, SnapshotLogEntry right)
@@ -818,10 +825,12 @@ private void DrawSnapshotLogPanel(DebugConsoleEditorSnapshot snapshot, float pan
 
 private float DrawSnapshotLogEntry(SnapshotLogEntry entry, int sourceIndex, float width, int repeatCount)
     {
-        GUIContent content = BuildCollapsedLogContent(entry.RichText, repeatCount);
-        float height = _richLabelStyle.CalcHeight(content, width);
+        GUIContent content = UseCompactLogRows
+            ? BuildCollapsedLogContent(BuildSnapshotCompactRichText(entry), repeatCount)
+            : BuildCollapsedLogContent(entry.RichText, repeatCount);
+        float rowHeight = UseCompactLogRows ? CompactLogRowHeight : _richLabelStyle.CalcHeight(content, width) + 12f;
 
-        Rect rect = GUILayoutUtility.GetRect(10f, height + 12f, GUILayout.ExpandWidth(true));
+        Rect rect = GUILayoutUtility.GetRect(10f, rowHeight, GUILayout.ExpandWidth(true));
 
         Color previousColor = GUI.color;
         if (sourceIndex == _selectedLogIndex)
@@ -1011,7 +1020,7 @@ private float DrawSnapshotLogEntry(SnapshotLogEntry entry, int sourceIndex, floa
         SaveEditorUiState();
         SaveSnapshotToDisk(_lastSnapshot);
         _lastCapturedManagerChangeVersion = manager.ChangeVersion;
-        _nextSnapshotCaptureTime = now + 0.35d;
+        _nextSnapshotCaptureTime = now + 0.75d;
     }
 
     private DebugConsoleEditorSnapshot CaptureSnapshot(DebugConsoleManager manager)
@@ -2880,10 +2889,10 @@ private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
 
 private float DrawLogEntry(DebugEntry entry, int sourceIndex, float width, int repeatCount)
     {
-        GUIContent content = BuildCollapsedLogContent(entry.RichText, repeatCount);
-        float height = _richLabelStyle.CalcHeight(content, width);
+        GUIContent content = BuildCollapsedLogContent(UseCompactLogRows ? entry.SummaryRichText : entry.RichText, repeatCount);
+        float rowHeight = UseCompactLogRows ? CompactLogRowHeight : _richLabelStyle.CalcHeight(content, width) + 12f;
 
-        Rect rect = GUILayoutUtility.GetRect(10f, height + 12f, GUILayout.ExpandWidth(true));
+        Rect rect = GUILayoutUtility.GetRect(10f, rowHeight, GUILayout.ExpandWidth(true));
 
         Color previousColor = GUI.color;
         if (sourceIndex == _selectedLogIndex)
@@ -2912,12 +2921,27 @@ private float DrawLogEntry(DebugEntry entry, int sourceIndex, float width, int r
         return rect.height;
     }
 
+    private string BuildSnapshotCompactRichText(SnapshotLogEntry entry)
+    {
+        if (entry == null)
+            return string.Empty;
+
+        return $"<color={entry.ColorHex}>[{entry.Time}] [{entry.Type}] {entry.Message}</color> <color=#daa520>| [{entry.SourceName}.{entry.MemberName} : {entry.LineNumber}]</color>";
+    }
 
 private List<float> BuildSnapshotRowHeights(List<SnapshotLogGroup> groups, float width)
 {
     List<float> heights = new List<float>(groups.Count);
+    float rowHeight = UseCompactLogRows ? CompactLogRowHeight : 0f;
+
     for (int i = 0; i < groups.Count; i++)
     {
+        if (UseCompactLogRows)
+        {
+            heights.Add(rowHeight);
+            continue;
+        }
+
         SnapshotLogGroup group = groups[i];
         string key = $"{group.LastSourceIndex}:{group.Count}:{Mathf.RoundToInt(width)}";
         if (!_snapshotLogHeightCache.TryGetValue(key, out float height))
@@ -2936,8 +2960,16 @@ private List<float> BuildSnapshotRowHeights(List<SnapshotLogGroup> groups, float
 private List<float> BuildLiveRowHeights(List<LiveLogGroup> groups, float width)
 {
     List<float> heights = new List<float>(groups.Count);
+    float rowHeight = UseCompactLogRows ? CompactLogRowHeight : 0f;
+
     for (int i = 0; i < groups.Count; i++)
     {
+        if (UseCompactLogRows)
+        {
+            heights.Add(rowHeight);
+            continue;
+        }
+
         LiveLogGroup group = groups[i];
         long sequence = group.Entry != null ? group.Entry.SequenceId : i;
         string key = $"{sequence}:{group.Count}:{Mathf.RoundToInt(width)}";
@@ -4428,7 +4460,12 @@ private int GetWrappedSplitIndex((string label, float width)[] items, float avai
         GUILayout.Label("Search", GUILayout.Width(SearchLabelWidth));
         float fieldWidth = GetSearchFieldWidth(availableWidth, false);
         Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, 20f, GUILayout.Width(fieldWidth), GUILayout.Height(20f));
-        _hierarchySearch = (_hierarchySearchFieldControl ??= new SearchField()).OnGUI(fieldRect, _hierarchySearch);
+        string nextSearch = (_hierarchySearchFieldControl ??= new SearchField()).OnGUI(fieldRect, _pendingHierarchySearch);
+        if (!string.Equals(nextSearch, _pendingHierarchySearch, StringComparison.Ordinal))
+        {
+            _pendingHierarchySearch = nextSearch;
+            _hierarchySearchApplyTime = EditorApplication.timeSinceStartup + SearchDebounceDelay;
+        }
     }
 
     private void DrawLogSearchField()
@@ -4441,14 +4478,45 @@ private int GetWrappedSplitIndex((string label, float width)[] items, float avai
         GUILayout.Label("Search", GUILayout.Width(SearchLabelWidth));
         float fieldWidth = GetSearchFieldWidth(availableWidth, true);
         Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, 20f, GUILayout.Width(fieldWidth), GUILayout.Height(20f));
-        _logSearch = (_logSearchFieldControl ??= new SearchField()).OnGUI(fieldRect, _logSearch);
+        string nextSearch = (_logSearchFieldControl ??= new SearchField()).OnGUI(fieldRect, _pendingLogSearch);
+        if (!string.Equals(nextSearch, _pendingLogSearch, StringComparison.Ordinal))
+        {
+            _pendingLogSearch = nextSearch;
+            _logSearchApplyTime = EditorApplication.timeSinceStartup + SearchDebounceDelay;
+        }
 
         if (GUILayout.Button("Clear", GUILayout.Width(SearchClearButtonWidth)))
         {
+            _pendingLogSearch = string.Empty;
             _logSearch = string.Empty;
+            _logSearchApplyTime = 0d;
             GUI.FocusControl(null);
             SaveEditorUiState();
         }
+    }
+
+    private bool ProcessSearchDebounce()
+    {
+        bool changed = false;
+        double now = EditorApplication.timeSinceStartup;
+
+        if (!string.Equals(_hierarchySearch, _pendingHierarchySearch, StringComparison.Ordinal) &&
+            now >= _hierarchySearchApplyTime)
+        {
+            _hierarchySearch = _pendingHierarchySearch;
+            _hierarchyScroll = Vector2.zero;
+            changed = true;
+        }
+
+        if (!string.Equals(_logSearch, _pendingLogSearch, StringComparison.Ordinal) &&
+            now >= _logSearchApplyTime)
+        {
+            _logSearch = _pendingLogSearch;
+            _logScroll = Vector2.zero;
+            changed = true;
+        }
+
+        return changed;
     }
 
     private float GetTopAreaWidth()
