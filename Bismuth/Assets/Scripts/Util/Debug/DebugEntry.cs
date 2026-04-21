@@ -24,6 +24,17 @@ public sealed class DebugEntry
     public string CallerFilePath;
     public int CallerColumn = 1;
 
+    public long SequenceId;
+    public int FrameCount;
+    public string CapturedAtIsoUtc;
+    public string SceneKey;
+    public string HierarchyPath;
+    public string GameObjectKey;
+    public string ComponentKey;
+    public string GameObjectName;
+    public string ComponentName;
+    public string ComponentTypeName;
+
     public string PlainText =>
         $"[{Time}] [{Type}] {Message}\n출처 : [{SourceName}.{MemberName} : {LineNumber}]";
 

@@ -89,8 +89,12 @@ public class DebugConsoleManager : MonoBehaviour
     [SerializeField] private int _maxEntries = 2000;
     [SerializeField] private bool _globalEnabled = true;
     [SerializeField] private bool _mirrorToUnityConsole = false;
+    [SerializeField] private bool _showLogLevelLog = true;
+    [SerializeField] private bool _showLogLevelWarning = true;
+    [SerializeField] private bool _showLogLevelError = true;
 
-    private const string PrefKeyPrefix = "DebugConsole.Manager";
+    public const string PreferencePrefix = "DebugConsole.Manager";
+    private const string PrefKeyPrefix = PreferencePrefix;
     private const string MaxEntriesPrefKey = PrefKeyPrefix + ".MaxEntries";
 
     private DebugEntryRingBuffer _entries;
@@ -185,6 +189,7 @@ public class DebugConsoleManager : MonoBehaviour
         InitializeFilters();
         LoadGlobalSettings();
         LoadTypeFilters();
+        LoadLevelFilters();
         LoadRegistries();
 
         SceneManager.sceneLoaded += HandleSceneLoaded;
@@ -249,10 +254,85 @@ public class DebugConsoleManager : MonoBehaviour
         }
 
         if (changed)
-        {
-            SaveGlobalSettings();
             MarkChanged();
+    }
+
+    public bool GetLevelEnabled(DebugLogLevel level)
+    {
+        return level switch
+        {
+            DebugLogLevel.Warning => _showLogLevelWarning,
+            DebugLogLevel.Error => _showLogLevelError,
+            _ => _showLogLevelLog
+        };
+    }
+
+    public void SetLevelEnabled(DebugLogLevel level, bool value)
+    {
+        bool changed = false;
+
+        switch (level)
+        {
+            case DebugLogLevel.Warning:
+                if (_showLogLevelWarning != value)
+                {
+                    _showLogLevelWarning = value;
+                    changed = true;
+                }
+                break;
+
+            case DebugLogLevel.Error:
+                if (_showLogLevelError != value)
+                {
+                    _showLogLevelError = value;
+                    changed = true;
+                }
+                break;
+
+            default:
+                if (_showLogLevelLog != value)
+                {
+                    _showLogLevelLog = value;
+                    changed = true;
+                }
+                break;
         }
+
+        if (!changed)
+            return;
+
+        SaveLevelFilter(level, value);
+        MarkChanged();
+    }
+
+    public void SetAllLevels(bool value)
+    {
+        _showLogLevelLog = value;
+        _showLogLevelWarning = value;
+        _showLogLevelError = value;
+
+        SaveAllLevelFilters();
+        MarkChanged();
+    }
+
+    public void SetWarningAndErrorOnly()
+    {
+        _showLogLevelLog = false;
+        _showLogLevelWarning = true;
+        _showLogLevelError = true;
+
+        SaveAllLevelFilters();
+        MarkChanged();
+    }
+
+    public void SetErrorOnly()
+    {
+        _showLogLevelLog = false;
+        _showLogLevelWarning = false;
+        _showLogLevelError = true;
+
+        SaveAllLevelFilters();
+        MarkChanged();
     }
 
     public bool GetGameObjectEnabled(GameObject go)
@@ -332,6 +412,7 @@ public class DebugConsoleManager : MonoBehaviour
     public void ResetAllFiltersToDefault()
     {
         _globalEnabled = true;
+        _mirrorToUnityConsole = false;
         SaveGlobalSettings();
 
         for (int i = 0; i < _typeFilters.Length; i++)
@@ -339,6 +420,11 @@ public class DebugConsoleManager : MonoBehaviour
             _typeFilters[i] = true;
             SaveTypeFilter((DebugType)i, true);
         }
+
+        _showLogLevelLog = true;
+        _showLogLevelWarning = true;
+        _showLogLevelError = true;
+        SaveAllLevelFilters();
 
         foreach (string prefKey in _gameObjectPrefKeyRegistry)
             DebugConsolePreferenceStore.DeleteKey(prefKey);
@@ -438,6 +524,25 @@ public class DebugConsoleManager : MonoBehaviour
         DebugConsolePreferenceStore.SetBool(GetTypePrefKey(type), value);
     }
 
+    private void LoadLevelFilters()
+    {
+        _showLogLevelLog = DebugConsolePreferenceStore.GetBool(GetLevelPrefKey(DebugLogLevel.Log), _showLogLevelLog);
+        _showLogLevelWarning = DebugConsolePreferenceStore.GetBool(GetLevelPrefKey(DebugLogLevel.Warning), _showLogLevelWarning);
+        _showLogLevelError = DebugConsolePreferenceStore.GetBool(GetLevelPrefKey(DebugLogLevel.Error), _showLogLevelError);
+    }
+
+    private void SaveLevelFilter(DebugLogLevel level, bool value)
+    {
+        DebugConsolePreferenceStore.SetBool(GetLevelPrefKey(level), value);
+    }
+
+    private void SaveAllLevelFilters()
+    {
+        SaveLevelFilter(DebugLogLevel.Log, _showLogLevelLog);
+        SaveLevelFilter(DebugLogLevel.Warning, _showLogLevelWarning);
+        SaveLevelFilter(DebugLogLevel.Error, _showLogLevelError);
+    }
+
     private string GetOrCacheGameObjectFilterKey(GameObject go)
     {
         int instanceId = go.GetInstanceID();
@@ -463,6 +568,11 @@ public class DebugConsoleManager : MonoBehaviour
     private string GetTypePrefKey(DebugType type)
     {
         return $"{PrefKeyPrefix}.Type.{type}";
+    }
+
+    private string GetLevelPrefKey(DebugLogLevel level)
+    {
+        return $"{PrefKeyPrefix}.Level.{level}";
     }
 
     private string GetGameObjectPrefKey(string filterKey)

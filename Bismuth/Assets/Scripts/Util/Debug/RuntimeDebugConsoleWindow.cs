@@ -999,6 +999,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (!manager.IsAllowed(entry.Type, entry.GameObjectId, entry.ComponentId))
             return false;
 
+        if (!manager.GetLevelEnabled(entry.Level))
+            return false;
+
         if (_focusedComponentId != 0)
         {
             if (entry.ComponentId != _focusedComponentId)
@@ -1380,6 +1383,18 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         bool collapsePrevious = GUILayout.Toggle(_collapsePreviousOnSelection, "Collapse Prev", GUILayout.Width(120f));
         if (collapsePrevious != _collapsePreviousOnSelection)
             _collapsePreviousOnSelection = collapsePrevious;
+
+        bool showLogs = GUILayout.Toggle(manager.GetLevelEnabled(DebugLogLevel.Log), "Log", GUILayout.Width(70f));
+        if (showLogs != manager.GetLevelEnabled(DebugLogLevel.Log))
+            manager.SetLevelEnabled(DebugLogLevel.Log, showLogs);
+
+        bool showWarnings = GUILayout.Toggle(manager.GetLevelEnabled(DebugLogLevel.Warning), "Warn", GUILayout.Width(75f));
+        if (showWarnings != manager.GetLevelEnabled(DebugLogLevel.Warning))
+            manager.SetLevelEnabled(DebugLogLevel.Warning, showWarnings);
+
+        bool showErrors = GUILayout.Toggle(manager.GetLevelEnabled(DebugLogLevel.Error), "Error", GUILayout.Width(75f));
+        if (showErrors != manager.GetLevelEnabled(DebugLogLevel.Error))
+            manager.SetLevelEnabled(DebugLogLevel.Error, showErrors);
     }
 
     private void DrawToolbarActionGroup(DebugConsoleManager manager, string typeButtonLabel)
@@ -1392,6 +1407,15 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         if (GUILayout.Button("All Types Off", GUILayout.Width(100f)))
             manager.SetAllTypes(false);
+
+        if (GUILayout.Button("All Levels", GUILayout.Width(100f)))
+            manager.SetAllLevels(true);
+
+        if (GUILayout.Button("Warn+", GUILayout.Width(80f)))
+            manager.SetWarningAndErrorOnly();
+
+        if (GUILayout.Button("Error Only", GUILayout.Width(100f)))
+            manager.SetErrorOnly();
 
         if (GUILayout.Button("Clear Logs", GUILayout.Width(100f)))
             manager.ClearLogs();

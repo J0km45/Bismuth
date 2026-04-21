@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Runtime.CompilerServices;
 using UnityEngine;
@@ -8,6 +9,8 @@ using Object = UnityEngine.Object;
 /// </summary>
 public static class DebugTool
 {
+    private static long _sequence;
+
     public static void Log(
         string text,
         DebugType type,
@@ -67,8 +70,6 @@ public static class DebugTool
         Write(DebugLogLevel.Warning, message, DebugType.Missing, context, memberName, filePath, lineNumber);
     }
 
-    // 기존 코드 호환용
-    // 커스텀 윈도우에서 전역 On/Off를 관리하므로 되도록 코드에서는 호출하지 않는 것을 권장한다.
     public static void DebugPrintAll(bool value)
     {
         if (DebugConsoleManager.Instance == null)
@@ -77,8 +78,6 @@ public static class DebugTool
         DebugConsoleManager.Instance.GlobalEnabled = value;
     }
 
-    // 기존 코드 호환용
-    // 커스텀 윈도우에서 타입 On/Off를 관리하므로 되도록 코드에서는 호출하지 않는 것을 권장한다.
     public static void DebugSelect(DebugType type, bool value)
     {
         if (DebugConsoleManager.Instance == null)
@@ -99,9 +98,18 @@ public static class DebugTool
         GetTargetIds(context, out int gameObjectId, out int componentId);
 
         DebugConsoleManager manager = DebugConsoleManager.Instance;
-
         if (manager != null && !manager.IsAllowed(type, context))
             return;
+
+        ResolveTargetMetadata(
+            context,
+            out string sceneKey,
+            out string hierarchyPath,
+            out string gameObjectKey,
+            out string componentKey,
+            out string gameObjectName,
+            out string componentName,
+            out string componentTypeName);
 
         string color = GetColor(type);
         string fileName = Path.GetFileNameWithoutExtension(filePath);
@@ -112,7 +120,7 @@ public static class DebugTool
 
         DebugEntry entry = new DebugEntry
         {
-            Time = System.DateTime.Now.ToString("HH:mm:ss"),
+            Time = DateTime.Now.ToString("HH:mm:ss.fff"),
             Message = text,
             SourceName = sourceName,
             MemberName = memberName,
@@ -124,7 +132,17 @@ public static class DebugTool
             ComponentId = componentId,
             ColorHex = color,
             CallerFilePath = filePath,
-            CallerColumn = 1
+            CallerColumn = 1,
+            SequenceId = ++_sequence,
+            FrameCount = UnityEngine.Time.frameCount,
+            CapturedAtIsoUtc = DateTime.UtcNow.ToString("O"),
+            SceneKey = sceneKey,
+            HierarchyPath = hierarchyPath,
+            GameObjectKey = gameObjectKey,
+            ComponentKey = componentKey,
+            GameObjectName = gameObjectName,
+            ComponentName = componentName,
+            ComponentTypeName = componentTypeName
         };
 
         if (manager != null)
@@ -137,6 +155,45 @@ public static class DebugTool
         else
         {
             PrintToUnityConsole(entry);
+        }
+    }
+
+    private static void ResolveTargetMetadata(
+        Object context,
+        out string sceneKey,
+        out string hierarchyPath,
+        out string gameObjectKey,
+        out string componentKey,
+        out string gameObjectName,
+        out string componentName,
+        out string componentTypeName)
+    {
+        sceneKey = string.Empty;
+        hierarchyPath = string.Empty;
+        gameObjectKey = string.Empty;
+        componentKey = string.Empty;
+        gameObjectName = string.Empty;
+        componentName = string.Empty;
+        componentTypeName = string.Empty;
+
+        if (context is GameObject go)
+        {
+            sceneKey = DebugConsoleFilterKeyUtility.GetSceneKey(go);
+            hierarchyPath = DebugConsoleFilterKeyUtility.GetHierarchyPath(go.transform);
+            gameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(go);
+            gameObjectName = go.name;
+            return;
+        }
+
+        if (context is Component component)
+        {
+            sceneKey = DebugConsoleFilterKeyUtility.GetSceneKey(component.gameObject);
+            hierarchyPath = DebugConsoleFilterKeyUtility.GetHierarchyPath(component.transform);
+            gameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(component.gameObject);
+            componentKey = DebugConsoleFilterKeyUtility.GetComponentKey(component);
+            gameObjectName = component.gameObject.name;
+            componentName = component.GetType().Name;
+            componentTypeName = component.GetType().FullName;
         }
     }
 

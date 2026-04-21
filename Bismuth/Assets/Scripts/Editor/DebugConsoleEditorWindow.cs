@@ -97,11 +97,14 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private const string SnapshotDirectoryPath = "Library/DebugConsole";
     private const string SnapshotFileName = "DebugConsoleEditorSnapshot.json";
-    private const int CurrentSnapshotVersion = 2;
+    private const int CurrentSnapshotVersion = 3;
     private const string EditorStatePrefKey = "DebugConsoleEditorWindow.State";
     private const string ManagerPrefKeyPrefix = "DebugConsole.Manager";
     private const string GlobalEnabledPrefKey = ManagerPrefKeyPrefix + ".GlobalEnabled";
     private const string MirrorToUnityPrefKey = ManagerPrefKeyPrefix + ".MirrorToUnity";
+    private const string LogLevelLogPrefKey = ManagerPrefKeyPrefix + ".Level.Log";
+    private const string LogLevelWarningPrefKey = ManagerPrefKeyPrefix + ".Level.Warning";
+    private const string LogLevelErrorPrefKey = ManagerPrefKeyPrefix + ".Level.Error";
     private const string TypePrefKeyPrefix = ManagerPrefKeyPrefix + ".Type.";
     private const string GameObjectPrefKeyPrefix = ManagerPrefKeyPrefix + ".GameObject.";
     private const string ComponentPrefKeyPrefix = ManagerPrefKeyPrefix + ".Component.";
@@ -116,6 +119,9 @@ public class DebugConsoleEditorWindow : EditorWindow
         public string CapturedAt;
         public bool GlobalEnabled;
         public bool MirrorToUnityConsole;
+        public bool ShowLogLevelLog = true;
+        public bool ShowLogLevelWarning = true;
+        public bool ShowLogLevelError = true;
         public bool[] TypeFilters;
         public List<SnapshotGameObjectNode> Roots = new();
         public List<SnapshotLogEntry> Entries = new();
@@ -157,6 +163,12 @@ public class DebugConsoleEditorWindow : EditorWindow
         public string ComponentKey;
         public string GameObjectName;
         public string ComponentName;
+        public string SceneKey;
+        public string HierarchyPath;
+        public string ComponentTypeName;
+        public long SequenceId;
+        public int FrameCount;
+        public string CapturedAtIsoUtc;
         public string ColorHex;
         public string CallerFilePath;
         public int CallerColumn = 1;
@@ -806,6 +818,9 @@ public class DebugConsoleEditorWindow : EditorWindow
         if (_lastSnapshot.TypeFilters != null && typeIndex >= 0 && typeIndex < _lastSnapshot.TypeFilters.Length && !_lastSnapshot.TypeFilters[typeIndex])
             return false;
 
+        if (!IsSnapshotLevelEnabled(_lastSnapshot, entry.Level))
+            return false;
+
         if (!string.IsNullOrWhiteSpace(entry.GameObjectKey) && !GetStoredGameObjectEnabled(entry.GameObjectKey, true))
             return false;
 
@@ -836,7 +851,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         if (string.IsNullOrWhiteSpace(_logSearch))
             return true;
 
-        string searchPool = $"{entry.Message} {entry.SourceName} {entry.MemberName} {entry.Type} {entry.Time}";
+        string searchPool = $"{entry.Message} {entry.SourceName} {entry.MemberName} {entry.Type} {entry.Time} {entry.Level}";
         return ContainsIgnoreCase(searchPool, _logSearch);
     }
 
@@ -887,6 +902,9 @@ public class DebugConsoleEditorWindow : EditorWindow
             CapturedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
             GlobalEnabled = manager.GlobalEnabled,
             MirrorToUnityConsole = manager.MirrorToUnityConsole,
+            ShowLogLevelLog = manager.GetLevelEnabled(DebugLogLevel.Log),
+            ShowLogLevelWarning = manager.GetLevelEnabled(DebugLogLevel.Warning),
+            ShowLogLevelError = manager.GetLevelEnabled(DebugLogLevel.Error),
             TypeFilters = CaptureTypeFilters(manager),
             Roots = new List<SnapshotGameObjectNode>(),
             Entries = new List<SnapshotLogEntry>()
@@ -911,10 +929,10 @@ public class DebugConsoleEditorWindow : EditorWindow
 
             snapshot.Entries.Add(new SnapshotLogEntry
             {
-                Time = entry.Time ?? string.Empty,
-                Message = entry.Message ?? string.Empty,
-                SourceName = entry.SourceName ?? string.Empty,
-                MemberName = entry.MemberName ?? string.Empty,
+                Time = entry.Time,
+                Message = entry.Message,
+                SourceName = entry.SourceName,
+                MemberName = entry.MemberName,
                 LineNumber = entry.LineNumber,
                 Type = entry.Type,
                 Level = entry.Level,
@@ -924,10 +942,16 @@ public class DebugConsoleEditorWindow : EditorWindow
                 ComponentKey = componentKey,
                 GameObjectName = gameObjectName,
                 ComponentName = componentName,
-                ColorHex = string.IsNullOrWhiteSpace(entry.ColorHex) ? "#ffffff" : entry.ColorHex,
-                CallerFilePath = entry.CallerFilePath ?? string.Empty,
-                CallerColumn = Mathf.Max(1, entry.CallerColumn),
-                WasVisibleAtCapture = true
+                SceneKey = entry.SceneKey,
+                HierarchyPath = entry.HierarchyPath,
+                ComponentTypeName = entry.ComponentTypeName,
+                SequenceId = entry.SequenceId,
+                FrameCount = entry.FrameCount,
+                CapturedAtIsoUtc = entry.CapturedAtIsoUtc,
+                ColorHex = entry.ColorHex,
+                CallerFilePath = entry.CallerFilePath,
+                CallerColumn = entry.CallerColumn,
+                WasVisibleAtCapture = ShouldDisplayEntry(manager, entry)
             });
         }
 
@@ -980,22 +1004,22 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private void CaptureSnapshotEntryTargets(DebugEntry entry, out string gameObjectKey, out string componentKey, out string gameObjectName, out string componentName)
     {
-        gameObjectKey = string.Empty;
-        componentKey = string.Empty;
-        gameObjectName = string.Empty;
-        componentName = string.Empty;
+        gameObjectKey = entry?.GameObjectKey ?? string.Empty;
+        componentKey = entry?.ComponentKey ?? string.Empty;
+        gameObjectName = entry?.GameObjectName ?? string.Empty;
+        componentName = entry?.ComponentName ?? string.Empty;
 
-        if (entry == null || entry.Context == null)
+        if (!string.IsNullOrWhiteSpace(gameObjectKey))
             return;
 
-        if (entry.Context is GameObject go)
+        if (entry?.Context is GameObject go)
         {
             gameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(go);
             gameObjectName = go.name;
             return;
         }
 
-        if (entry.Context is Component component)
+        if (entry?.Context is Component component)
         {
             gameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(component.gameObject);
             componentKey = DebugConsoleFilterKeyUtility.GetComponentKey(component);
@@ -1109,6 +1133,13 @@ public class DebugConsoleEditorWindow : EditorWindow
         snapshot.Roots ??= new List<SnapshotGameObjectNode>();
         snapshot.Entries ??= new List<SnapshotLogEntry>();
 
+        if (!snapshot.ShowLogLevelLog && !snapshot.ShowLogLevelWarning && !snapshot.ShowLogLevelError)
+        {
+            snapshot.ShowLogLevelLog = true;
+            snapshot.ShowLogLevelWarning = true;
+            snapshot.ShowLogLevelError = true;
+        }
+
         for (int i = 0; i < snapshot.Roots.Count; i++)
             NormalizeSnapshotNode(snapshot.Roots[i]);
 
@@ -1118,18 +1149,20 @@ public class DebugConsoleEditorWindow : EditorWindow
             if (entry == null)
                 continue;
 
-            entry.Time ??= string.Empty;
-            entry.Message ??= string.Empty;
-            entry.SourceName ??= string.Empty;
-            entry.MemberName ??= string.Empty;
             entry.GameObjectKey ??= string.Empty;
             entry.ComponentKey ??= string.Empty;
             entry.GameObjectName ??= string.Empty;
             entry.ComponentName ??= string.Empty;
+            entry.SceneKey ??= string.Empty;
+            entry.HierarchyPath ??= string.Empty;
+            entry.ComponentTypeName ??= string.Empty;
+            entry.CapturedAtIsoUtc ??= string.Empty;
+            entry.ColorHex ??= "#ffffff";
             entry.CallerFilePath ??= string.Empty;
-            if (string.IsNullOrWhiteSpace(entry.ColorHex))
-                entry.ColorHex = "#ffffff";
-            entry.CallerColumn = Mathf.Max(1, entry.CallerColumn);
+            entry.SourceName ??= string.Empty;
+            entry.MemberName ??= string.Empty;
+            entry.Message ??= string.Empty;
+            entry.Time ??= string.Empty;
         }
     }
 
@@ -1261,6 +1294,9 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         snapshot.GlobalEnabled = DebugConsolePreferenceStore.GetBool(GlobalEnabledPrefKey, snapshot.GlobalEnabled);
         snapshot.MirrorToUnityConsole = DebugConsolePreferenceStore.GetBool(MirrorToUnityPrefKey, snapshot.MirrorToUnityConsole);
+        snapshot.ShowLogLevelLog = DebugConsolePreferenceStore.GetBool(LogLevelLogPrefKey, snapshot.ShowLogLevelLog);
+        snapshot.ShowLogLevelWarning = DebugConsolePreferenceStore.GetBool(LogLevelWarningPrefKey, snapshot.ShowLogLevelWarning);
+        snapshot.ShowLogLevelError = DebugConsolePreferenceStore.GetBool(LogLevelErrorPrefKey, snapshot.ShowLogLevelError);
 
         DebugType[] types = (DebugType[])Enum.GetValues(typeof(DebugType));
         snapshot.TypeFilters ??= new bool[types.Length];
@@ -1409,6 +1445,87 @@ public class DebugConsoleEditorWindow : EditorWindow
         return snapshot.TypeFilters[index];
     }
 
+
+    private bool IsSnapshotLevelEnabled(DebugConsoleEditorSnapshot snapshot, DebugLogLevel level)
+    {
+        if (snapshot == null)
+            return true;
+
+        return level switch
+        {
+            DebugLogLevel.Warning => snapshot.ShowLogLevelWarning,
+            DebugLogLevel.Error => snapshot.ShowLogLevelError,
+            _ => snapshot.ShowLogLevelLog
+        };
+    }
+
+    private void SetSnapshotLevelEnabled(DebugConsoleEditorSnapshot snapshot, DebugLogLevel level, bool value)
+    {
+        if (snapshot == null)
+            return;
+
+        switch (level)
+        {
+            case DebugLogLevel.Warning:
+                snapshot.ShowLogLevelWarning = value;
+                DebugConsolePreferenceStore.SetBool(LogLevelWarningPrefKey, value);
+                break;
+
+            case DebugLogLevel.Error:
+                snapshot.ShowLogLevelError = value;
+                DebugConsolePreferenceStore.SetBool(LogLevelErrorPrefKey, value);
+                break;
+
+            default:
+                snapshot.ShowLogLevelLog = value;
+                DebugConsolePreferenceStore.SetBool(LogLevelLogPrefKey, value);
+                break;
+        }
+
+        SaveSnapshotIfAvailable();
+    }
+
+    private void SetAllSnapshotLevels(DebugConsoleEditorSnapshot snapshot, bool value)
+    {
+        if (snapshot == null)
+            return;
+
+        snapshot.ShowLogLevelLog = value;
+        snapshot.ShowLogLevelWarning = value;
+        snapshot.ShowLogLevelError = value;
+        DebugConsolePreferenceStore.SetBool(LogLevelLogPrefKey, value);
+        DebugConsolePreferenceStore.SetBool(LogLevelWarningPrefKey, value);
+        DebugConsolePreferenceStore.SetBool(LogLevelErrorPrefKey, value);
+        SaveSnapshotIfAvailable();
+    }
+
+    private void SetSnapshotWarningAndErrorOnly(DebugConsoleEditorSnapshot snapshot)
+    {
+        if (snapshot == null)
+            return;
+
+        snapshot.ShowLogLevelLog = false;
+        snapshot.ShowLogLevelWarning = true;
+        snapshot.ShowLogLevelError = true;
+        DebugConsolePreferenceStore.SetBool(LogLevelLogPrefKey, false);
+        DebugConsolePreferenceStore.SetBool(LogLevelWarningPrefKey, true);
+        DebugConsolePreferenceStore.SetBool(LogLevelErrorPrefKey, true);
+        SaveSnapshotIfAvailable();
+    }
+
+    private void SetSnapshotErrorOnly(DebugConsoleEditorSnapshot snapshot)
+    {
+        if (snapshot == null)
+            return;
+
+        snapshot.ShowLogLevelLog = false;
+        snapshot.ShowLogLevelWarning = false;
+        snapshot.ShowLogLevelError = true;
+        DebugConsolePreferenceStore.SetBool(LogLevelLogPrefKey, false);
+        DebugConsolePreferenceStore.SetBool(LogLevelWarningPrefKey, false);
+        DebugConsolePreferenceStore.SetBool(LogLevelErrorPrefKey, true);
+        SaveSnapshotIfAvailable();
+    }
     private void SetSnapshotTypeEnabled(DebugConsoleEditorSnapshot snapshot, DebugType type, bool value)
     {
         if (snapshot == null)
@@ -1796,6 +1913,18 @@ public class DebugConsoleEditorWindow : EditorWindow
             _collapseLogs = collapseLogs;
             SaveEditorUiState();
         }
+
+        bool showLogs = GUILayout.Toggle(IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Log), "Log", GUILayout.Width(70f));
+        if (showLogs != IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Log))
+            SetSnapshotLevelEnabled(snapshot, DebugLogLevel.Log, showLogs);
+
+        bool showWarnings = GUILayout.Toggle(IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Warning), "Warn", GUILayout.Width(75f));
+        if (showWarnings != IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Warning))
+            SetSnapshotLevelEnabled(snapshot, DebugLogLevel.Warning, showWarnings);
+
+        bool showErrors = GUILayout.Toggle(IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Error), "Error", GUILayout.Width(75f));
+        if (showErrors != IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Error))
+            SetSnapshotLevelEnabled(snapshot, DebugLogLevel.Error, showErrors);
     }
 
     private void DrawSnapshotToolbarToggleGroupWrapped(DebugConsoleEditorSnapshot snapshot, float availableWidth)
@@ -1886,6 +2015,30 @@ public class DebugConsoleEditorWindow : EditorWindow
                     }
                     break;
                 }
+
+                case "Log":
+                {
+                    bool value = GUILayout.Toggle(IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Log), "Log", GUILayout.Width(70f));
+                    if (value != IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Log))
+                        SetSnapshotLevelEnabled(snapshot, DebugLogLevel.Log, value);
+                    break;
+                }
+
+                case "Warn":
+                {
+                    bool value = GUILayout.Toggle(IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Warning), "Warn", GUILayout.Width(75f));
+                    if (value != IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Warning))
+                        SetSnapshotLevelEnabled(snapshot, DebugLogLevel.Warning, value);
+                    break;
+                }
+
+                case "Error":
+                {
+                    bool value = GUILayout.Toggle(IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Error), "Error", GUILayout.Width(75f));
+                    if (value != IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Error))
+                        SetSnapshotLevelEnabled(snapshot, DebugLogLevel.Error, value);
+                    break;
+                }
             }
 
             if (i < endIndex - 1)
@@ -1906,6 +2059,15 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         if (GUILayout.Button("All Types Off", GUILayout.Width(100f)))
             SetAllSnapshotTypes(snapshot, false);
+
+        if (GUILayout.Button("All Levels", GUILayout.Width(100f)))
+            SetAllSnapshotLevels(snapshot, true);
+
+        if (GUILayout.Button("Warn+", GUILayout.Width(80f)))
+            SetSnapshotWarningAndErrorOnly(snapshot);
+
+        if (GUILayout.Button("Error Only", GUILayout.Width(100f)))
+            SetSnapshotErrorOnly(snapshot);
 
         if (GUILayout.Button("Clear Logs", GUILayout.Width(100f)))
         {
@@ -1945,9 +2107,9 @@ public class DebugConsoleEditorWindow : EditorWindow
                 case "TypeFilter":
                     if (GUILayout.Button(typeButtonLabel, GUILayout.Width(width)))
                     {
-            _showTypeFilterPanel = !_showTypeFilterPanel;
-            SaveEditorUiState();
-        }
+                        _showTypeFilterPanel = !_showTypeFilterPanel;
+                        SaveEditorUiState();
+                    }
                     break;
 
                 case "All Types On":
@@ -1958,6 +2120,21 @@ public class DebugConsoleEditorWindow : EditorWindow
                 case "All Types Off":
                     if (GUILayout.Button("All Types Off", GUILayout.Width(width)))
                         SetAllSnapshotTypes(snapshot, false);
+                    break;
+
+                case "All Levels":
+                    if (GUILayout.Button("All Levels", GUILayout.Width(width)))
+                        SetAllSnapshotLevels(snapshot, true);
+                    break;
+
+                case "Warn+":
+                    if (GUILayout.Button("Warn+", GUILayout.Width(width)))
+                        SetSnapshotWarningAndErrorOnly(snapshot);
+                    break;
+
+                case "Error Only":
+                    if (GUILayout.Button("Error Only", GUILayout.Width(width)))
+                        SetSnapshotErrorOnly(snapshot);
                     break;
 
                 case "Clear Logs":
@@ -2767,6 +2944,9 @@ public class DebugConsoleEditorWindow : EditorWindow
         if (!manager.IsAllowed(entry.Type, entry.GameObjectId, entry.ComponentId))
             return false;
 
+        if (!manager.GetLevelEnabled(entry.Level))
+            return false;
+
         if (_focusedComponentId != 0)
         {
             if (entry.ComponentId != _focusedComponentId)
@@ -2778,11 +2958,7 @@ public class DebugConsoleEditorWindow : EditorWindow
                 return false;
         }
 
-        if (string.IsNullOrWhiteSpace(_logSearch))
-            return true;
-
-        string searchPool = $"{entry.Message} {entry.SourceName} {entry.MemberName} {entry.Type} {entry.Time}";
-        return ContainsIgnoreCase(searchPool, _logSearch);
+        return true;
     }
 
     private void ToggleGameObjectFocus(GameObject go)
@@ -3234,6 +3410,9 @@ public class DebugConsoleEditorWindow : EditorWindow
         ("Hide Transform", 120f),
         ("Collapse Prev", 120f),
         ("Collapse Logs", 120f),
+        ("Log", 70f),
+        ("Warn", 75f),
+        ("Error", 75f),
     };
 
     private readonly (string label, float width)[] _toolbarActionItems =
@@ -3241,6 +3420,9 @@ public class DebugConsoleEditorWindow : EditorWindow
         ("TypeFilter", 160f),
         ("All Types On", 100f),
         ("All Types Off", 100f),
+        ("All Levels", 100f),
+        ("Warn+", 80f),
+        ("Error Only", 100f),
         ("Clear Logs", 100f),
         ("Clear Focus", 100f),
     };
@@ -3282,6 +3464,18 @@ public class DebugConsoleEditorWindow : EditorWindow
             _collapseLogs = collapseLogs;
             SaveEditorUiState();
         }
+
+        bool showLogs = GUILayout.Toggle(manager.GetLevelEnabled(DebugLogLevel.Log), "Log", GUILayout.Width(70f));
+        if (showLogs != manager.GetLevelEnabled(DebugLogLevel.Log))
+            manager.SetLevelEnabled(DebugLogLevel.Log, showLogs);
+
+        bool showWarnings = GUILayout.Toggle(manager.GetLevelEnabled(DebugLogLevel.Warning), "Warn", GUILayout.Width(75f));
+        if (showWarnings != manager.GetLevelEnabled(DebugLogLevel.Warning))
+            manager.SetLevelEnabled(DebugLogLevel.Warning, showWarnings);
+
+        bool showErrors = GUILayout.Toggle(manager.GetLevelEnabled(DebugLogLevel.Error), "Error", GUILayout.Width(75f));
+        if (showErrors != manager.GetLevelEnabled(DebugLogLevel.Error))
+            manager.SetLevelEnabled(DebugLogLevel.Error, showErrors);
     }
 
     private void DrawToolbarToggleGroupWrapped(DebugConsoleManager manager, float availableWidth)
@@ -3364,6 +3558,30 @@ public class DebugConsoleEditorWindow : EditorWindow
                     }
                     break;
                 }
+
+                case "Log":
+                {
+                    bool value = GUILayout.Toggle(manager.GetLevelEnabled(DebugLogLevel.Log), "Log", GUILayout.Width(70f));
+                    if (value != manager.GetLevelEnabled(DebugLogLevel.Log))
+                        manager.SetLevelEnabled(DebugLogLevel.Log, value);
+                    break;
+                }
+
+                case "Warn":
+                {
+                    bool value = GUILayout.Toggle(manager.GetLevelEnabled(DebugLogLevel.Warning), "Warn", GUILayout.Width(75f));
+                    if (value != manager.GetLevelEnabled(DebugLogLevel.Warning))
+                        manager.SetLevelEnabled(DebugLogLevel.Warning, value);
+                    break;
+                }
+
+                case "Error":
+                {
+                    bool value = GUILayout.Toggle(manager.GetLevelEnabled(DebugLogLevel.Error), "Error", GUILayout.Width(75f));
+                    if (value != manager.GetLevelEnabled(DebugLogLevel.Error))
+                        manager.SetLevelEnabled(DebugLogLevel.Error, value);
+                    break;
+                }
             }
 
             if (i < endIndex - 1)
@@ -3384,6 +3602,15 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         if (GUILayout.Button("All Types Off", GUILayout.Width(100f)))
             manager.SetAllTypes(false);
+
+        if (GUILayout.Button("All Levels", GUILayout.Width(100f)))
+            manager.SetAllLevels(true);
+
+        if (GUILayout.Button("Warn+", GUILayout.Width(80f)))
+            manager.SetWarningAndErrorOnly();
+
+        if (GUILayout.Button("Error Only", GUILayout.Width(100f)))
+            manager.SetErrorOnly();
 
         if (GUILayout.Button("Clear Logs", GUILayout.Width(100f)))
             manager.ClearLogs();
@@ -3432,6 +3659,21 @@ public class DebugConsoleEditorWindow : EditorWindow
                 case "All Types Off":
                     if (GUILayout.Button("All Types Off", GUILayout.Width(width)))
                         manager.SetAllTypes(false);
+                    break;
+
+                case "All Levels":
+                    if (GUILayout.Button("All Levels", GUILayout.Width(width)))
+                        manager.SetAllLevels(true);
+                    break;
+
+                case "Warn+":
+                    if (GUILayout.Button("Warn+", GUILayout.Width(width)))
+                        manager.SetWarningAndErrorOnly();
+                    break;
+
+                case "Error Only":
+                    if (GUILayout.Button("Error Only", GUILayout.Width(width)))
+                        manager.SetErrorOnly();
                     break;
 
                 case "Clear Logs":

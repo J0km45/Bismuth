@@ -20,7 +20,7 @@ public static class DebugConsoleFilterKeyUtility
         return $"{GetGameObjectKey(component.gameObject)}|{component.GetType().FullName}#{sameTypeIndex}";
     }
 
-    private static string GetSceneKey(GameObject go)
+    public static string GetSceneKey(GameObject go)
     {
         if (go == null)
             return "[NullScene]";
@@ -37,7 +37,7 @@ public static class DebugConsoleFilterKeyUtility
         return "[UnnamedScene]";
     }
 
-    private static string GetHierarchyPath(Transform transform)
+    public static string GetHierarchyPath(Transform transform)
     {
         if (transform == null)
             return string.Empty;
