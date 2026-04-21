@@ -416,7 +416,8 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private void DrawWindow(int windowId)
     {
         Rect closeButtonRect = new Rect(_windowRect.width - 30f, 4f, 22f, 18f);
-        if (GUI.Button(closeButtonRect, "X", _closeButtonStyle))
+        GUIStyle closeButtonStyle = _closeButtonStyle ?? GUI.skin.button;
+        if (GUI.Button(closeButtonRect, "X", closeButtonStyle))
         {
             SetConsoleVisible(false);
             GUIUtility.ExitGUI();
