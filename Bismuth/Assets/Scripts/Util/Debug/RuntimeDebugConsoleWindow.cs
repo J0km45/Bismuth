@@ -772,7 +772,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.Label(new GUIContent("Logs", string.IsNullOrEmpty(focusSuffix) ? "Logs" : $"Logs {focusSuffix}"), _titleStyle, GUILayout.ExpandWidth(true));
         GUILayout.EndHorizontal();
 
-        bool wasNearBottom = IsNearBottom(_lastMaxLogScrollY);
         float contentHeight = 0f;
         float logContentWidth = GetLogContentWidth(panelWidth);
 
@@ -798,7 +797,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _lastLogContentHeight = contentHeight + 8f;
         _lastMaxLogScrollY = Mathf.Max(0f, _lastLogContentHeight - _lastLogViewportHeight);
 
-        if (Event.current.type == EventType.Repaint && (_autoScroll || wasNearBottom || IsNearBottom(_lastMaxLogScrollY)))
+        if (Event.current.type == EventType.Repaint && _autoScroll)
             _logScroll.y = _lastMaxLogScrollY + 4f;
 
         GUILayout.EndVertical();

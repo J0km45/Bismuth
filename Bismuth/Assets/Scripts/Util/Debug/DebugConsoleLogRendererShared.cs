@@ -32,7 +32,6 @@ public static class DebugConsoleLogRendererShared
         GUILayout.Label($"Logs {ctx.GetFocusSuffix()}", ctx.TitleStyle);
         GUILayout.EndHorizontal();
 
-        bool wasNearBottom = IsNearBottom(ctx.Scroll.y, ctx.LastMaxLogScrollY);
         float contentHeight = 0f;
 
         ctx.Scroll = GUILayout.BeginScrollView(ctx.Scroll, false, true);
@@ -58,7 +57,7 @@ public static class DebugConsoleLogRendererShared
         ctx.LastLogContentHeight = contentHeight + 8f;
         ctx.LastMaxLogScrollY = Mathf.Max(0f, ctx.LastLogContentHeight - ctx.LastLogViewportHeight);
 
-        if (Event.current.type == EventType.Repaint && (ctx.AutoScroll || wasNearBottom || IsNearBottom(ctx.Scroll.y, ctx.LastMaxLogScrollY)))
+        if (Event.current.type == EventType.Repaint && ctx.AutoScroll)
             ctx.Scroll.y = ctx.LastMaxLogScrollY + 4f;
 
         GUILayout.EndVertical();

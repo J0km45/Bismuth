@@ -656,7 +656,6 @@ public class DebugConsoleEditorWindow : EditorWindow
         GUILayout.Label($"Logs {GetFocusSuffix()}", _titleStyle);
         EditorGUILayout.EndHorizontal();
 
-        bool wasNearBottom = IsNearBottom(_lastMaxLogScrollY);
         float contentHeight = 0f;
 
         _logScroll = EditorGUILayout.BeginScrollView(_logScroll);
@@ -678,7 +677,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         _lastLogContentHeight = contentHeight + 8f;
         _lastMaxLogScrollY = Mathf.Max(0f, _lastLogContentHeight - _lastLogViewportHeight);
 
-        if (Event.current.type == EventType.Repaint && (_autoScroll || wasNearBottom || IsNearBottom(_lastMaxLogScrollY)))
+        if (Event.current.type == EventType.Repaint && _autoScroll)
             _logScroll.y = _lastMaxLogScrollY + 4f;
 
         EditorGUILayout.EndVertical();
@@ -2497,7 +2496,6 @@ public class DebugConsoleEditorWindow : EditorWindow
         GUILayout.Label($"Logs {GetFocusSuffix()}", _titleStyle);
         EditorGUILayout.EndHorizontal();
 
-        bool wasNearBottom = IsNearBottom(_lastMaxLogScrollY);
         float contentHeight = 0f;
 
         _logScroll = EditorGUILayout.BeginScrollView(_logScroll);
@@ -2520,7 +2518,7 @@ public class DebugConsoleEditorWindow : EditorWindow
         _lastLogContentHeight = contentHeight + 8f;
         _lastMaxLogScrollY = Mathf.Max(0f, _lastLogContentHeight - _lastLogViewportHeight);
 
-        if (Event.current.type == EventType.Repaint && (_autoScroll || wasNearBottom || IsNearBottom(_lastMaxLogScrollY)))
+        if (Event.current.type == EventType.Repaint && _autoScroll)
             _logScroll.y = _lastMaxLogScrollY + 4f;
 
         EditorGUILayout.EndVertical();
