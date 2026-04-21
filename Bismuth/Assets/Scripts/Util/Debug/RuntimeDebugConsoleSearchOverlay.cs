@@ -58,24 +58,16 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 
         _canvas.enabled = visible;
 
-        if (_hierarchyInput != null)
-        {
-            _hierarchyInput.interactable = visible;
-            _hierarchyInput.readOnly = !visible;
-            _hierarchyInput.gameObject.SetActive(visible);
-        }
-
-        if (_logInput != null)
-        {
-            _logInput.interactable = visible;
-            _logInput.readOnly = !visible;
-            _logInput.gameObject.SetActive(visible);
-        }
-
         if (!visible)
         {
             _pendingHierarchyFocus = false;
             _pendingLogFocus = false;
+
+            if (_hierarchyInput != null)
+                _hierarchyInput.gameObject.SetActive(false);
+
+            if (_logInput != null)
+                _logInput.gameObject.SetActive(false);
         }
     }
 
@@ -85,7 +77,12 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
             return;
 
         EnsureEventSystemExists();
+        _canvas.enabled = true;
         _hierarchyInput.gameObject.SetActive(true);
+
+        if (_logInput != null)
+            _logInput.gameObject.SetActive(false);
+
         _pendingHierarchyFocus = true;
         _pendingLogFocus = false;
     }
@@ -96,7 +93,12 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
             return;
 
         EnsureEventSystemExists();
+        _canvas.enabled = true;
         _logInput.gameObject.SetActive(true);
+
+        if (_hierarchyInput != null)
+            _hierarchyInput.gameObject.SetActive(false);
+
         _pendingLogFocus = true;
         _pendingHierarchyFocus = false;
     }
@@ -156,8 +158,6 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         inputField.customCaretColor = true;
         inputField.caretColor = Color.black;
         inputField.selectionColor = new Color(0.48f, 0.70f, 1.00f, 0.85f);
-        inputField.onValueChanged.AddListener(_ => ClampSelection(inputField));
-        inputField.onEndEdit.AddListener(_ => ClampSelection(inputField));
 
         GameObject textArea = new GameObject("Text Area", typeof(RectTransform), typeof(RectMask2D));
         textArea.transform.SetParent(root.transform, false);
@@ -186,9 +186,7 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
         if (inputField == null)
             return;
 
-        inputField.DeactivateInputField();
         inputField.text = value ?? string.Empty;
-        ClampSelection(inputField);
         ApplyInputVisuals(inputField);
         inputField.ForceLabelUpdate();
     }
@@ -217,25 +215,8 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
             return;
 
         inputField.gameObject.SetActive(true);
-        ClampSelection(inputField);
         inputField.Select();
         inputField.ActivateInputField();
-        int textLength = inputField.text != null ? inputField.text.Length : 0;
-        inputField.caretPosition = textLength;
-        inputField.selectionAnchorPosition = textLength;
-        inputField.selectionFocusPosition = textLength;
-    }
-
-    private void ClampSelection(InputField inputField)
-    {
-        if (inputField == null)
-            return;
-
-        string currentText = inputField.text ?? string.Empty;
-        int textLength = currentText.Length;
-        inputField.caretPosition = Mathf.Clamp(inputField.caretPosition, 0, textLength);
-        inputField.selectionAnchorPosition = Mathf.Clamp(inputField.selectionAnchorPosition, 0, textLength);
-        inputField.selectionFocusPosition = Mathf.Clamp(inputField.selectionFocusPosition, 0, textLength);
     }
 
     private void ApplyInputVisuals(InputField inputField)
@@ -304,13 +285,19 @@ public class RuntimeDebugConsoleSearchOverlay : MonoBehaviour
 
     private void ApplyScreenRect(RectTransform rectTransform, Rect screenRect)
     {
-        if (rectTransform == null || screenRect.width <= 0f || screenRect.height <= 0f)
+        if (_canvasRect == null || rectTransform == null || screenRect.width <= 0f || screenRect.height <= 0f)
+            return;
+
+        Vector2 localTopLeft;
+        Vector2 screenTopLeft = new Vector2(screenRect.xMin, screenRect.yMin);
+
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(_canvasRect, screenTopLeft, null, out localTopLeft))
             return;
 
         rectTransform.anchorMin = new Vector2(0f, 1f);
         rectTransform.anchorMax = new Vector2(0f, 1f);
         rectTransform.pivot = new Vector2(0f, 1f);
-        rectTransform.anchoredPosition = new Vector2(screenRect.xMin, -screenRect.yMin);
+        rectTransform.anchoredPosition = localTopLeft;
         rectTransform.sizeDelta = new Vector2(screenRect.width, Mathf.Max(FieldHeight, screenRect.height));
     }
 

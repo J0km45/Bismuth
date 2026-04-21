@@ -212,8 +212,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (_searchOverlay == null)
             return;
 
-        bool overlayFocused = _searchOverlay.IsHierarchyFocused || _searchOverlay.IsLogFocused;
-        bool showOverlay = _visible && (_activeSearchField != SearchFieldFocus.None || overlayFocused);
+        bool showOverlay = _visible && _activeSearchField != SearchFieldFocus.None;
         _searchOverlay.SetVisible(showOverlay);
 
         if (!showOverlay)
@@ -228,11 +227,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     {
         Vector2 topLeft = GUIUtility.GUIToScreenPoint(new Vector2(guiRect.xMin, guiRect.yMin));
         return new Rect(topLeft.x, topLeft.y, guiRect.width, guiRect.height);
-    }
-
-    private Vector2 ToScreenRectPosition(Vector2 guiPosition)
-    {
-        return GUIUtility.GUIToScreenPoint(guiPosition);
     }
 
     private void InitStyles()
@@ -390,18 +384,19 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         DrawToolbar(manager);
         DrawSearchBar();
-        DrawTypeFilterPanel(manager);
 
-        DrawResizablePanels(manager);
-
-        Event current = Event.current;
-        if (current.type == EventType.MouseDown && !_hierarchySearchScreenRect.Contains(ToScreenRectPosition(current.mousePosition)) && !_logSearchScreenRect.Contains(ToScreenRectPosition(current.mousePosition)))
+        if (Event.current.type == EventType.MouseDown &&
+            !_hierarchySearchScreenRect.Contains(ToScreenRect(new Rect(Event.current.mousePosition, Vector2.zero)).position) &&
+            !_logSearchScreenRect.Contains(ToScreenRect(new Rect(Event.current.mousePosition, Vector2.zero)).position))
         {
             _activeSearchField = SearchFieldFocus.None;
 
-            if (_searchOverlay != null && !_searchOverlay.IsHierarchyFocused && !_searchOverlay.IsLogFocused)
+            if (_searchOverlay != null)
                 _searchOverlay.SetVisible(false);
         }
+        DrawTypeFilterPanel(manager);
+
+        DrawResizablePanels(manager);
 
         GUI.DragWindow(new Rect(0, 0, 10000, 24));
     }
@@ -1407,7 +1402,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         {
             Rect screenRect = ToScreenRect(fieldRect);
             _hierarchySearchScreenRect = screenRect;
-
             _activeSearchField = SearchFieldFocus.Hierarchy;
 
             if (_searchOverlay != null)
@@ -1438,7 +1432,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         {
             Rect screenRect = ToScreenRect(fieldRect);
             _logSearchScreenRect = screenRect;
-
             _activeSearchField = SearchFieldFocus.Log;
 
             if (_searchOverlay != null)
