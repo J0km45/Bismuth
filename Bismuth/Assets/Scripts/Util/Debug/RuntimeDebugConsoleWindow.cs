@@ -51,9 +51,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private RuntimeDebugConsoleSearchOverlay _searchOverlay;
 
-    private const float SearchLabelWidth = 52f;
-    private const float SearchFieldFixedWidth = 220f;
-    private const float SearchClearButtonWidth = 72f;
+    private const float SearchLabelWidth = 48f;
+    private const float SearchFieldFixedWidth = 160f;
+    private const float SearchClearButtonWidth = 56f;
     private Rect _hierarchySearchScreenRect;
     private Rect _logSearchScreenRect;
 
@@ -118,6 +118,12 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private float _lastLogContentHeight;
     private float _lastLogViewportHeight;
+    private List<VisibleRuntimeLogEntry> _cachedVisibleEntries = new List<VisibleRuntimeLogEntry>();
+    private List<float> _cachedVisibleRowHeights = new List<float>();
+    private int _cachedVisibleEntriesChangeVersion = -1;
+    private string _cachedVisibleEntriesSignature = string.Empty;
+    private float _cachedVisibleEntriesWidth = -1f;
+
     private float _lastMaxLogScrollY;
     private float _logDetailPanelHeight = 220f;
     private readonly Dictionary<string, float> _rowHeightCache = new();
@@ -496,20 +502,21 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (availableWidth >= 760f)
         {
             GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
-            float hierarchyWidth = Mathf.Clamp((availableWidth - 330f) * 0.42f, 160f, 320f);
-            DrawHierarchySearchField();
+            float hierarchyWidth = Mathf.Clamp((availableWidth - 120f) * 0.38f, 160f, 260f);
+            float logWidth = Mathf.Clamp((availableWidth - hierarchyWidth) - 24f, 220f, 320f);
+            DrawHierarchySearchField(hierarchyWidth);
             GUILayout.Space(12f);
-            DrawLogSearchField();
+            DrawLogSearchField(logWidth);
             GUILayout.EndHorizontal();
             return;
         }
 
         GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
-        DrawHierarchySearchField();
+        DrawHierarchySearchField(availableWidth);
         GUILayout.EndHorizontal();
 
         GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
-        DrawLogSearchField();
+        DrawLogSearchField(availableWidth);
         GUILayout.EndHorizontal();
     }
 
@@ -618,7 +625,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.EndHorizontal();
         GUILayout.Space(4f);
         GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
-        DrawHierarchySearchField();
+        DrawHierarchySearchField(panelWidth - 20f);
         GUILayout.EndHorizontal();
         GUILayout.Space(4f);
 
@@ -798,7 +805,7 @@ private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
     GUILayout.BeginHorizontal();
     GUILayout.Label("Logs", _titleStyle, GUILayout.ExpandWidth(true));
-    bool nextShowLogDetails = GUILayout.Toggle(_showLogDetails, "Details", GUILayout.Width(80f));
+    bool nextShowLogDetails = GUILayout.Toggle(_showLogDetails, "Details", GUILayout.Width(72f));
     if (nextShowLogDetails != _showLogDetails)
     {
         _showLogDetails = nextShowLogDetails;
@@ -807,15 +814,14 @@ private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     GUILayout.EndHorizontal();
     GUILayout.Space(4f);
     GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
-    DrawLogSearchField();
+    DrawLogSearchField(panelWidth - 20f);
     GUILayout.EndHorizontal();
     GUILayout.Space(4f);
 
     float logContentWidth = GetLogContentWidth(panelWidth);
-    float listViewportHeight = Mathf.Max(120f, _windowRect.height - (_showLogDetails ? _logDetailPanelHeight + 190f : 160f));
+    float listViewportHeight = Mathf.Max(120f, _windowRect.height - (_showLogDetails ? _logDetailPanelHeight + 210f : 170f));
 
-    List<VisibleRuntimeLogEntry> visibleEntries = BuildVisibleEntries(manager);
-    List<float> rowHeights = BuildRowHeights(visibleEntries, logContentWidth);
+    GetVisibleEntriesAndHeights(manager, logContentWidth, out List<VisibleRuntimeLogEntry> visibleEntries, out List<float> rowHeights);
     CalculateVisibleRange(rowHeights, _logScroll.y, listViewportHeight, out int startIndex, out int endIndex, out float topPadding, out float visibleHeight, out float totalHeight);
 
     _logScroll = GUILayout.BeginScrollView(_logScroll, false, !_autoScroll, GUIStyle.none, GetLogVerticalScrollbarStyle(), GUILayout.MinHeight(listViewportHeight), GUILayout.ExpandHeight(true));
@@ -887,6 +893,44 @@ private float DrawLogEntry(DebugEntry entry, int index, float contentWidth)
         return rect.height;
     }
 
+
+
+private string BuildVisibleEntriesSignature(DebugConsoleManager manager)
+{
+    return string.Join("|",
+        manager != null ? manager.ChangeVersion : -1,
+        _logSearch ?? string.Empty,
+        _focusedGameObjectId,
+        _focusedComponentId);
+}
+
+private void GetVisibleEntriesAndHeights(DebugConsoleManager manager, float width, out List<VisibleRuntimeLogEntry> visibleEntries, out List<float> rowHeights)
+{
+    if (manager == null)
+    {
+        visibleEntries = new List<VisibleRuntimeLogEntry>();
+        rowHeights = new List<float>();
+        return;
+    }
+
+    string signature = BuildVisibleEntriesSignature(manager);
+    bool requiresRefresh =
+        _cachedVisibleEntriesChangeVersion != manager.ChangeVersion ||
+        !string.Equals(_cachedVisibleEntriesSignature, signature, StringComparison.Ordinal) ||
+        Mathf.Abs(_cachedVisibleEntriesWidth - width) > 0.5f;
+
+    if (requiresRefresh)
+    {
+        _cachedVisibleEntries = BuildVisibleEntries(manager);
+        _cachedVisibleRowHeights = BuildRowHeights(_cachedVisibleEntries, width);
+        _cachedVisibleEntriesChangeVersion = manager.ChangeVersion;
+        _cachedVisibleEntriesSignature = signature;
+        _cachedVisibleEntriesWidth = width;
+    }
+
+    visibleEntries = _cachedVisibleEntries;
+    rowHeights = _cachedVisibleRowHeights;
+}
 
 private List<VisibleRuntimeLogEntry> BuildVisibleEntries(DebugConsoleManager manager)
 {
@@ -1599,7 +1643,7 @@ private void ResetRuntimeLayoutToDefault()
 
     private void DrawToolbarToggleGroup(DebugConsoleManager manager)
     {
-        bool global = GUILayout.Toggle(manager.GlobalEnabled, "Global", GUILayout.Width(80f));
+        bool global = GUILayout.Toggle(manager.GlobalEnabled, "Global", GUILayout.Width(72f));
         if (global != manager.GlobalEnabled)
             manager.GlobalEnabled = global;
 
@@ -1607,15 +1651,15 @@ private void ResetRuntimeLayoutToDefault()
         if (mirror != manager.MirrorToUnityConsole)
             manager.MirrorToUnityConsole = mirror;
 
-        bool autoScroll = GUILayout.Toggle(_autoScroll, "Auto Scroll", GUILayout.Width(100f));
+        bool autoScroll = GUILayout.Toggle(_autoScroll, "Auto Scroll", GUILayout.Width(92f));
         if (autoScroll != _autoScroll)
             _autoScroll = autoScroll;
 
-        bool hideTransform = GUILayout.Toggle(_hideTransform, "Hide Transform", GUILayout.Width(120f));
+        bool hideTransform = GUILayout.Toggle(_hideTransform, "Hide Transform", GUILayout.Width(110f));
         if (hideTransform != _hideTransform)
             _hideTransform = hideTransform;
 
-        bool collapsePrevious = GUILayout.Toggle(_collapsePreviousOnSelection, "Collapse Prev", GUILayout.Width(120f));
+        bool collapsePrevious = GUILayout.Toggle(_collapsePreviousOnSelection, "Collapse Prev", GUILayout.Width(110f));
         if (collapsePrevious != _collapsePreviousOnSelection)
             _collapsePreviousOnSelection = collapsePrevious;
 
@@ -1634,28 +1678,28 @@ private void ResetRuntimeLayoutToDefault()
 
 private void DrawToolbarActionGroup(DebugConsoleManager manager, string typeButtonLabel)
 {
-    if (GUILayout.Button(typeButtonLabel, _toolbarButtonStyle, GUILayout.Width(160f)))
+    if (GUILayout.Button(typeButtonLabel, _toolbarButtonStyle, GUILayout.Width(150f)))
         _showTypeFilterPanel = !_showTypeFilterPanel;
 
-    if (GUILayout.Button("All Types On", _toolbarButtonStyle, GUILayout.Width(100f)))
+    if (GUILayout.Button("All Types On", _toolbarButtonStyle, GUILayout.Width(92f)))
         manager.SetAllTypes(true);
 
-    if (GUILayout.Button("All Types Off", _toolbarButtonStyle, GUILayout.Width(100f)))
+    if (GUILayout.Button("All Types Off", _toolbarButtonStyle, GUILayout.Width(92f)))
         manager.SetAllTypes(false);
 
-    if (GUILayout.Button("All Levels", _toolbarButtonStyle, GUILayout.Width(100f)))
+    if (GUILayout.Button("All Levels", _toolbarButtonStyle, GUILayout.Width(92f)))
         manager.SetAllLevels(true);
 
-    if (GUILayout.Button("Warn+", _toolbarButtonStyle, GUILayout.Width(80f)))
+    if (GUILayout.Button("Warn+", _toolbarButtonStyle, GUILayout.Width(72f)))
         manager.SetWarningAndErrorOnly();
 
-    if (GUILayout.Button("Error Only", _toolbarButtonStyle, GUILayout.Width(100f)))
+    if (GUILayout.Button("Error Only", _toolbarButtonStyle, GUILayout.Width(92f)))
         manager.SetErrorOnly();
 
-    if (GUILayout.Button("Clear Logs", _toolbarButtonStyle, GUILayout.Width(100f)))
+    if (GUILayout.Button("Clear Logs", _toolbarButtonStyle, GUILayout.Width(92f)))
         manager.ClearLogs();
 
-    if (GUILayout.Button("Clear Focus", _toolbarButtonStyle, GUILayout.Width(100f)))
+    if (GUILayout.Button("Clear Focus", _toolbarButtonStyle, GUILayout.Width(92f)))
         ClearFocus();
 
     if (GUILayout.Button("Reset Filters", _toolbarButtonStyle, GUILayout.Width(110f)))
@@ -1674,9 +1718,14 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
 
     private void DrawHierarchySearchField()
     {
+        DrawHierarchySearchField(SearchLabelWidth + SearchFieldFixedWidth + 12f);
+    }
+
+    private void DrawHierarchySearchField(float availableWidth)
+    {
         GUILayout.Label("Search", GUILayout.Width(SearchLabelWidth));
 
-        float fieldWidth = SearchFieldFixedWidth;
+        float fieldWidth = GetSearchFieldWidth(availableWidth, false);
         Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, 24f, GUILayout.Width(fieldWidth), GUILayout.Height(24f));
         GUI.Box(fieldRect, GUIContent.none, _searchTextFieldStyle);
         _hierarchySearchScreenRect = ToScreenRect(fieldRect);
@@ -1705,9 +1754,14 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
 
     private void DrawLogSearchField()
     {
+        DrawLogSearchField(SearchLabelWidth + SearchFieldFixedWidth + SearchClearButtonWidth + 20f);
+    }
+
+    private void DrawLogSearchField(float availableWidth)
+    {
         GUILayout.Label("Search", GUILayout.Width(SearchLabelWidth));
 
-        float fieldWidth = SearchFieldFixedWidth;
+        float fieldWidth = GetSearchFieldWidth(availableWidth, true);
         Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, 24f, GUILayout.Width(fieldWidth), GUILayout.Height(24f));
         GUI.Box(fieldRect, GUIContent.none, _searchTextFieldStyle);
         _logSearchScreenRect = ToScreenRect(fieldRect);
@@ -1746,18 +1800,6 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
         }
     }
 
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
     private float GetTopAreaWidth()
     {
         return Mathf.Max(320f, _windowRect.width - 36f);
@@ -1774,12 +1816,11 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
         return 3;
     }
 
-    private float GetSearchFieldWidth(float availableWidth, bool stacked)
+    private float GetSearchFieldWidth(float availableWidth, bool hasClearButton)
     {
-        if (stacked)
-            return Mathf.Max(180f, availableWidth - 130f);
-
-        return Mathf.Clamp((availableWidth * 0.28f), 180f, 280f);
+        float reserveWidth = SearchLabelWidth + 10f + (hasClearButton ? SearchClearButtonWidth + 8f : 0f);
+        float fieldWidth = availableWidth - reserveWidth;
+        return Mathf.Clamp(fieldWidth, 96f, SearchFieldFixedWidth);
     }
 
     private int GetVisibleEntryCount(DebugConsoleManager manager)

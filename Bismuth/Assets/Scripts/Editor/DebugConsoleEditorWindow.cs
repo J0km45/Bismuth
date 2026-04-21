@@ -35,9 +35,9 @@ public class DebugConsoleEditorWindow : EditorWindow
     private SearchField _hierarchySearchFieldControl;
     private SearchField _logSearchFieldControl;
 
-    private const float SearchLabelWidth = 52f;
-    private const float SearchFieldFixedWidth = 220f;
-    private const float SearchClearButtonWidth = 88f;
+    private const float SearchLabelWidth = 48f;
+    private const float SearchFieldFixedWidth = 160f;
+    private const float SearchClearButtonWidth = 56f;
 
     private GUIStyle _titleStyle;
     private GUIStyle _boxStyle;
@@ -95,6 +95,12 @@ public class DebugConsoleEditorWindow : EditorWindow
     private float _logDetailPanelHeight = 220f;
     private readonly Dictionary<string, float> _liveLogHeightCache = new();
     private readonly Dictionary<string, float> _snapshotLogHeightCache = new();
+    private List<LiveLogGroup> _cachedLiveLogGroups = new();
+    private List<float> _cachedLiveRowHeights = new();
+    private int _cachedLiveLogChangeVersion = -1;
+    private string _cachedLiveLogSignature = string.Empty;
+    private float _cachedLiveLogWidth = -1f;
+
 
     private readonly HashSet<int> _expandedComponents = new();
     private readonly HashSet<int> _expandedChildren = new();
@@ -436,7 +442,7 @@ private sealed class DebugConsoleEditorBackupData
         GUILayout.EndHorizontal();
         GUILayout.Space(4f);
         EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-        DrawHierarchySearchField();
+        DrawHierarchySearchField(panelWidth - 20f);
         EditorGUILayout.EndHorizontal();
         GUILayout.Space(4f);
 
@@ -452,13 +458,10 @@ private sealed class DebugConsoleEditorBackupData
 
         GUILayout.Space(4f);
         string footerCountText = $"Count : {GetVisibleSnapshotEntryCount(snapshot)}";
-        string footerFocusText = GetFooterFocusLabel();
 
-        GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(30f));
+        GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(28f));
         GUILayout.Space(10f);
-        GUILayout.Label(new GUIContent(footerFocusText, GetFocusLabel()), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
-        GUILayout.Space(12f);
-        GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerRightLabelStyle, GUILayout.Width(100f), GUILayout.MinHeight(22f));
+        GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(20f));
         GUILayout.Space(10f);
         GUILayout.EndHorizontal();
         GUILayout.EndVertical();
@@ -622,6 +625,47 @@ private sealed class DebugConsoleEditorBackupData
         return groups;
     }
 
+
+    private string BuildLiveLogCacheSignature(DebugConsoleManager manager)
+    {
+        return string.Join("|",
+            manager != null ? manager.ChangeVersion : -1,
+            _collapseLogs,
+            _logSearch ?? string.Empty,
+            _focusedGameObjectId,
+            _focusedComponentId,
+            _focusedSnapshotGameObjectKey ?? string.Empty,
+            _focusedSnapshotComponentKey ?? string.Empty);
+    }
+
+    private void GetVisibleLiveLogGroupsAndHeights(DebugConsoleManager manager, float width, out List<LiveLogGroup> groups, out List<float> rowHeights)
+    {
+        if (manager == null)
+        {
+            groups = new List<LiveLogGroup>();
+            rowHeights = new List<float>();
+            return;
+        }
+
+        string signature = BuildLiveLogCacheSignature(manager);
+        bool requiresRefresh =
+            _cachedLiveLogChangeVersion != manager.ChangeVersion ||
+            !string.Equals(_cachedLiveLogSignature, signature, StringComparison.Ordinal) ||
+            Mathf.Abs(_cachedLiveLogWidth - width) > 0.5f;
+
+        if (requiresRefresh)
+        {
+            _cachedLiveLogGroups = BuildVisibleLiveLogGroups(manager);
+            _cachedLiveRowHeights = BuildLiveRowHeights(_cachedLiveLogGroups, width);
+            _cachedLiveLogChangeVersion = manager.ChangeVersion;
+            _cachedLiveLogSignature = signature;
+            _cachedLiveLogWidth = width;
+        }
+
+        groups = _cachedLiveLogGroups;
+        rowHeights = _cachedLiveRowHeights;
+    }
+
     private List<LiveLogGroup> BuildVisibleLiveLogGroups(DebugConsoleManager manager)
     {
         List<LiveLogGroup> groups = new List<LiveLogGroup>();
@@ -725,12 +769,12 @@ private void DrawSnapshotLogPanel(DebugConsoleEditorSnapshot snapshot, float pan
     EditorGUILayout.EndHorizontal();
     GUILayout.Space(4f);
     EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-    DrawLogSearchField();
+    DrawLogSearchField(panelWidth - 20f);
     EditorGUILayout.EndHorizontal();
     GUILayout.Space(4f);
 
-    float width = Mathf.Max(GetLogContentWidth(panelWidth), 300f);
-    float listViewportHeight = Mathf.Max(120f, position.height - (_showLogDetails ? _logDetailPanelHeight + 220f : 180f));
+    float width = Mathf.Max(GetLogContentWidth(panelWidth), 180f);
+    float listViewportHeight = Mathf.Max(120f, position.height - (_showLogDetails ? _logDetailPanelHeight + 240f : 190f));
 
     List<SnapshotLogGroup> groups = BuildVisibleSnapshotLogGroups(snapshot);
     List<float> rowHeights = BuildSnapshotRowHeights(groups, width);
@@ -2031,16 +2075,13 @@ private float DrawSnapshotLogEntry(SnapshotLogEntry entry, int sourceIndex, floa
 
     private void DrawSnapshotToolbarToggleGroupWrapped(DebugConsoleEditorSnapshot snapshot, float availableWidth)
     {
-        int splitIndex = GetWrappedSplitIndex(_toolbarToggleItems, availableWidth);
-        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
-        DrawSnapshotToolbarToggleItems(snapshot, 0, splitIndex);
-        EditorGUILayout.EndHorizontal();
-
-        if (splitIndex < _toolbarToggleItems.Length)
+        for (int index = 0; index < _toolbarToggleItems.Length;)
         {
+            int endIndex = GetWrappedEndIndex(_toolbarToggleItems, index, availableWidth);
             EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
-            DrawSnapshotToolbarToggleItems(snapshot, splitIndex, _toolbarToggleItems.Length);
+            DrawSnapshotToolbarToggleItems(snapshot, index, endIndex);
             EditorGUILayout.EndHorizontal();
+            index = endIndex;
         }
     }
 
@@ -2196,16 +2237,13 @@ private void DrawSnapshotToolbarActionGroup(DebugConsoleEditorSnapshot snapshot,
 
 private void DrawSnapshotToolbarActionGroupWrapped(DebugConsoleEditorSnapshot snapshot, string typeButtonLabel, float availableWidth)
     {
-        int splitIndex = GetWrappedSplitIndex(_toolbarActionItems, availableWidth);
-        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
-        DrawSnapshotToolbarActionItems(snapshot, typeButtonLabel, 0, splitIndex);
-        EditorGUILayout.EndHorizontal();
-
-        if (splitIndex < _toolbarActionItems.Length)
+        for (int index = 0; index < _toolbarActionItems.Length;)
         {
+            int endIndex = GetWrappedEndIndex(_toolbarActionItems, index, availableWidth);
             EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
-            DrawSnapshotToolbarActionItems(snapshot, typeButtonLabel, splitIndex, _toolbarActionItems.Length);
+            DrawSnapshotToolbarActionItems(snapshot, typeButtonLabel, index, endIndex);
             EditorGUILayout.EndHorizontal();
+            index = endIndex;
         }
     }
 
@@ -2457,21 +2495,22 @@ private void DrawSnapshotToolbarActionGroupWrapped(DebugConsoleEditorSnapshot sn
         if (availableWidth >= 760f)
         {
             EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-            float hierarchyWidth = Mathf.Clamp((availableWidth - 330f) * 0.42f, 160f, 320f);
-            DrawHierarchySearchField();
+            float hierarchyWidth = Mathf.Clamp((availableWidth - 120f) * 0.38f, 160f, 260f);
+            float logWidth = Mathf.Clamp((availableWidth - hierarchyWidth) - 24f, 220f, 320f);
+            DrawHierarchySearchField(hierarchyWidth);
             GUILayout.Space(12f);
-            DrawLogSearchField();
+            DrawLogSearchField(logWidth);
             EditorGUILayout.EndHorizontal();
             GUILayout.Space(4f);
             return;
         }
 
         EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-        DrawHierarchySearchField();
+        DrawHierarchySearchField(availableWidth);
         EditorGUILayout.EndHorizontal();
 
         EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-        DrawLogSearchField();
+        DrawLogSearchField(availableWidth);
         EditorGUILayout.EndHorizontal();
         GUILayout.Space(4f);
     }
@@ -2596,7 +2635,7 @@ private void DrawSnapshotToolbarActionGroupWrapped(DebugConsoleEditorSnapshot sn
         GUILayout.EndHorizontal();
         GUILayout.Space(4f);
         EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-        DrawHierarchySearchField();
+        DrawHierarchySearchField(panelWidth - 20f);
         EditorGUILayout.EndHorizontal();
         GUILayout.Space(4f);
 
@@ -2611,45 +2650,12 @@ private void DrawSnapshotToolbarActionGroupWrapped(DebugConsoleEditorSnapshot sn
         GUILayout.EndScrollView();
 
         GUILayout.Space(4f);
-        string footerFocusFullText = GetFocusLabel();
-        string footerFocusDisplayText = GetFooterFocusLabel();
         string footerCountText = $"Count : {GetVisibleEntryCount(manager)}";
-        float footerHorizontalPadding = 10f;
-        float footerGap = 12f;
-        float footerFocusRequiredWidth = _footerLeftLabelStyle.CalcSize(new GUIContent(footerFocusDisplayText)).x;
-        float footerCountRequiredWidth = _footerRightLabelStyle.CalcSize(new GUIContent(footerCountText)).x;
-        bool useTwoLineFooter = panelWidth < footerFocusRequiredWidth + footerCountRequiredWidth + (footerHorizontalPadding * 2f) + footerGap;
-
-        if (useTwoLineFooter)
-        {
-            GUILayout.BeginVertical(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(52f));
-
-            GUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.Label(new GUIContent(footerFocusDisplayText, footerFocusFullText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.EndHorizontal();
-
-            GUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.EndHorizontal();
-
-            GUILayout.EndVertical();
-        }
-        else
-        {
-            GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(30f));
-            GUILayout.Space(footerHorizontalPadding);
-            float footerCountWidth = Mathf.Ceil(footerCountRequiredWidth) + 4f;
-            float footerLeftWidth = Mathf.Max(60f, panelWidth - footerCountWidth - (footerHorizontalPadding * 2f) - footerGap);
-            GUILayout.Label(new GUIContent(footerFocusDisplayText, footerFocusFullText), _footerLeftLabelStyle, GUILayout.Width(footerLeftWidth), GUILayout.MinHeight(22f));
-            GUILayout.Space(footerGap);
-            GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerRightLabelStyle, GUILayout.Width(footerCountWidth), GUILayout.MinHeight(22f));
-            GUILayout.Space(footerHorizontalPadding);
-            GUILayout.EndHorizontal();
-        }
+        GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(28f));
+        GUILayout.Space(10f);
+        GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(20f));
+        GUILayout.Space(10f);
+        GUILayout.EndHorizontal();
         GUILayout.EndVertical();
     }
 
@@ -2826,15 +2832,14 @@ private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     EditorGUILayout.EndHorizontal();
     GUILayout.Space(4f);
     EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
-    DrawLogSearchField();
+    DrawLogSearchField(panelWidth - 20f);
     EditorGUILayout.EndHorizontal();
     GUILayout.Space(4f);
 
-    float width = Mathf.Max(GetLogContentWidth(panelWidth), 300f);
-    float listViewportHeight = Mathf.Max(120f, position.height - (_showLogDetails ? _logDetailPanelHeight + 220f : 180f));
+    float width = Mathf.Max(GetLogContentWidth(panelWidth), 180f);
+    float listViewportHeight = Mathf.Max(120f, position.height - (_showLogDetails ? _logDetailPanelHeight + 240f : 190f));
 
-    List<LiveLogGroup> groups = BuildVisibleLiveLogGroups(manager);
-    List<float> rowHeights = BuildLiveRowHeights(groups, width);
+    GetVisibleLiveLogGroupsAndHeights(manager, width, out List<LiveLogGroup> groups, out List<float> rowHeights);
     CalculateVisibleRange(rowHeights, _logScroll.y, listViewportHeight, out int startIndex, out int endIndex, out float topPadding, out float visibleHeight, out float totalHeight);
 
     _logScroll = GUILayout.BeginScrollView(_logScroll, false, !_autoScroll, GUIStyle.none, GetLogVerticalScrollbarStyle(), GUILayout.MinHeight(listViewportHeight), GUILayout.ExpandHeight(true));
@@ -4049,9 +4054,9 @@ private void ApplyEditorUiState(DebugConsoleEditorUiState state)
         ("Global", 80f),
         ("Mirror Unity", 110f),
         ("Auto Scroll", 100f),
-        ("Hide Transform", 120f),
-        ("Collapse Prev", 120f),
-        ("Collapse Logs", 120f),
+        ("Hide Transform", 110f),
+        ("Collapse Prev", 110f),
+        ("Collapse Logs", 110f),
         ("Log", 70f),
         ("Warn", 75f),
         ("Error", 75f),
@@ -4059,18 +4064,18 @@ private void ApplyEditorUiState(DebugConsoleEditorUiState state)
 
     private readonly (string label, float width)[] _toolbarActionItems =
     {
-        ("TypeFilter", 160f),
-        ("All Types On", 100f),
-        ("All Types Off", 100f),
-        ("All Levels", 100f),
-        ("Warn+", 80f),
-        ("Error Only", 100f),
-        ("Clear Logs", 100f),
-        ("Clear Focus", 100f),
-        ("Reset Filters", 110f),
-        ("Reset Layout", 110f),
-        ("Export Settings", 120f),
-        ("Import Settings", 120f),
+        ("TypeFilter", 150f),
+        ("All Types On", 92f),
+        ("All Types Off", 92f),
+        ("All Levels", 92f),
+        ("Warn+", 72f),
+        ("Error Only", 92f),
+        ("Clear Logs", 92f),
+        ("Clear Focus", 92f),
+        ("Reset Filters", 102f),
+        ("Reset Layout", 102f),
+        ("Export Settings", 112f),
+        ("Import Settings", 112f),
     };
 
     private void DrawToolbarToggleGroup(DebugConsoleManager manager)
@@ -4126,16 +4131,13 @@ private void ApplyEditorUiState(DebugConsoleEditorUiState state)
 
     private void DrawToolbarToggleGroupWrapped(DebugConsoleManager manager, float availableWidth)
     {
-        int splitIndex = GetWrappedSplitIndex(_toolbarToggleItems, availableWidth);
-        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
-        DrawToolbarToggleItems(manager, 0, splitIndex);
-        EditorGUILayout.EndHorizontal();
-
-        if (splitIndex < _toolbarToggleItems.Length)
+        for (int index = 0; index < _toolbarToggleItems.Length;)
         {
+            int endIndex = GetWrappedEndIndex(_toolbarToggleItems, index, availableWidth);
             EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
-            DrawToolbarToggleItems(manager, splitIndex, _toolbarToggleItems.Length);
+            DrawToolbarToggleItems(manager, index, endIndex);
             EditorGUILayout.EndHorizontal();
+            index = endIndex;
         }
     }
 
@@ -4279,16 +4281,13 @@ private void DrawToolbarActionGroup(DebugConsoleManager manager, string typeButt
 
 private void DrawToolbarActionGroupWrapped(DebugConsoleManager manager, string typeButtonLabel, float availableWidth)
     {
-        int splitIndex = GetWrappedSplitIndex(_toolbarActionItems, availableWidth);
-        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
-        DrawToolbarActionItems(manager, typeButtonLabel, 0, splitIndex);
-        EditorGUILayout.EndHorizontal();
-
-        if (splitIndex < _toolbarActionItems.Length)
+        for (int index = 0; index < _toolbarActionItems.Length;)
         {
+            int endIndex = GetWrappedEndIndex(_toolbarActionItems, index, availableWidth);
             EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
-            DrawToolbarActionItems(manager, typeButtonLabel, splitIndex, _toolbarActionItems.Length);
+            DrawToolbarActionItems(manager, typeButtonLabel, index, endIndex);
             EditorGUILayout.EndHorizontal();
+            index = endIndex;
         }
     }
 
@@ -4370,6 +4369,24 @@ private void DrawToolbarActionItems(DebugConsoleManager manager, string typeButt
     }
 }
 
+
+private int GetWrappedEndIndex((string label, float width)[] items, int startIndex, float availableWidth)
+    {
+        float rowWidth = 0f;
+        const float spacing = 8f;
+
+        for (int i = startIndex; i < items.Length; i++)
+        {
+            float nextWidth = items[i].width + (i > startIndex ? spacing : 0f);
+            if (rowWidth + nextWidth > availableWidth && i > startIndex)
+                return i;
+
+            rowWidth += nextWidth;
+        }
+
+        return items.Length;
+    }
+
 private int GetWrappedSplitIndex((string label, float width)[] items, float availableWidth)
     {
         float rowWidth = 0f;
@@ -4394,18 +4411,35 @@ private int GetWrappedSplitIndex((string label, float width)[] items, float avai
         GUILayout.Label($"Count : {manager.Entries.Count}", _toolbarInfoLabelStyle, GUILayout.Width(expanded ? 120f : 110f), GUILayout.MinHeight(expanded ? 30f : 18f));
     }
 
+    private float GetSearchFieldWidth(float availableWidth, bool hasClearButton)
+    {
+        float reserveWidth = SearchLabelWidth + 10f + (hasClearButton ? SearchClearButtonWidth + 8f : 0f);
+        float fieldWidth = availableWidth - reserveWidth;
+        return Mathf.Clamp(fieldWidth, 96f, SearchFieldFixedWidth);
+    }
+
     private void DrawHierarchySearchField()
     {
+        DrawHierarchySearchField(SearchLabelWidth + SearchFieldFixedWidth + 12f);
+    }
+
+    private void DrawHierarchySearchField(float availableWidth)
+    {
         GUILayout.Label("Search", GUILayout.Width(SearchLabelWidth));
-        float fieldWidth = SearchFieldFixedWidth;
+        float fieldWidth = GetSearchFieldWidth(availableWidth, false);
         Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, 20f, GUILayout.Width(fieldWidth), GUILayout.Height(20f));
         _hierarchySearch = (_hierarchySearchFieldControl ??= new SearchField()).OnGUI(fieldRect, _hierarchySearch);
     }
 
     private void DrawLogSearchField()
     {
+        DrawLogSearchField(SearchLabelWidth + SearchFieldFixedWidth + SearchClearButtonWidth + 20f);
+    }
+
+    private void DrawLogSearchField(float availableWidth)
+    {
         GUILayout.Label("Search", GUILayout.Width(SearchLabelWidth));
-        float fieldWidth = SearchFieldFixedWidth;
+        float fieldWidth = GetSearchFieldWidth(availableWidth, true);
         Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, 20f, GUILayout.Width(fieldWidth), GUILayout.Height(20f));
         _logSearch = (_logSearchFieldControl ??= new SearchField()).OnGUI(fieldRect, _logSearch);
 
@@ -4431,14 +4465,6 @@ private int GetWrappedSplitIndex((string label, float width)[] items, float avai
             return 2;
 
         return 3;
-    }
-
-    private float GetSearchFieldWidth(float availableWidth, bool stacked)
-    {
-        if (stacked)
-            return Mathf.Max(180f, availableWidth - 130f);
-
-        return Mathf.Clamp(availableWidth * 0.28f, 180f, 280f);
     }
 
     private int GetVisibleEntryCount(DebugConsoleManager manager)
