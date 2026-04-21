@@ -1,26 +1,14 @@
+#if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Globalization;
+using UnityEditor;
+using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.EventSystems;
-using TMPro;
 
-public class RuntimeDebugConsoleWindow : MonoBehaviour
+public class DebugConsoleEditorWindow : EditorWindow
 {
-    private sealed class VisibleRuntimeLogEntry
-    {
-        public DebugEntry Entry;
-        public int SourceIndex;
-    }
-    [SerializeField] private KeyCode _toggleKey = KeyCode.F1;
-    [SerializeField] private bool _visible = false;
-    [SerializeField] private Rect _windowRect = new Rect(20f, 20f, 1450f, 850f);
-    [SerializeField] private bool _autoScroll = true;
-    [SerializeField] private bool _hideTransform = true;
-    [SerializeField] private bool _collapsePreviousOnSelection = true;
-
     private Vector2 _hierarchyScroll;
     private Vector2 _logScroll;
     private Vector2 _typeFilterScroll;
@@ -29,30 +17,10 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private string _hierarchySearch = string.Empty;
     private string _logSearch = string.Empty;
 
-    private const string HierarchySearchControlName = "DebugConsole_HierarchySearch";
-    private const string LogSearchControlName = "DebugConsole_LogSearch";
-    private IMECompositionMode _previousImeCompositionMode = IMECompositionMode.Auto;
-    private bool _imeCompositionCaptured;
-    private bool _searchFieldFocusedThisFrame;
-    private Rect _lastFocusedSearchFieldRect;
-
-    private enum SearchFieldFocus
-    {
-        None,
-        Hierarchy,
-        Log
-    }
-
-    private SearchFieldFocus _activeSearchField = SearchFieldFocus.None;
-    private GUIStyle _searchFieldContentStyle;
-    private GUIStyle _closeButtonStyle;
-
-    private readonly Dictionary<EventSystem, bool> _eventSystemEnabledState = new Dictionary<EventSystem, bool>();
-
-    private RuntimeDebugConsoleSearchOverlay _searchOverlay;
-    private Rect _hierarchySearchScreenRect;
-    private Rect _logSearchScreenRect;
-
+    private bool _autoScroll = true;
+    private bool _hideTransform = true;
+    private bool _collapsePreviousOnSelection = true;
+    private bool _collapseLogs = true;
     private bool _showTypeFilterPanel;
     private bool _showLogDetails = true;
     private bool _stackTraceFoldout = true;
@@ -61,6 +29,11 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private int _focusedComponentId;
     private string _focusedObjectName = string.Empty;
     private string _focusedComponentName = string.Empty;
+    private string _focusedSnapshotGameObjectKey = string.Empty;
+    private string _focusedSnapshotComponentKey = string.Empty;
+
+    private SearchField _hierarchySearchFieldControl;
+    private SearchField _logSearchFieldControl;
 
     private GUIStyle _titleStyle;
     private GUIStyle _boxStyle;
@@ -73,7 +46,6 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private GUIStyle _componentSelectedButtonStyle;
     private GUIStyle _parentSelectedButtonStyle;
     private GUIStyle _foldoutButtonStyle;
-    private GUIStyle _toolbarButtonStyle;
     private GUIStyle _toolbarInfoLabelStyle;
     private GUIStyle _toolbarInfoRightLabelStyle;
     private GUIStyle _footerLeftLabelStyle;
@@ -105,46 +77,257 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     private const float MinHierarchyPanelWidth = 220f;
     private const float MinLogPanelWidth = 220f;
     private const float HierarchyRowContentRightReserve = 18f;
+    private const string HierarchyPanelWidthPrefKey = "DebugConsoleEditorWindow.HierarchyPanelWidth";
+    private const float DefaultLogDetailPanelHeight = 220f;
+    private const float MinLogDetailPanelHeight = 140f;
+    private const float MaxLogDetailPanelHeight = 340f;
 
-    private const string WindowRectPrefKey = "RuntimeDebugConsoleWindow.WindowRect";
-    private const string HierarchyPanelWidthPrefKey = "RuntimeDebugConsoleWindow.HierarchyPanelWidth";
-
-    [SerializeField] private float _hierarchyPanelWidth = 480f;
+    private float _hierarchyPanelWidth = 420f;
     private bool _isDraggingPanelSplitter;
 
     private float _lastLogContentHeight;
     private float _lastLogViewportHeight;
     private float _lastMaxLogScrollY;
     private float _logDetailPanelHeight = 220f;
-    private readonly Dictionary<string, float> _rowHeightCache = new();
+    private readonly Dictionary<string, float> _liveLogHeightCache = new();
+    private readonly Dictionary<string, float> _snapshotLogHeightCache = new();
 
     private readonly HashSet<int> _expandedComponents = new();
     private readonly HashSet<int> _expandedChildren = new();
 
     private int _selectedLogIndex = -1;
 
+    private DebugConsoleEditorSnapshot _lastSnapshot;
+    private double _nextSnapshotCaptureTime;
+    private int _lastCapturedManagerChangeVersion = -1;
+
+    private readonly HashSet<string> _expandedSnapshotDetails = new();
+    private readonly HashSet<string> _expandedSnapshotChildren = new();
+
+    private const string SnapshotDirectoryPath = "Library/DebugConsole";
+    private const string SnapshotFileName = "DebugConsoleEditorSnapshot.json";
+    private const int CurrentSnapshotVersion = 3;
+    private const string EditorStatePrefKey = "DebugConsoleEditorWindow.State";
+    private const string ManagerPrefKeyPrefix = "DebugConsole.Manager";
+    private const string GlobalEnabledPrefKey = ManagerPrefKeyPrefix + ".GlobalEnabled";
+    private const string MirrorToUnityPrefKey = ManagerPrefKeyPrefix + ".MirrorToUnity";
+    private const string LogLevelLogPrefKey = ManagerPrefKeyPrefix + ".Level.Log";
+    private const string LogLevelWarningPrefKey = ManagerPrefKeyPrefix + ".Level.Warning";
+    private const string LogLevelErrorPrefKey = ManagerPrefKeyPrefix + ".Level.Error";
+    private const string TypePrefKeyPrefix = ManagerPrefKeyPrefix + ".Type.";
+    private const string GameObjectPrefKeyPrefix = ManagerPrefKeyPrefix + ".GameObject.";
+    private const string ComponentPrefKeyPrefix = ManagerPrefKeyPrefix + ".Component.";
+    private const string GameObjectRegistryPrefKey = ManagerPrefKeyPrefix + ".Registry.GameObject";
+    private const string ComponentRegistryPrefKey = ManagerPrefKeyPrefix + ".Registry.Component";
+
+    [Serializable]
+    private sealed class DebugConsoleEditorSnapshot
+    {
+        public int SnapshotVersion;
+        public string SceneName;
+        public string CapturedAt;
+        public bool GlobalEnabled;
+        public bool MirrorToUnityConsole;
+        public bool ShowLogLevelLog = true;
+        public bool ShowLogLevelWarning = true;
+        public bool ShowLogLevelError = true;
+        public bool[] TypeFilters;
+        public List<SnapshotGameObjectNode> Roots = new();
+        public List<SnapshotLogEntry> Entries = new();
+
+        public bool HasData => (Roots != null && Roots.Count > 0) || (Entries != null && Entries.Count > 0);
+    }
+
+    [Serializable]
+    private sealed class SnapshotGameObjectNode
+    {
+        public string Name;
+        public string PathKey;
+        public bool Enabled;
+        public List<SnapshotComponentNode> Components = new();
+        public List<SnapshotGameObjectNode> Children = new();
+    }
+
+    [Serializable]
+    private sealed class SnapshotComponentNode
+    {
+        public string Name;
+        public string Key;
+        public bool Enabled;
+    }
+
+    [Serializable]
+    private sealed class SnapshotLogEntry
+    {
+        public string Time;
+        public string Message;
+        public string SourceName;
+        public string MemberName;
+        public int LineNumber;
+        public DebugType Type;
+        public DebugLogLevel Level;
+        public int GameObjectId;
+        public int ComponentId;
+        public string GameObjectKey;
+        public string ComponentKey;
+        public string GameObjectName;
+        public string ComponentName;
+        public string SceneKey;
+        public string HierarchyPath;
+        public string ComponentTypeName;
+        public long SequenceId;
+        public int FrameCount;
+        public string CapturedAtIsoUtc;
+        public string ColorHex;
+        public string CallerFilePath;
+        public int CallerColumn = 1;
+        public string StackTrace;
+        public bool WasVisibleAtCapture;
+
+        public string RichText =>
+            $"<color={ColorHex}>[{Time}] [{Type}] {Message}</color>\n" +
+            $"<color=#daa520>출처 : [{SourceName}.{MemberName} : {LineNumber}]</color>";
+    }
+
+
+    [Serializable]
+    private sealed class DebugConsoleEditorUiState
+    {
+        public bool AutoScroll = true;
+        public bool HideTransform = true;
+        public bool CollapsePreviousOnSelection = true;
+        public bool CollapseLogs = true;
+        public bool ShowTypeFilterPanel;
+        public bool ShowLogDetails = true;
+        public bool StackTraceFoldout = true;
+        public float HierarchyPanelWidth = 420f;
+        public float LogDetailPanelHeight = DefaultLogDetailPanelHeight;
+        public Vector2 HierarchyScroll;
+        public Vector2 LogScroll;
+        public Vector2 TypeFilterScroll;
+        public Vector2 DetailScroll;
+        public int SelectedLogIndex = -1;
+        public string FocusedSnapshotGameObjectKey = string.Empty;
+        public string FocusedSnapshotComponentKey = string.Empty;
+        public string FocusedObjectName = string.Empty;
+        public string FocusedComponentName = string.Empty;
+        public List<string> ExpandedSnapshotDetails = new();
+        public List<string> ExpandedSnapshotChildren = new();
+    }
+
+    private sealed class LiveLogGroup
+    {
+        public DebugEntry Entry;
+        public int Count;
+        public int LastSourceIndex;
+    }
+
+    private sealed class SnapshotLogGroup
+    {
+        public SnapshotLogEntry Entry;
+        public int Count;
+        public int LastSourceIndex;
+    }
+
+
+[Serializable]
+private sealed class DebugConsoleStoredBoolValue
+{
+    public string Key;
+    public bool Value;
+}
+
+[Serializable]
+private sealed class DebugConsoleStoredManagerSettings
+{
+    public bool GlobalEnabled = true;
+    public bool MirrorToUnityConsole;
+    public bool ShowLogLevelLog = true;
+    public bool ShowLogLevelWarning = true;
+    public bool ShowLogLevelError = true;
+    public bool[] TypeFilters;
+    public List<DebugConsoleStoredBoolValue> GameObjectFilterValues = new();
+    public List<DebugConsoleStoredBoolValue> ComponentFilterValues = new();
+}
+
+[Serializable]
+private sealed class DebugConsoleEditorBackupData
+{
+    public DebugConsoleStoredManagerSettings ManagerSettings = new();
+    public DebugConsoleEditorUiState EditorState = new();
+}
+
+
+    [MenuItem("Tools/Debug/Runtime Debug Console Window")]
+    public static void Open()
+    {
+        DebugConsoleEditorWindow window = GetWindow<DebugConsoleEditorWindow>();
+        window.titleContent = new GUIContent("Debug Console");
+        window.minSize = new Vector2(1000f, 650f);
+        window.Show();
+    }
+
     private void OnEnable()
     {
+        EditorApplication.update += HandleEditorUpdate;
+        EditorApplication.playModeStateChanged += HandlePlayModeChanged;
         SceneManager.sceneLoaded += HandleSceneLoaded;
-        _stylesDirty = true;
-        _titleStyle = null;
-        _windowRect = DebugConsolePreferenceStore.GetRect(WindowRectPrefKey, _windowRect);
         _hierarchyPanelWidth = DebugConsolePreferenceStore.GetFloat(HierarchyPanelWidthPrefKey, _hierarchyPanelWidth);
-        _showLogDetails = DebugConsolePreferenceStore.GetBool(WindowRectPrefKey + ".ShowLogDetails", _showLogDetails);
-        _stackTraceFoldout = DebugConsolePreferenceStore.GetBool(WindowRectPrefKey + ".StackTraceFoldout", _stackTraceFoldout);
-        _logDetailPanelHeight = DebugConsolePreferenceStore.GetFloat(WindowRectPrefKey + ".LogDetailHeight", _logDetailPanelHeight);
-        EnsureSearchOverlay();
-        ApplyUiInputBlockState();
+        _hierarchySearchFieldControl ??= new SearchField();
+        _logSearchFieldControl ??= new SearchField();
+        LoadEditorUiState();
+        LoadSnapshotFromDisk();
+        ApplyStoredPreferencesToSnapshot(_lastSnapshot);
     }
 
     private void OnDisable()
     {
+        EditorApplication.update -= HandleEditorUpdate;
+        EditorApplication.playModeStateChanged -= HandlePlayModeChanged;
         SceneManager.sceneLoaded -= HandleSceneLoaded;
-        SaveLayoutPreferences();
-        RestoreEventSystems();
+        SaveEditorUiState();
+        DebugConsolePreferenceStore.SetFloat(HierarchyPanelWidthPrefKey, _hierarchyPanelWidth);
+    }
 
-        if (_searchOverlay != null)
-            _searchOverlay.SetVisible(false);
+    private void HandleEditorUpdate()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            TryCaptureLiveSnapshot(false);
+            Repaint();
+        }
+    }
+
+    private void HandlePlayModeChanged(PlayModeStateChange state)
+    {
+        if (state == PlayModeStateChange.EnteredPlayMode)
+        {
+            _selectedLogIndex = -1;
+            _hierarchyScroll = Vector2.zero;
+            _logScroll = Vector2.zero;
+            ClearFocus();
+            _lastCapturedManagerChangeVersion = -1;
+            _nextSnapshotCaptureTime = 0d;
+            SaveEditorUiState();
+            Repaint();
+            return;
+        }
+
+        if (state == PlayModeStateChange.ExitingPlayMode)
+        {
+            SaveEditorUiState();
+            TryCaptureLiveSnapshot(true);
+            Repaint();
+            return;
+        }
+
+        if (state == PlayModeStateChange.EnteredEditMode)
+        {
+            LoadEditorUiState();
+            LoadSnapshotFromDisk();
+            ApplyStoredPreferencesToSnapshot(_lastSnapshot);
+            Repaint();
+        }
     }
 
     private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -153,134 +336,1939 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _titleStyle = null;
         _expandedComponents.Clear();
         _expandedChildren.Clear();
+        _expandedSnapshotDetails.Clear();
+        _expandedSnapshotChildren.Clear();
         _selectedLogIndex = -1;
         _hierarchyScroll = Vector2.zero;
-        _activeSearchField = SearchFieldFocus.None;
         ClearFocus();
-
-        if (_searchOverlay != null)
-            _searchOverlay.SetVisible(false);
-
-        ApplyUiInputBlockState();
-    }
-
-    private void Update()
-    {
-        if (Input.GetKeyDown(_toggleKey))
-            SetConsoleVisible(!_visible);
-    }
-
-    private void SetConsoleVisible(bool visible)
-    {
-        _visible = visible;
-        ApplyUiInputBlockState();
-
-        if (!_visible)
-        {
-            SaveLayoutPreferences();
-
-            if (_searchOverlay != null)
-                _searchOverlay.SetVisible(false);
-        }
-    }
-
-    private void ApplyUiInputBlockState()
-    {
-        if (_visible)
-            DisableSceneEventSystems();
-        else
-            RestoreEventSystems();
-    }
-
-    private void DisableSceneEventSystems()
-    {
-        EventSystem[] eventSystems = FindObjectsByType<EventSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        for (int i = 0; i < eventSystems.Length; i++)
-        {
-            EventSystem eventSystem = eventSystems[i];
-            if (eventSystem == null)
-                continue;
-
-            if (!_eventSystemEnabledState.ContainsKey(eventSystem))
-                _eventSystemEnabledState[eventSystem] = eventSystem.enabled;
-
-            eventSystem.enabled = false;
-        }
-    }
-
-    private void RestoreEventSystems()
-    {
-        List<EventSystem> keys = new List<EventSystem>(_eventSystemEnabledState.Keys);
-        for (int i = 0; i < keys.Count; i++)
-        {
-            EventSystem eventSystem = keys[i];
-            if (eventSystem == null)
-                continue;
-
-            eventSystem.enabled = _eventSystemEnabledState[eventSystem];
-        }
-
-        _eventSystemEnabledState.Clear();
+        Repaint();
     }
 
     private void OnGUI()
     {
-        EnsureSearchOverlay();
-
-        if (!_visible)
-        {
-            if (_searchOverlay != null)
-                _searchOverlay.SetVisible(false);
-
-            return;
-        }
-
-        _hierarchySearch = _searchOverlay != null ? _searchOverlay.HierarchyText : _hierarchySearch;
-        _logSearch = _searchOverlay != null ? _searchOverlay.LogText : _logSearch;
-        _hierarchySearchScreenRect = Rect.zero;
-        _logSearchScreenRect = Rect.zero;
-
         InitStyles();
-        Rect previousWindowRect = _windowRect;
-        _windowRect = GUI.Window(91357, _windowRect, DrawWindow, "Runtime Debug Console");
 
-        if (previousWindowRect != _windowRect)
-            SaveLayoutPreferences();
-
-        UpdateSearchOverlayLayout();
-    }
-
-    
-
-    
-
-    private void EnsureSearchOverlay()
-    {
-        if (_searchOverlay != null)
-            return;
-
-        _searchOverlay = GetComponentInChildren<RuntimeDebugConsoleSearchOverlay>(true);
-
-        if (_searchOverlay == null)
+        if (!EditorApplication.isPlaying)
         {
-            GameObject overlayObject = new GameObject("RuntimeDebugConsoleSearchOverlay");
-            overlayObject.transform.SetParent(transform, false);
-            _searchOverlay = overlayObject.AddComponent<RuntimeDebugConsoleSearchOverlay>();
+            DrawSnapshotOrIdleView();
+            return;
         }
 
-        _searchOverlay.Initialize();
+        DebugConsoleManager manager = DebugConsoleManager.Instance;
+        if (manager == null)
+        {
+            EditorGUILayout.HelpBox("DebugConsoleManager를 찾지 못했습니다. 플레이 시작 후 한 프레임 뒤에 다시 확인해보세요.", MessageType.Warning);
+            return;
+        }
+
+        TryCaptureLiveSnapshot(false);
+        DrawToolbar(manager);
+        DrawTypeFilterPanel(manager);
+
+        DrawResizablePanels(manager);
     }
 
-    private void UpdateSearchOverlayLayout()
+
+    private void DrawSnapshotOrIdleView()
     {
-        if (_searchOverlay != null)
-            _searchOverlay.SetVisible(false);
+        if (_lastSnapshot == null || !_lastSnapshot.HasData)
+        {
+            EditorGUILayout.HelpBox("플레이 모드에서 Runtime Debug Console 데이터를 표시합니다.", MessageType.Info);
+            if (GUILayout.Button("Play"))
+                EditorApplication.isPlaying = true;
+            return;
+        }
+
+        ApplyStoredPreferencesToSnapshot(_lastSnapshot);
+
+        string sceneName = string.IsNullOrWhiteSpace(_lastSnapshot.SceneName) ? "(Unknown)" : _lastSnapshot.SceneName;
+        string capturedAt = string.IsNullOrWhiteSpace(_lastSnapshot.CapturedAt) ? "-" : _lastSnapshot.CapturedAt;
+
+        EditorGUILayout.HelpBox($"마지막 플레이 스냅샷을 표시합니다. Scene : {sceneName} / Captured : {capturedAt}", MessageType.Info);
+
+        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+        GUILayout.Label("Snapshot Mode", _titleStyle, GUILayout.ExpandWidth(true));
+
+        if (GUILayout.Button("Clear Snapshot", GUILayout.Width(120f)))
+        {
+            ClearSavedSnapshot();
+            return;
+        }
+
+        if (GUILayout.Button("Play", GUILayout.Width(100f)))
+            EditorApplication.isPlaying = true;
+
+        EditorGUILayout.EndHorizontal();
+        GUILayout.Space(4f);
+
+        DrawSnapshotToolbar(_lastSnapshot);
+        DrawSnapshotTypeFilterPanel(_lastSnapshot);
+        DrawSnapshotResizablePanels(_lastSnapshot);
     }
 
-    private Rect ToScreenRect(Rect guiRect)
+    private void DrawSnapshotResizablePanels(DebugConsoleEditorSnapshot snapshot)
     {
-        Vector2 topLeft = GUIUtility.GUIToScreenPoint(new Vector2(guiRect.xMin, guiRect.yMin));
-        return new Rect(topLeft.x, topLeft.y, guiRect.width, guiRect.height);
+        float contentWidth = Mathf.Max(620f, position.width - 24f);
+        float maxHierarchyPanelWidth = Mathf.Max(MinHierarchyPanelWidth, contentWidth - MinLogPanelWidth - PanelSplitterWidth);
+
+        if (_hierarchyPanelWidth <= 0f)
+            _hierarchyPanelWidth = contentWidth * 0.42f;
+
+        _hierarchyPanelWidth = Mathf.Clamp(_hierarchyPanelWidth, MinHierarchyPanelWidth, maxHierarchyPanelWidth);
+        float logPanelWidth = Mathf.Max(MinLogPanelWidth, contentWidth - _hierarchyPanelWidth - PanelSplitterWidth);
+
+        EditorGUILayout.BeginHorizontal(GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
+        DrawSnapshotHierarchyPanel(snapshot, _hierarchyPanelWidth);
+        DrawPanelSplitter(contentWidth);
+        DrawSnapshotLogPanel(snapshot, logPanelWidth);
+        EditorGUILayout.EndHorizontal();
+    }
+
+    private void DrawSnapshotHierarchyPanel(DebugConsoleEditorSnapshot snapshot, float panelWidth)
+    {
+        GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
+        GUILayout.BeginHorizontal();
+        GUILayout.Label($"Scene Objects / Components {GetFocusSuffix()}", _titleStyle, GUILayout.ExpandWidth(true));
+        GUILayout.EndHorizontal();
+        GUILayout.Space(4f);
+        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
+        DrawHierarchySearchField(Mathf.Max(160f, panelWidth - 130f), 105f);
+        EditorGUILayout.EndHorizontal();
+        GUILayout.Space(4f);
+
+        _hierarchyScroll = GUILayout.BeginScrollView(_hierarchyScroll);
+
+        if (snapshot?.Roots != null)
+        {
+            for (int i = 0; i < snapshot.Roots.Count; i++)
+                DrawSnapshotGameObjectNode(snapshot.Roots[i], 0, panelWidth);
+        }
+
+        GUILayout.EndScrollView();
+
+        GUILayout.Space(4f);
+        string footerCountText = $"Count : {GetVisibleSnapshotEntryCount(snapshot)}";
+        string footerFocusText = GetFooterFocusLabel();
+
+        GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(30f));
+        GUILayout.Space(10f);
+        GUILayout.Label(new GUIContent(footerFocusText, GetFocusLabel()), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
+        GUILayout.Space(12f);
+        GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerRightLabelStyle, GUILayout.Width(100f), GUILayout.MinHeight(22f));
+        GUILayout.Space(10f);
+        GUILayout.EndHorizontal();
+        GUILayout.EndVertical();
+    }
+
+    private void DrawSnapshotGameObjectNode(SnapshotGameObjectNode node, int depth, float panelWidth)
+    {
+        if (node == null)
+            return;
+
+        if (!ShouldShowSnapshotGameObject(node))
+            return;
+
+        bool hasVisibleComponents = HasVisibleSnapshotComponents(node.Components, node.Name);
+        bool hasVisibleChildren = HasVisibleSnapshotChildren(node.Children);
+        bool hasDetails = hasVisibleComponents || hasVisibleChildren;
+
+        bool detailsExpanded = !string.IsNullOrWhiteSpace(node.PathKey) && _expandedSnapshotDetails.Contains(node.PathKey);
+        bool childrenExpanded = !string.IsNullOrWhiteSpace(node.PathKey) && _expandedSnapshotChildren.Contains(node.PathKey);
+
+        bool searchActive = !string.IsNullOrWhiteSpace(_hierarchySearch);
+        bool forceOpenDetails = searchActive && (HasMatchingSnapshotComponent(node, _hierarchySearch) || hasVisibleChildren);
+        bool forceOpenChildren = searchActive && hasVisibleChildren;
+
+        bool isObjectFocused = IsSnapshotObjectFocused(node.PathKey);
+        bool isComponentParentFocused = IsSnapshotFocusedObjectParent(node.PathKey);
+        bool showDetails = hasDetails && (detailsExpanded || forceOpenDetails);
+        bool canShowChildControls = hasVisibleChildren && isObjectFocused;
+        bool showChildren = hasVisibleChildren && (forceOpenChildren || (childrenExpanded && canShowChildControls));
+
+        float objectLeadingSpace = depth * 18f;
+        float rowContentWidth = GetHierarchyRowContentWidth(panelWidth);
+
+        GUILayout.BeginVertical(GetHierarchyRowStyle(isObjectFocused, isComponentParentFocused, false), GUILayout.Width(rowContentWidth));
+        GUILayout.BeginHorizontal(GUILayout.Width(rowContentWidth), GUILayout.Height(HierarchyRowHeight));
+        GUILayout.Space(objectLeadingSpace);
+
+        bool nextObjectEnabled = GUILayout.Toggle(node.Enabled, GUIContent.none, GUILayout.Width(HierarchyToggleSize), GUILayout.Height(HierarchyRowHeight));
+        if (nextObjectEnabled != node.Enabled)
+            SetSnapshotGameObjectEnabled(node, nextObjectEnabled);
+
+        GUIStyle objectStyle = GetObjectButtonStyle(node.Enabled, isObjectFocused, isComponentParentFocused);
+        GUIContent objectContent = new GUIContent(GetDisplayName(node.Name), node.Name);
+        float objectButtonWidth = GetHierarchyTextButtonWidth(rowContentWidth, objectLeadingSpace, true, true);
+        if (GUILayout.Button(objectContent, objectStyle, GUILayout.Width(objectButtonWidth), GUILayout.Height(HierarchyRowHeight)))
+            ToggleSnapshotGameObjectFocus(node);
+
+        if (hasDetails)
+        {
+            string foldoutLabel = showDetails ? "▾" : "▸";
+            if (GUILayout.Button(foldoutLabel, _foldoutButtonStyle, GUILayout.Width(HierarchyFoldoutSize), GUILayout.Height(HierarchyRowHeight)))
+                ToggleSnapshotExpandedDetails(node.PathKey);
+        }
+        else
+        {
+            GUILayout.Space(HierarchyFoldoutSize);
+        }
+
+        GUILayout.EndHorizontal();
+        GUILayout.EndVertical();
+
+        if (showDetails && hasVisibleComponents)
+        {
+            bool previousEnabled = GUI.enabled;
+            GUI.enabled = node.Enabled;
+
+            for (int i = 0; i < node.Components.Count; i++)
+            {
+                SnapshotComponentNode component = node.Components[i];
+                if (!ShouldShowSnapshotComponent(component, node.Name))
+                    continue;
+
+                bool isComponentFocused = IsSnapshotComponentFocused(component.Key);
+                float componentLeadingSpace = (depth + 1) * 18f + HierarchyToggleSize + 8f;
+                rowContentWidth = GetHierarchyRowContentWidth(panelWidth);
+
+                GUILayout.BeginVertical(GetHierarchyRowStyle(false, false, isComponentFocused), GUILayout.Width(rowContentWidth));
+                GUILayout.BeginHorizontal(GUILayout.Width(rowContentWidth), GUILayout.Height(HierarchyRowHeight));
+                GUILayout.Space(componentLeadingSpace);
+
+                bool nextComponentEnabled = GUILayout.Toggle(component.Enabled, GUIContent.none, GUILayout.Width(HierarchyToggleSize), GUILayout.Height(HierarchyRowHeight));
+                if (nextComponentEnabled != component.Enabled)
+                    SetSnapshotComponentEnabled(component, nextComponentEnabled);
+
+                GUIStyle componentStyle = GetComponentButtonStyle(node.Enabled, isComponentFocused);
+                GUIContent componentContent = new GUIContent(GetDisplayName(component.Name), component.Name);
+                float componentButtonWidth = GetHierarchyTextButtonWidth(rowContentWidth, componentLeadingSpace, true, true);
+                if (GUILayout.Button(componentContent, componentStyle, GUILayout.Width(componentButtonWidth), GUILayout.Height(HierarchyRowHeight)))
+                    ToggleSnapshotComponentFocus(node, component);
+
+                GUILayout.Space(HierarchyFoldoutSize);
+                GUILayout.EndHorizontal();
+                GUILayout.EndVertical();
+            }
+
+            GUI.enabled = previousEnabled;
+        }
+
+        if (!hasVisibleChildren)
+            return;
+
+        if (canShowChildControls)
+        {
+            float childLeadingSpace = (depth + 1) * 18f + HierarchyToggleSize + 8f + HierarchyToggleSize;
+
+            GUILayout.BeginHorizontal(GUILayout.Width(rowContentWidth), GUILayout.Height(HierarchyRowHeight));
+            GUILayout.Space((depth + 1) * 18f + HierarchyToggleSize + 8f);
+            GUILayout.Space(HierarchyToggleSize);
+
+            float childButtonWidth = GetHierarchyTextButtonWidth(rowContentWidth, childLeadingSpace, true, true);
+            if (GUILayout.Button(new GUIContent("하위 오브젝트", "하위 오브젝트"), _linkButtonStyle, GUILayout.Width(childButtonWidth), GUILayout.Height(HierarchyRowHeight)))
+                ToggleSnapshotExpandedChildren(node.PathKey);
+
+            string childFoldoutLabel = showChildren ? "▾" : "▸";
+            if (GUILayout.Button(childFoldoutLabel, _foldoutButtonStyle, GUILayout.Width(HierarchyFoldoutSize), GUILayout.Height(HierarchyRowHeight)))
+                ToggleSnapshotExpandedChildren(node.PathKey);
+
+            GUILayout.EndHorizontal();
+        }
+
+        if (!showChildren)
+            return;
+
+        for (int i = 0; i < node.Children.Count; i++)
+            DrawSnapshotGameObjectNode(node.Children[i], depth + 1, panelWidth);
+    }
+
+
+    private List<SnapshotLogGroup> BuildVisibleSnapshotLogGroups(DebugConsoleEditorSnapshot snapshot)
+    {
+        List<SnapshotLogGroup> groups = new List<SnapshotLogGroup>();
+        if (snapshot?.Entries == null)
+            return groups;
+
+        for (int i = 0; i < snapshot.Entries.Count; i++)
+        {
+            SnapshotLogEntry entry = snapshot.Entries[i];
+            if (!ShouldDisplaySnapshotEntry(entry))
+                continue;
+
+            if (_collapseLogs && groups.Count > 0)
+            {
+                SnapshotLogGroup lastGroup = groups[groups.Count - 1];
+                if (CanCollapseSnapshotEntries(lastGroup.Entry, entry))
+                {
+                    lastGroup.Entry = entry;
+                    lastGroup.Count++;
+                    lastGroup.LastSourceIndex = i;
+                    continue;
+                }
+            }
+
+            groups.Add(new SnapshotLogGroup
+            {
+                Entry = entry,
+                Count = 1,
+                LastSourceIndex = i
+            });
+        }
+
+        return groups;
+    }
+
+    private List<LiveLogGroup> BuildVisibleLiveLogGroups(DebugConsoleManager manager)
+    {
+        List<LiveLogGroup> groups = new List<LiveLogGroup>();
+        if (manager == null)
+            return groups;
+
+        IReadOnlyList<DebugEntry> entries = manager.Entries;
+        for (int i = 0; i < entries.Count; i++)
+        {
+            DebugEntry entry = entries[i];
+            if (!ShouldDisplayEntry(manager, entry))
+                continue;
+
+            if (_collapseLogs && groups.Count > 0)
+            {
+                LiveLogGroup lastGroup = groups[groups.Count - 1];
+                if (CanCollapseLiveEntries(lastGroup.Entry, entry))
+                {
+                    lastGroup.Entry = entry;
+                    lastGroup.Count++;
+                    lastGroup.LastSourceIndex = i;
+                    continue;
+                }
+            }
+
+            groups.Add(new LiveLogGroup
+            {
+                Entry = entry,
+                Count = 1,
+                LastSourceIndex = i
+            });
+        }
+
+        return groups;
+    }
+
+    private bool CanCollapseLiveEntries(DebugEntry left, DebugEntry right)
+    {
+        if (left == null || right == null)
+            return false;
+
+        return string.Equals(left.Message, right.Message, StringComparison.Ordinal) &&
+               string.Equals(left.SourceName, right.SourceName, StringComparison.Ordinal) &&
+               string.Equals(left.MemberName, right.MemberName, StringComparison.Ordinal) &&
+               string.Equals(left.ColorHex, right.ColorHex, StringComparison.Ordinal) &&
+               string.Equals(left.CallerFilePath, right.CallerFilePath, StringComparison.Ordinal) &&
+               left.LineNumber == right.LineNumber &&
+               left.CallerColumn == right.CallerColumn &&
+               left.Type == right.Type &&
+               left.Level == right.Level &&
+               left.GameObjectId == right.GameObjectId &&
+               left.ComponentId == right.ComponentId;
+    }
+
+    private bool CanCollapseSnapshotEntries(SnapshotLogEntry left, SnapshotLogEntry right)
+    {
+        if (left == null || right == null)
+            return false;
+
+        return string.Equals(left.Message, right.Message, StringComparison.Ordinal) &&
+               string.Equals(left.SourceName, right.SourceName, StringComparison.Ordinal) &&
+               string.Equals(left.MemberName, right.MemberName, StringComparison.Ordinal) &&
+               string.Equals(left.ColorHex, right.ColorHex, StringComparison.Ordinal) &&
+               string.Equals(left.CallerFilePath, right.CallerFilePath, StringComparison.Ordinal) &&
+               string.Equals(left.GameObjectKey, right.GameObjectKey, StringComparison.Ordinal) &&
+               string.Equals(left.ComponentKey, right.ComponentKey, StringComparison.Ordinal) &&
+               left.LineNumber == right.LineNumber &&
+               left.CallerColumn == right.CallerColumn &&
+               left.Type == right.Type &&
+               left.Level == right.Level &&
+               left.GameObjectId == right.GameObjectId &&
+               left.ComponentId == right.ComponentId;
+    }
+
+    private GUIContent BuildCollapsedLogContent(string richText, int repeatCount)
+    {
+        if (repeatCount <= 1 || string.IsNullOrWhiteSpace(richText))
+            return new GUIContent(richText ?? string.Empty);
+
+        string suffix = $" <color=#f1c232>(x{repeatCount})</color>";
+        int newLineIndex = richText.IndexOf('\n');
+        string collapsedText = newLineIndex >= 0
+            ? richText.Insert(newLineIndex, suffix)
+            : richText + suffix;
+
+        return new GUIContent(collapsedText);
+    }
+
+
+private void DrawSnapshotLogPanel(DebugConsoleEditorSnapshot snapshot, float panelWidth)
+{
+    EditorGUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
+    EditorGUILayout.BeginHorizontal();
+    GUILayout.Label($"Logs {GetFocusSuffix()}", _titleStyle);
+    bool nextShowLogDetails = GUILayout.Toggle(_showLogDetails, "Details", GUILayout.Width(70f));
+    if (nextShowLogDetails != _showLogDetails)
+    {
+        _showLogDetails = nextShowLogDetails;
+        SaveEditorUiState();
+    }
+    EditorGUILayout.EndHorizontal();
+    GUILayout.Space(4f);
+    EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
+    DrawLogSearchField(75f);
+    EditorGUILayout.EndHorizontal();
+    GUILayout.Space(4f);
+
+    float width = Mathf.Max(GetLogContentWidth(panelWidth), 300f);
+    float listViewportHeight = Mathf.Max(120f, position.height - (_showLogDetails ? _logDetailPanelHeight + 220f : 180f));
+
+    List<SnapshotLogGroup> groups = BuildVisibleSnapshotLogGroups(snapshot);
+    List<float> rowHeights = BuildSnapshotRowHeights(groups, width);
+    CalculateVisibleRange(rowHeights, _logScroll.y, listViewportHeight, out int startIndex, out int endIndex, out float topPadding, out float visibleHeight, out float totalHeight);
+
+    _logScroll = GUILayout.BeginScrollView(_logScroll, false, !_autoScroll, GUIStyle.none, GetLogVerticalScrollbarStyle(), GUILayout.MinHeight(listViewportHeight), GUILayout.ExpandHeight(true));
+
+    if (topPadding > 0f)
+        GUILayout.Space(topPadding);
+
+    for (int i = startIndex; i < endIndex; i++)
+    {
+        SnapshotLogGroup group = groups[i];
+        DrawSnapshotLogEntry(group.Entry, group.LastSourceIndex, width, group.Count);
+        GUILayout.Space(4f);
+    }
+
+    float bottomPadding = Mathf.Max(0f, totalHeight - topPadding - visibleHeight);
+    if (bottomPadding > 0f)
+        GUILayout.Space(bottomPadding);
+
+    EditorGUILayout.EndScrollView();
+
+    Rect scrollRect = GUILayoutUtility.GetLastRect();
+    _lastLogViewportHeight = scrollRect.height;
+    _lastLogContentHeight = totalHeight;
+    _lastMaxLogScrollY = Mathf.Max(0f, _lastLogContentHeight - _lastLogViewportHeight);
+
+    if (Event.current.type == EventType.Repaint && _autoScroll)
+        _logScroll.y = _lastMaxLogScrollY + 4f;
+
+    if (_showLogDetails)
+    {
+        GUILayout.Space(4f);
+        SnapshotLogEntry selectedEntry = GetSelectedSnapshotEntry(snapshot);
+        DrawSnapshotLogDetailPanel(selectedEntry, panelWidth);
+    }
+
+    EditorGUILayout.EndVertical();
+}
+
+private float DrawSnapshotLogEntry(SnapshotLogEntry entry, int sourceIndex, float width, int repeatCount)
+    {
+        GUIContent content = BuildCollapsedLogContent(entry.RichText, repeatCount);
+        float height = _richLabelStyle.CalcHeight(content, width);
+
+        Rect rect = GUILayoutUtility.GetRect(10f, height + 12f, GUILayout.ExpandWidth(true));
+
+        Color previousColor = GUI.color;
+        if (sourceIndex == _selectedLogIndex)
+            GUI.color = new Color(0.75f, 0.85f, 1f, 1f);
+
+        GUI.Box(rect, GUIContent.none);
+        GUI.color = previousColor;
+
+        Rect labelRect = new Rect(rect.x + 6f, rect.y + 6f, rect.width - 12f, rect.height - 12f);
+        GUI.Label(labelRect, content, _richLabelStyle);
+
+        if (Event.current.type == EventType.MouseDown &&
+            Event.current.button == 0 &&
+            rect.Contains(Event.current.mousePosition))
+        {
+            _selectedLogIndex = sourceIndex;
+            FocusSnapshotEntry(entry);
+            SaveEditorUiState();
+
+            if (Event.current.clickCount >= 2)
+                OpenEntryScript(entry);
+
+            Event.current.Use();
+        }
+
+        return rect.height;
+    }
+
+    private bool ShouldShowSnapshotGameObject(SnapshotGameObjectNode node)
+    {
+        if (node == null)
+            return false;
+
+        if (string.IsNullOrWhiteSpace(_hierarchySearch))
+            return true;
+
+        if (ContainsIgnoreCase(node.Name, _hierarchySearch))
+            return true;
+
+        if (HasMatchingSnapshotComponent(node, _hierarchySearch))
+            return true;
+
+        return HasVisibleSnapshotChildren(node.Children);
+    }
+
+    private bool HasMatchingSnapshotComponent(SnapshotGameObjectNode node, string keyword)
+    {
+        if (node?.Components == null)
+            return false;
+
+        for (int i = 0; i < node.Components.Count; i++)
+        {
+            SnapshotComponentNode component = node.Components[i];
+            if (ShouldShowSnapshotComponent(component, node.Name) && ContainsIgnoreCase(component.Name, keyword))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool HasVisibleSnapshotComponents(List<SnapshotComponentNode> components, string ownerName)
+    {
+        if (components == null || components.Count == 0)
+            return false;
+
+        for (int i = 0; i < components.Count; i++)
+        {
+            if (ShouldShowSnapshotComponent(components[i], ownerName))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool HasVisibleSnapshotChildren(List<SnapshotGameObjectNode> children)
+    {
+        if (children == null || children.Count == 0)
+            return false;
+
+        for (int i = 0; i < children.Count; i++)
+        {
+            if (ShouldShowSnapshotGameObject(children[i]))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool ShouldShowSnapshotComponent(SnapshotComponentNode component, string ownerName)
+    {
+        if (component == null)
+            return false;
+
+        if (_hideTransform && string.Equals(component.Name, nameof(Transform), StringComparison.Ordinal))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(_hierarchySearch))
+            return true;
+
+        if (ContainsIgnoreCase(ownerName, _hierarchySearch))
+            return true;
+
+        return ContainsIgnoreCase(component.Name, _hierarchySearch);
+    }
+
+    private bool ShouldDisplaySnapshotEntry(SnapshotLogEntry entry)
+    {
+        if (entry == null || _lastSnapshot == null)
+            return false;
+
+        if (!_lastSnapshot.GlobalEnabled)
+            return false;
+
+        int typeIndex = (int)entry.Type;
+        if (_lastSnapshot.TypeFilters != null && typeIndex >= 0 && typeIndex < _lastSnapshot.TypeFilters.Length && !_lastSnapshot.TypeFilters[typeIndex])
+            return false;
+
+        if (!IsSnapshotLevelEnabled(_lastSnapshot, entry.Level))
+            return false;
+
+        if (!string.IsNullOrWhiteSpace(entry.GameObjectKey) && !GetStoredGameObjectEnabled(entry.GameObjectKey, true))
+            return false;
+
+        if (!string.IsNullOrWhiteSpace(entry.ComponentKey) && !GetStoredComponentEnabled(entry.ComponentKey, true))
+            return false;
+
+        if (!string.IsNullOrWhiteSpace(_focusedSnapshotComponentKey))
+        {
+            if (!string.Equals(entry.ComponentKey, _focusedSnapshotComponentKey, StringComparison.Ordinal))
+                return false;
+        }
+        else if (!string.IsNullOrWhiteSpace(_focusedSnapshotGameObjectKey))
+        {
+            if (!string.Equals(entry.GameObjectKey, _focusedSnapshotGameObjectKey, StringComparison.Ordinal))
+                return false;
+        }
+        else if (_focusedComponentId != 0)
+        {
+            if (entry.ComponentId != _focusedComponentId)
+                return false;
+        }
+        else if (_focusedGameObjectId != 0)
+        {
+            if (entry.GameObjectId != _focusedGameObjectId)
+                return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(_logSearch))
+            return true;
+
+        string searchPool = $"{entry.Message} {entry.SourceName} {entry.MemberName} {entry.Type} {entry.Time} {entry.Level}";
+        return ContainsIgnoreCase(searchPool, _logSearch);
+    }
+
+    private int GetVisibleSnapshotEntryCount(DebugConsoleEditorSnapshot snapshot)
+    {
+        if (snapshot?.Entries == null)
+            return 0;
+
+        int count = 0;
+        for (int i = 0; i < snapshot.Entries.Count; i++)
+        {
+            if (ShouldDisplaySnapshotEntry(snapshot.Entries[i]))
+                count++;
+        }
+
+        return count;
+    }
+
+    private void TryCaptureLiveSnapshot(bool force)
+    {
+        if (!EditorApplication.isPlaying)
+            return;
+
+        DebugConsoleManager manager = DebugConsoleManager.Instance;
+        if (manager == null)
+            return;
+
+        double now = EditorApplication.timeSinceStartup;
+        bool captureByInterval = now >= _nextSnapshotCaptureTime;
+        bool captureByChange = manager.ChangeVersion != _lastCapturedManagerChangeVersion;
+
+        if (!force && !captureByInterval && !captureByChange)
+            return;
+
+        _lastSnapshot = CaptureSnapshot(manager);
+        SaveEditorUiState();
+        SaveSnapshotToDisk(_lastSnapshot);
+        _lastCapturedManagerChangeVersion = manager.ChangeVersion;
+        _nextSnapshotCaptureTime = now + 0.35d;
+    }
+
+    private DebugConsoleEditorSnapshot CaptureSnapshot(DebugConsoleManager manager)
+    {
+        DebugConsoleEditorSnapshot snapshot = new DebugConsoleEditorSnapshot
+        {
+            SnapshotVersion = CurrentSnapshotVersion,
+            SceneName = SceneManager.GetActiveScene().name,
+            CapturedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+            GlobalEnabled = manager.GlobalEnabled,
+            MirrorToUnityConsole = manager.MirrorToUnityConsole,
+            ShowLogLevelLog = manager.GetLevelEnabled(DebugLogLevel.Log),
+            ShowLogLevelWarning = manager.GetLevelEnabled(DebugLogLevel.Warning),
+            ShowLogLevelError = manager.GetLevelEnabled(DebugLogLevel.Error),
+            TypeFilters = CaptureTypeFilters(manager),
+            Roots = new List<SnapshotGameObjectNode>(),
+            Entries = new List<SnapshotLogEntry>()
+        };
+
+        Scene activeScene = SceneManager.GetActiveScene();
+        if (activeScene.IsValid())
+        {
+            GameObject[] roots = activeScene.GetRootGameObjects();
+            for (int i = 0; i < roots.Length; i++)
+                snapshot.Roots.Add(CaptureSnapshotNode(manager, roots[i]));
+        }
+
+        IReadOnlyList<DebugEntry> entries = manager.Entries;
+        for (int i = 0; i < entries.Count; i++)
+        {
+            DebugEntry entry = entries[i];
+            if (entry == null)
+                continue;
+
+            CaptureSnapshotEntryTargets(entry, out string gameObjectKey, out string componentKey, out string gameObjectName, out string componentName);
+
+            snapshot.Entries.Add(new SnapshotLogEntry
+            {
+                Time = entry.Time,
+                Message = entry.Message,
+                SourceName = entry.SourceName,
+                MemberName = entry.MemberName,
+                LineNumber = entry.LineNumber,
+                Type = entry.Type,
+                Level = entry.Level,
+                GameObjectId = entry.GameObjectId,
+                ComponentId = entry.ComponentId,
+                GameObjectKey = gameObjectKey,
+                ComponentKey = componentKey,
+                GameObjectName = gameObjectName,
+                ComponentName = componentName,
+                SceneKey = entry.SceneKey,
+                HierarchyPath = entry.HierarchyPath,
+                ComponentTypeName = entry.ComponentTypeName,
+                SequenceId = entry.SequenceId,
+                FrameCount = entry.FrameCount,
+                CapturedAtIsoUtc = entry.CapturedAtIsoUtc,
+                ColorHex = entry.ColorHex,
+                CallerFilePath = entry.CallerFilePath,
+                CallerColumn = entry.CallerColumn,
+                StackTrace = entry.StackTrace,
+                WasVisibleAtCapture = ShouldDisplayEntry(manager, entry)
+            });
+        }
+
+        return snapshot;
+    }
+
+    private SnapshotGameObjectNode CaptureSnapshotNode(DebugConsoleManager manager, GameObject go)
+    {
+        string objectKey = go != null ? DebugConsoleFilterKeyUtility.GetGameObjectKey(go) : string.Empty;
+        SnapshotGameObjectNode node = new SnapshotGameObjectNode
+        {
+            Name = go != null ? go.name : "(Null)",
+            PathKey = objectKey,
+            Enabled = go != null && manager.GetGameObjectEnabled(go),
+            Components = new List<SnapshotComponentNode>(),
+            Children = new List<SnapshotGameObjectNode>()
+        };
+
+        if (go == null)
+            return node;
+
+        Component[] components = go.GetComponents<Component>();
+        for (int i = 0; i < components.Length; i++)
+        {
+            Component component = components[i];
+            string componentName = component != null ? component.GetType().Name : "Missing Script";
+            string componentKey = component != null
+                ? DebugConsoleFilterKeyUtility.GetComponentKey(component)
+                : $"{objectKey}|Missing Script#{i}";
+
+            node.Components.Add(new SnapshotComponentNode
+            {
+                Name = componentName,
+                Key = componentKey,
+                Enabled = component == null || manager.GetComponentEnabled(component)
+            });
+        }
+
+        for (int i = 0; i < go.transform.childCount; i++)
+        {
+            Transform child = go.transform.GetChild(i);
+            if (child == null)
+                continue;
+
+            node.Children.Add(CaptureSnapshotNode(manager, child.gameObject));
+        }
+
+        return node;
+    }
+
+    private void CaptureSnapshotEntryTargets(DebugEntry entry, out string gameObjectKey, out string componentKey, out string gameObjectName, out string componentName)
+    {
+        gameObjectKey = entry?.GameObjectKey ?? string.Empty;
+        componentKey = entry?.ComponentKey ?? string.Empty;
+        gameObjectName = entry?.GameObjectName ?? string.Empty;
+        componentName = entry?.ComponentName ?? string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(gameObjectKey))
+            return;
+
+        if (entry?.Context is GameObject go)
+        {
+            gameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(go);
+            gameObjectName = go.name;
+            return;
+        }
+
+        if (entry?.Context is Component component)
+        {
+            gameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(component.gameObject);
+            componentKey = DebugConsoleFilterKeyUtility.GetComponentKey(component);
+            gameObjectName = component.gameObject.name;
+            componentName = component.GetType().Name;
+        }
+    }
+
+    private bool[] CaptureTypeFilters(DebugConsoleManager manager)
+    {
+        DebugType[] types = (DebugType[])Enum.GetValues(typeof(DebugType));
+        bool[] filters = new bool[types.Length];
+
+        for (int i = 0; i < types.Length; i++)
+            filters[i] = manager.GetTypeEnabled(types[i]);
+
+        return filters;
+    }
+
+    private string GetHierarchyPath(Transform target)
+    {
+        if (target == null)
+            return string.Empty;
+
+        Stack<string> stack = new Stack<string>();
+        Transform current = target;
+
+        while (current != null)
+        {
+            stack.Push($"{current.name}[{current.GetSiblingIndex()}]");
+            current = current.parent;
+        }
+
+        return string.Join("/", stack);
+    }
+
+    private string GetSnapshotFilePath()
+    {
+        return Path.Combine(Directory.GetCurrentDirectory(), SnapshotDirectoryPath, SnapshotFileName);
+    }
+
+    private void SaveSnapshotToDisk(DebugConsoleEditorSnapshot snapshot)
+    {
+        if (snapshot == null)
+            return;
+
+        try
+        {
+            snapshot.SnapshotVersion = CurrentSnapshotVersion;
+
+            string filePath = GetSnapshotFilePath();
+            string directoryPath = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrWhiteSpace(directoryPath))
+                Directory.CreateDirectory(directoryPath);
+
+            File.WriteAllText(filePath, JsonUtility.ToJson(snapshot, true));
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning($"DebugConsoleEditorWindow snapshot save failed: {exception.Message}");
+        }
+    }
+
+    private void LoadSnapshotFromDisk()
+    {
+        try
+        {
+            string filePath = GetSnapshotFilePath();
+            if (!File.Exists(filePath))
+            {
+                _lastSnapshot = null;
+                return;
+            }
+
+            string json = File.ReadAllText(filePath);
+            _lastSnapshot = JsonUtility.FromJson<DebugConsoleEditorSnapshot>(json);
+            if (!TryUpgradeSnapshotToCurrentVersion(_lastSnapshot))
+            {
+                _lastSnapshot = null;
+                return;
+            }
+
+            ApplyStoredPreferencesToSnapshot(_lastSnapshot);
+        }
+        catch (Exception exception)
+        {
+            _lastSnapshot = null;
+            Debug.LogWarning($"DebugConsoleEditorWindow snapshot load failed: {exception.Message}");
+        }
+    }
+
+
+    private bool TryUpgradeSnapshotToCurrentVersion(DebugConsoleEditorSnapshot snapshot)
+    {
+        if (snapshot == null)
+            return false;
+
+        if (snapshot.SnapshotVersion > CurrentSnapshotVersion)
+            return false;
+
+        NormalizeSnapshot(snapshot);
+        snapshot.SnapshotVersion = CurrentSnapshotVersion;
+        return true;
+    }
+
+    private void NormalizeSnapshot(DebugConsoleEditorSnapshot snapshot)
+    {
+        if (snapshot == null)
+            return;
+
+        snapshot.Roots ??= new List<SnapshotGameObjectNode>();
+        snapshot.Entries ??= new List<SnapshotLogEntry>();
+
+        if (!snapshot.ShowLogLevelLog && !snapshot.ShowLogLevelWarning && !snapshot.ShowLogLevelError)
+        {
+            snapshot.ShowLogLevelLog = true;
+            snapshot.ShowLogLevelWarning = true;
+            snapshot.ShowLogLevelError = true;
+        }
+
+        for (int i = 0; i < snapshot.Roots.Count; i++)
+            NormalizeSnapshotNode(snapshot.Roots[i]);
+
+        for (int i = 0; i < snapshot.Entries.Count; i++)
+        {
+            SnapshotLogEntry entry = snapshot.Entries[i];
+            if (entry == null)
+                continue;
+
+            entry.GameObjectKey ??= string.Empty;
+            entry.ComponentKey ??= string.Empty;
+            entry.GameObjectName ??= string.Empty;
+            entry.ComponentName ??= string.Empty;
+            entry.SceneKey ??= string.Empty;
+            entry.HierarchyPath ??= string.Empty;
+            entry.ComponentTypeName ??= string.Empty;
+            entry.CapturedAtIsoUtc ??= string.Empty;
+            entry.ColorHex ??= "#ffffff";
+            entry.CallerFilePath ??= string.Empty;
+            entry.SourceName ??= string.Empty;
+            entry.MemberName ??= string.Empty;
+            entry.Message ??= string.Empty;
+            entry.Time ??= string.Empty;
+        }
+    }
+
+    private void NormalizeSnapshotNode(SnapshotGameObjectNode node)
+    {
+        if (node == null)
+            return;
+
+        node.Name ??= string.Empty;
+        node.PathKey ??= string.Empty;
+        node.Components ??= new List<SnapshotComponentNode>();
+        node.Children ??= new List<SnapshotGameObjectNode>();
+
+        for (int i = 0; i < node.Components.Count; i++)
+        {
+            SnapshotComponentNode component = node.Components[i];
+            if (component == null)
+                continue;
+
+            component.Name ??= string.Empty;
+            component.Key ??= string.Empty;
+        }
+
+        for (int i = 0; i < node.Children.Count; i++)
+            NormalizeSnapshotNode(node.Children[i]);
+    }
+
+
+    private void LoadEditorUiState()
+    {
+        string raw = DebugConsolePreferenceStore.GetString(EditorStatePrefKey, string.Empty);
+        if (string.IsNullOrWhiteSpace(raw))
+            return;
+
+        DebugConsoleEditorUiState state = JsonUtility.FromJson<DebugConsoleEditorUiState>(raw);
+        if (state == null)
+            return;
+
+        _autoScroll = state.AutoScroll;
+        _hideTransform = state.HideTransform;
+        _collapsePreviousOnSelection = state.CollapsePreviousOnSelection;
+        _collapseLogs = state.CollapseLogs;
+        _showTypeFilterPanel = state.ShowTypeFilterPanel;
+        _showLogDetails = state.ShowLogDetails;
+        _stackTraceFoldout = state.StackTraceFoldout;
+        _hierarchyPanelWidth = state.HierarchyPanelWidth > 0f ? state.HierarchyPanelWidth : _hierarchyPanelWidth;
+        _logDetailPanelHeight = Mathf.Clamp(state.LogDetailPanelHeight > 0f ? state.LogDetailPanelHeight : DefaultLogDetailPanelHeight, MinLogDetailPanelHeight, MaxLogDetailPanelHeight);
+        _hierarchyScroll = state.HierarchyScroll;
+        _logScroll = state.LogScroll;
+        _typeFilterScroll = state.TypeFilterScroll;
+        _detailScroll = state.DetailScroll;
+        _selectedLogIndex = state.SelectedLogIndex;
+        _focusedSnapshotGameObjectKey = state.FocusedSnapshotGameObjectKey ?? string.Empty;
+        _focusedSnapshotComponentKey = state.FocusedSnapshotComponentKey ?? string.Empty;
+        _focusedObjectName = state.FocusedObjectName ?? string.Empty;
+        _focusedComponentName = state.FocusedComponentName ?? string.Empty;
+
+        _expandedSnapshotDetails.Clear();
+        if (state.ExpandedSnapshotDetails != null)
+        {
+            for (int i = 0; i < state.ExpandedSnapshotDetails.Count; i++)
+            {
+                string key = state.ExpandedSnapshotDetails[i];
+                if (!string.IsNullOrWhiteSpace(key))
+                    _expandedSnapshotDetails.Add(key);
+            }
+        }
+
+        _expandedSnapshotChildren.Clear();
+        if (state.ExpandedSnapshotChildren != null)
+        {
+            for (int i = 0; i < state.ExpandedSnapshotChildren.Count; i++)
+            {
+                string key = state.ExpandedSnapshotChildren[i];
+                if (!string.IsNullOrWhiteSpace(key))
+                    _expandedSnapshotChildren.Add(key);
+            }
+        }
+    }
+
+    private void SaveEditorUiState()
+    {
+        DebugConsoleEditorUiState state = new DebugConsoleEditorUiState
+        {
+            AutoScroll = _autoScroll,
+            HideTransform = _hideTransform,
+            CollapsePreviousOnSelection = _collapsePreviousOnSelection,
+            CollapseLogs = _collapseLogs,
+            ShowTypeFilterPanel = _showTypeFilterPanel,
+            ShowLogDetails = _showLogDetails,
+            StackTraceFoldout = _stackTraceFoldout,
+            HierarchyPanelWidth = _hierarchyPanelWidth,
+            LogDetailPanelHeight = _logDetailPanelHeight,
+            HierarchyScroll = _hierarchyScroll,
+            LogScroll = _logScroll,
+            TypeFilterScroll = _typeFilterScroll,
+            DetailScroll = _detailScroll,
+            SelectedLogIndex = _selectedLogIndex,
+            FocusedSnapshotGameObjectKey = _focusedSnapshotGameObjectKey ?? string.Empty,
+            FocusedSnapshotComponentKey = _focusedSnapshotComponentKey ?? string.Empty,
+            FocusedObjectName = _focusedObjectName ?? string.Empty,
+            FocusedComponentName = _focusedComponentName ?? string.Empty,
+            ExpandedSnapshotDetails = new List<string>(_expandedSnapshotDetails),
+            ExpandedSnapshotChildren = new List<string>(_expandedSnapshotChildren)
+        };
+
+        DebugConsolePreferenceStore.SetString(EditorStatePrefKey, JsonUtility.ToJson(state));
+    }
+
+    private void ClearSavedSnapshot()
+    {
+        _lastSnapshot = null;
+        _selectedLogIndex = -1;
+        _hierarchyScroll = Vector2.zero;
+        _logScroll = Vector2.zero;
+        _expandedSnapshotDetails.Clear();
+        _expandedSnapshotChildren.Clear();
+        ClearFocus();
+        SaveEditorUiState();
+
+        try
+        {
+            string filePath = GetSnapshotFilePath();
+            if (File.Exists(filePath))
+                File.Delete(filePath);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning($"DebugConsoleEditorWindow snapshot delete failed: {exception.Message}");
+        }
+    }
+
+    private void ApplyStoredPreferencesToSnapshot(DebugConsoleEditorSnapshot snapshot)
+    {
+        if (snapshot == null)
+            return;
+
+        snapshot.GlobalEnabled = DebugConsolePreferenceStore.GetBool(GlobalEnabledPrefKey, snapshot.GlobalEnabled);
+        snapshot.MirrorToUnityConsole = DebugConsolePreferenceStore.GetBool(MirrorToUnityPrefKey, snapshot.MirrorToUnityConsole);
+        snapshot.ShowLogLevelLog = DebugConsolePreferenceStore.GetBool(LogLevelLogPrefKey, snapshot.ShowLogLevelLog);
+        snapshot.ShowLogLevelWarning = DebugConsolePreferenceStore.GetBool(LogLevelWarningPrefKey, snapshot.ShowLogLevelWarning);
+        snapshot.ShowLogLevelError = DebugConsolePreferenceStore.GetBool(LogLevelErrorPrefKey, snapshot.ShowLogLevelError);
+
+        DebugType[] types = (DebugType[])Enum.GetValues(typeof(DebugType));
+        snapshot.TypeFilters ??= new bool[types.Length];
+        if (snapshot.TypeFilters.Length != types.Length)
+            Array.Resize(ref snapshot.TypeFilters, types.Length);
+
+        for (int i = 0; i < types.Length; i++)
+            snapshot.TypeFilters[i] = DebugConsolePreferenceStore.GetBool(GetTypePrefKey(types[i]), snapshot.TypeFilters[i]);
+
+        if (snapshot.Roots == null)
+            return;
+
+        for (int i = 0; i < snapshot.Roots.Count; i++)
+            ApplyStoredPreferencesToSnapshotNode(snapshot.Roots[i]);
+    }
+
+    private void ApplyStoredPreferencesToSnapshotNode(SnapshotGameObjectNode node)
+    {
+        if (node == null)
+            return;
+
+        if (!string.IsNullOrWhiteSpace(node.PathKey))
+            node.Enabled = GetStoredGameObjectEnabled(node.PathKey, node.Enabled);
+
+        if (node.Components != null)
+        {
+            for (int i = 0; i < node.Components.Count; i++)
+            {
+                SnapshotComponentNode component = node.Components[i];
+                if (component == null || string.IsNullOrWhiteSpace(component.Key))
+                    continue;
+
+                component.Enabled = GetStoredComponentEnabled(component.Key, component.Enabled);
+            }
+        }
+
+        if (node.Children == null)
+            return;
+
+        for (int i = 0; i < node.Children.Count; i++)
+            ApplyStoredPreferencesToSnapshotNode(node.Children[i]);
+    }
+
+    private void DrawSnapshotToolbar(DebugConsoleEditorSnapshot snapshot)
+    {
+        float availableWidth = GetTopAreaWidth();
+
+        int enabledCount = GetEnabledTypeCount(snapshot);
+        int totalCount = Enum.GetValues(typeof(DebugType)).Length;
+        string typeButtonLabel = _showTypeFilterPanel
+            ? $"Type Filter ▲ ({enabledCount}/{totalCount})"
+            : $"Type Filter ▼ ({enabledCount}/{totalCount})";
+
+        if (availableWidth >= 1500f)
+        {
+            EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+            DrawSnapshotToolbarToggleGroup(snapshot);
+            GUILayout.Space(8f);
+            DrawSnapshotToolbarActionGroup(snapshot, typeButtonLabel);
+            EditorGUILayout.EndHorizontal();
+            GUILayout.Space(4f);
+            return;
+        }
+
+        DrawSnapshotToolbarToggleGroupWrapped(snapshot, availableWidth);
+        DrawSnapshotToolbarActionGroupWrapped(snapshot, typeButtonLabel, availableWidth);
+        GUILayout.Space(4f);
+    }
+
+    private void DrawSnapshotTypeFilterPanel(DebugConsoleEditorSnapshot snapshot)
+    {
+        if (!_showTypeFilterPanel || snapshot == null)
+            return;
+
+        EditorGUILayout.BeginVertical(_boxStyle);
+        GUILayout.Label("DebugType Filter", _titleStyle);
+
+        DebugType[] types = (DebugType[])Enum.GetValues(typeof(DebugType));
+
+        const float minItemWidth = 120f;
+        const float itemSpacing = 12f;
+        float availableWidth = Mathf.Max(220f, position.width - 44f);
+        int columns = Mathf.Clamp(Mathf.FloorToInt((availableWidth + itemSpacing) / (minItemWidth + itemSpacing)), 1, types.Length);
+        float itemWidth = Mathf.Floor((availableWidth - itemSpacing * (columns - 1)) / columns);
+        itemWidth = Mathf.Max(minItemWidth, itemWidth);
+
+        int rows = Mathf.CeilToInt(types.Length / (float)columns);
+        float viewHeight = Mathf.Min(120f, rows * 22f + Mathf.Max(0, rows - 1) * 4f + 6f);
+
+        _typeFilterScroll = EditorGUILayout.BeginScrollView(_typeFilterScroll, GUILayout.Height(viewHeight));
+
+        for (int row = 0; row < types.Length; row += columns)
+        {
+            EditorGUILayout.BeginHorizontal();
+
+            for (int col = 0; col < columns; col++)
+            {
+                int index = row + col;
+                if (index >= types.Length)
+                    break;
+
+                DebugType type = types[index];
+                bool current = GetSnapshotTypeEnabled(snapshot, type);
+                bool next = GUILayout.Toggle(current, type.ToString(), GUILayout.Width(itemWidth));
+
+                if (next != current)
+                    SetSnapshotTypeEnabled(snapshot, type, next);
+
+                if (col < columns - 1)
+                    GUILayout.Space(itemSpacing);
+            }
+
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+        }
+
+        EditorGUILayout.EndScrollView();
+        EditorGUILayout.EndVertical();
+        GUILayout.Space(4f);
+    }
+
+    private int GetEnabledTypeCount(DebugConsoleEditorSnapshot snapshot)
+    {
+        if (snapshot?.TypeFilters == null)
+            return 0;
+
+        int count = 0;
+        for (int i = 0; i < snapshot.TypeFilters.Length; i++)
+        {
+            if (snapshot.TypeFilters[i])
+                count++;
+        }
+
+        return count;
+    }
+
+    private bool GetSnapshotTypeEnabled(DebugConsoleEditorSnapshot snapshot, DebugType type)
+    {
+        if (snapshot?.TypeFilters == null)
+            return true;
+
+        int index = (int)type;
+        if (index < 0 || index >= snapshot.TypeFilters.Length)
+            return true;
+
+        return snapshot.TypeFilters[index];
+    }
+
+
+    private bool IsSnapshotLevelEnabled(DebugConsoleEditorSnapshot snapshot, DebugLogLevel level)
+    {
+        if (snapshot == null)
+            return true;
+
+        return level switch
+        {
+            DebugLogLevel.Warning => snapshot.ShowLogLevelWarning,
+            DebugLogLevel.Error => snapshot.ShowLogLevelError,
+            _ => snapshot.ShowLogLevelLog
+        };
+    }
+
+    private void SetSnapshotLevelEnabled(DebugConsoleEditorSnapshot snapshot, DebugLogLevel level, bool value)
+    {
+        if (snapshot == null)
+            return;
+
+        switch (level)
+        {
+            case DebugLogLevel.Warning:
+                snapshot.ShowLogLevelWarning = value;
+                DebugConsolePreferenceStore.SetBool(LogLevelWarningPrefKey, value);
+                break;
+
+            case DebugLogLevel.Error:
+                snapshot.ShowLogLevelError = value;
+                DebugConsolePreferenceStore.SetBool(LogLevelErrorPrefKey, value);
+                break;
+
+            default:
+                snapshot.ShowLogLevelLog = value;
+                DebugConsolePreferenceStore.SetBool(LogLevelLogPrefKey, value);
+                break;
+        }
+
+        SaveSnapshotIfAvailable();
+    }
+
+    private void SetAllSnapshotLevels(DebugConsoleEditorSnapshot snapshot, bool value)
+    {
+        if (snapshot == null)
+            return;
+
+        snapshot.ShowLogLevelLog = value;
+        snapshot.ShowLogLevelWarning = value;
+        snapshot.ShowLogLevelError = value;
+        DebugConsolePreferenceStore.SetBool(LogLevelLogPrefKey, value);
+        DebugConsolePreferenceStore.SetBool(LogLevelWarningPrefKey, value);
+        DebugConsolePreferenceStore.SetBool(LogLevelErrorPrefKey, value);
+        SaveSnapshotIfAvailable();
+    }
+
+    private void SetSnapshotWarningAndErrorOnly(DebugConsoleEditorSnapshot snapshot)
+    {
+        if (snapshot == null)
+            return;
+
+        snapshot.ShowLogLevelLog = false;
+        snapshot.ShowLogLevelWarning = true;
+        snapshot.ShowLogLevelError = true;
+        DebugConsolePreferenceStore.SetBool(LogLevelLogPrefKey, false);
+        DebugConsolePreferenceStore.SetBool(LogLevelWarningPrefKey, true);
+        DebugConsolePreferenceStore.SetBool(LogLevelErrorPrefKey, true);
+        SaveSnapshotIfAvailable();
+    }
+
+    private void SetSnapshotErrorOnly(DebugConsoleEditorSnapshot snapshot)
+    {
+        if (snapshot == null)
+            return;
+
+        snapshot.ShowLogLevelLog = false;
+        snapshot.ShowLogLevelWarning = false;
+        snapshot.ShowLogLevelError = true;
+        DebugConsolePreferenceStore.SetBool(LogLevelLogPrefKey, false);
+        DebugConsolePreferenceStore.SetBool(LogLevelWarningPrefKey, false);
+        DebugConsolePreferenceStore.SetBool(LogLevelErrorPrefKey, true);
+        SaveSnapshotIfAvailable();
+    }
+    private void SetSnapshotTypeEnabled(DebugConsoleEditorSnapshot snapshot, DebugType type, bool value)
+    {
+        if (snapshot == null)
+            return;
+
+        int index = (int)type;
+        if (snapshot.TypeFilters == null || index < 0)
+            return;
+
+        if (index >= snapshot.TypeFilters.Length)
+            Array.Resize(ref snapshot.TypeFilters, index + 1);
+
+        snapshot.TypeFilters[index] = value;
+        DebugConsolePreferenceStore.SetBool(GetTypePrefKey(type), value);
+        SaveSnapshotIfAvailable();
+    }
+
+    private void SetAllSnapshotTypes(DebugConsoleEditorSnapshot snapshot, bool value)
+    {
+        if (snapshot == null)
+            return;
+
+        DebugType[] types = (DebugType[])Enum.GetValues(typeof(DebugType));
+        snapshot.TypeFilters ??= new bool[types.Length];
+        if (snapshot.TypeFilters.Length != types.Length)
+            Array.Resize(ref snapshot.TypeFilters, types.Length);
+
+        for (int i = 0; i < types.Length; i++)
+        {
+            snapshot.TypeFilters[i] = value;
+            DebugConsolePreferenceStore.SetBool(GetTypePrefKey(types[i]), value);
+        }
+
+        SaveSnapshotIfAvailable();
+    }
+
+    private void SetSnapshotGameObjectEnabled(SnapshotGameObjectNode node, bool value)
+    {
+        if (node == null)
+            return;
+
+        node.Enabled = value;
+        SetStoredGameObjectEnabled(node.PathKey, value);
+        SaveSnapshotIfAvailable();
+    }
+
+    private void SetSnapshotComponentEnabled(SnapshotComponentNode component, bool value)
+    {
+        if (component == null)
+            return;
+
+        component.Enabled = value;
+        SetStoredComponentEnabled(component.Key, value);
+        SaveSnapshotIfAvailable();
+    }
+
+    private void FocusSnapshotEntry(SnapshotLogEntry entry)
+    {
+        if (entry == null)
+            return;
+
+        if (!string.IsNullOrWhiteSpace(entry.ComponentKey))
+        {
+            _focusedGameObjectId = 0;
+            _focusedComponentId = 0;
+            _focusedSnapshotGameObjectKey = entry.GameObjectKey ?? string.Empty;
+            _focusedSnapshotComponentKey = entry.ComponentKey ?? string.Empty;
+            _focusedObjectName = !string.IsNullOrWhiteSpace(entry.GameObjectName) ? entry.GameObjectName : entry.SourceName ?? string.Empty;
+            _focusedComponentName = !string.IsNullOrWhiteSpace(entry.ComponentName) ? entry.ComponentName : string.Empty;
+            PrepareSnapshotSelectionExpansion(_focusedSnapshotGameObjectKey, true);
+            SaveEditorUiState();
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(entry.GameObjectKey))
+        {
+            _focusedGameObjectId = 0;
+            _focusedComponentId = 0;
+            _focusedSnapshotGameObjectKey = entry.GameObjectKey ?? string.Empty;
+            _focusedSnapshotComponentKey = string.Empty;
+            _focusedObjectName = !string.IsNullOrWhiteSpace(entry.GameObjectName) ? entry.GameObjectName : entry.SourceName ?? string.Empty;
+            _focusedComponentName = string.Empty;
+            PrepareSnapshotSelectionExpansion(_focusedSnapshotGameObjectKey, true);
+            SaveEditorUiState();
+        }
+    }
+
+    private void ToggleSnapshotGameObjectFocus(SnapshotGameObjectNode node)
+    {
+        if (node == null || string.IsNullOrWhiteSpace(node.PathKey))
+            return;
+
+        if (string.Equals(_focusedSnapshotGameObjectKey, node.PathKey, StringComparison.Ordinal) && string.IsNullOrWhiteSpace(_focusedSnapshotComponentKey))
+        {
+            ClearFocus();
+            return;
+        }
+
+        _focusedGameObjectId = 0;
+        _focusedComponentId = 0;
+        _focusedSnapshotGameObjectKey = node.PathKey;
+        _focusedSnapshotComponentKey = string.Empty;
+        _focusedObjectName = node.Name ?? string.Empty;
+        _focusedComponentName = string.Empty;
+        PrepareSnapshotSelectionExpansion(node.PathKey, true);
+        SaveEditorUiState();
+    }
+
+    private void ToggleSnapshotComponentFocus(SnapshotGameObjectNode node, SnapshotComponentNode component)
+    {
+        if (node == null || component == null || string.IsNullOrWhiteSpace(component.Key))
+            return;
+
+        if (string.Equals(_focusedSnapshotComponentKey, component.Key, StringComparison.Ordinal))
+        {
+            ClearFocus();
+            return;
+        }
+
+        _focusedGameObjectId = 0;
+        _focusedComponentId = 0;
+        _focusedSnapshotGameObjectKey = node.PathKey ?? string.Empty;
+        _focusedSnapshotComponentKey = component.Key;
+        _focusedObjectName = node.Name ?? string.Empty;
+        _focusedComponentName = component.Name ?? string.Empty;
+        PrepareSnapshotSelectionExpansion(_focusedSnapshotGameObjectKey, true);
+        SaveEditorUiState();
+    }
+
+    private void PrepareSnapshotSelectionExpansion(string objectKey, bool includeDetails)
+    {
+        if (string.IsNullOrWhiteSpace(objectKey))
+            return;
+
+        if (_collapsePreviousOnSelection)
+            PreserveSnapshotExpansionWithinTopLevelRoot(objectKey);
+
+        ExpandSnapshotSelectionPath(objectKey, includeDetails);
+    }
+
+    private void ExpandSnapshotSelectionPath(string objectKey, bool includeDetails)
+    {
+        if (string.IsNullOrWhiteSpace(objectKey))
+            return;
+
+        if (includeDetails)
+            _expandedSnapshotDetails.Add(objectKey);
+
+        string current = objectKey;
+        while (!string.IsNullOrWhiteSpace(current))
+        {
+            string parentKey = GetSnapshotParentObjectKey(current);
+            if (string.IsNullOrWhiteSpace(parentKey))
+                break;
+
+            _expandedSnapshotDetails.Add(parentKey);
+            _expandedSnapshotChildren.Add(parentKey);
+            current = parentKey;
+        }
+    }
+
+    private void PreserveSnapshotExpansionWithinTopLevelRoot(string objectKey)
+    {
+        string topLevelRootKey = GetSnapshotTopLevelRootKey(objectKey);
+        if (string.IsNullOrWhiteSpace(topLevelRootKey))
+        {
+            _expandedSnapshotDetails.Clear();
+            _expandedSnapshotChildren.Clear();
+            return;
+        }
+
+        _expandedSnapshotDetails.RemoveWhere(key => !IsSameOrChildSnapshotObjectKey(key, topLevelRootKey));
+        _expandedSnapshotChildren.RemoveWhere(key => !IsSameOrChildSnapshotObjectKey(key, topLevelRootKey));
+    }
+
+    private bool IsSameOrChildSnapshotObjectKey(string candidateKey, string ancestorKey)
+    {
+        if (string.IsNullOrWhiteSpace(candidateKey) || string.IsNullOrWhiteSpace(ancestorKey))
+            return false;
+
+        if (string.Equals(candidateKey, ancestorKey, StringComparison.Ordinal))
+            return true;
+
+        return candidateKey.StartsWith(ancestorKey + "/", StringComparison.Ordinal);
+    }
+
+    private string GetSnapshotTopLevelRootKey(string objectKey)
+    {
+        if (string.IsNullOrWhiteSpace(objectKey))
+            return string.Empty;
+
+        int separatorIndex = objectKey.IndexOf('|');
+        if (separatorIndex < 0)
+            return objectKey;
+
+        string sceneKey = objectKey.Substring(0, separatorIndex);
+        string hierarchyPath = objectKey.Substring(separatorIndex + 1);
+        if (string.IsNullOrWhiteSpace(hierarchyPath))
+            return objectKey;
+
+        int slashIndex = hierarchyPath.IndexOf('/');
+        string topLevelSegment = slashIndex >= 0 ? hierarchyPath.Substring(0, slashIndex) : hierarchyPath;
+        return $"{sceneKey}|{topLevelSegment}";
+    }
+
+    private string GetSnapshotParentObjectKey(string objectKey)
+    {
+        if (string.IsNullOrWhiteSpace(objectKey))
+            return string.Empty;
+
+        int separatorIndex = objectKey.IndexOf('|');
+        if (separatorIndex < 0)
+            return string.Empty;
+
+        string sceneKey = objectKey.Substring(0, separatorIndex);
+        string hierarchyPath = objectKey.Substring(separatorIndex + 1);
+        if (string.IsNullOrWhiteSpace(hierarchyPath))
+            return string.Empty;
+
+        int lastSlashIndex = hierarchyPath.LastIndexOf('/');
+        if (lastSlashIndex < 0)
+            return string.Empty;
+
+        return $"{sceneKey}|{hierarchyPath.Substring(0, lastSlashIndex)}";
+    }
+
+    private bool IsSnapshotObjectFocused(string objectKey)
+    {
+        return !string.IsNullOrWhiteSpace(objectKey) &&
+               string.Equals(_focusedSnapshotGameObjectKey, objectKey, StringComparison.Ordinal) &&
+               string.IsNullOrWhiteSpace(_focusedSnapshotComponentKey);
+    }
+
+    private bool IsSnapshotComponentFocused(string componentKey)
+    {
+        return !string.IsNullOrWhiteSpace(componentKey) &&
+               string.Equals(_focusedSnapshotComponentKey, componentKey, StringComparison.Ordinal);
+    }
+
+    private bool IsSnapshotFocusedObjectParent(string objectKey)
+    {
+        return !string.IsNullOrWhiteSpace(objectKey) &&
+               !string.IsNullOrWhiteSpace(_focusedSnapshotComponentKey) &&
+               string.Equals(_focusedSnapshotGameObjectKey, objectKey, StringComparison.Ordinal);
+    }
+
+    private bool GetStoredGameObjectEnabled(string filterKey, bool defaultValue)
+    {
+        if (string.IsNullOrWhiteSpace(filterKey))
+            return defaultValue;
+
+        return DebugConsolePreferenceStore.GetBool(GetGameObjectPrefKey(filterKey), defaultValue);
+    }
+
+    private bool GetStoredComponentEnabled(string filterKey, bool defaultValue)
+    {
+        if (string.IsNullOrWhiteSpace(filterKey))
+            return defaultValue;
+
+        return DebugConsolePreferenceStore.GetBool(GetComponentPrefKey(filterKey), defaultValue);
+    }
+
+    private void SetStoredGameObjectEnabled(string filterKey, bool value)
+    {
+        if (string.IsNullOrWhiteSpace(filterKey))
+            return;
+
+        string prefKey = GetGameObjectPrefKey(filterKey);
+        RegisterStoredPrefKey(GameObjectRegistryPrefKey, prefKey);
+        DebugConsolePreferenceStore.SetBool(prefKey, value);
+    }
+
+    private void SetStoredComponentEnabled(string filterKey, bool value)
+    {
+        if (string.IsNullOrWhiteSpace(filterKey))
+            return;
+
+        string prefKey = GetComponentPrefKey(filterKey);
+        RegisterStoredPrefKey(ComponentRegistryPrefKey, prefKey);
+        DebugConsolePreferenceStore.SetBool(prefKey, value);
+    }
+
+    private void RegisterStoredPrefKey(string registryPrefKey, string prefKey)
+    {
+        if (string.IsNullOrWhiteSpace(registryPrefKey) || string.IsNullOrWhiteSpace(prefKey))
+            return;
+
+        HashSet<string> registry = LoadStoredRegistry(registryPrefKey);
+        if (!registry.Add(prefKey))
+            return;
+
+        SaveStoredRegistry(registryPrefKey, registry);
+    }
+
+    private HashSet<string> LoadStoredRegistry(string registryPrefKey)
+    {
+        HashSet<string> result = new HashSet<string>();
+        string raw = DebugConsolePreferenceStore.GetString(registryPrefKey, string.Empty);
+        if (string.IsNullOrWhiteSpace(raw))
+            return result;
+
+        string[] parts = raw.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 0; i < parts.Length; i++)
+            result.Add(parts[i]);
+
+        return result;
+    }
+
+    private void SaveStoredRegistry(string registryPrefKey, HashSet<string> registry)
+    {
+        if (registry == null || registry.Count == 0)
+        {
+            DebugConsolePreferenceStore.DeleteKey(registryPrefKey);
+            return;
+        }
+
+        DebugConsolePreferenceStore.SetString(registryPrefKey, string.Join("\n", registry));
+    }
+
+    private string GetTypePrefKey(DebugType type)
+    {
+        return TypePrefKeyPrefix + type;
+    }
+
+    private string GetGameObjectPrefKey(string filterKey)
+    {
+        return GameObjectPrefKeyPrefix + filterKey;
+    }
+
+    private string GetComponentPrefKey(string filterKey)
+    {
+        return ComponentPrefKeyPrefix + filterKey;
+    }
+
+    private void SaveSnapshotIfAvailable()
+    {
+        SaveEditorUiState();
+
+        if (_lastSnapshot != null)
+            SaveSnapshotToDisk(_lastSnapshot);
+    }
+
+    private void DrawSnapshotToolbarToggleGroup(DebugConsoleEditorSnapshot snapshot)
+    {
+        bool global = GUILayout.Toggle(snapshot.GlobalEnabled, "Global", GUILayout.Width(80f));
+        if (global != snapshot.GlobalEnabled)
+        {
+            snapshot.GlobalEnabled = global;
+            DebugConsolePreferenceStore.SetBool(GlobalEnabledPrefKey, global);
+            SaveSnapshotIfAvailable();
+        }
+
+        bool mirror = GUILayout.Toggle(snapshot.MirrorToUnityConsole, "Mirror Unity", GUILayout.Width(110f));
+        if (mirror != snapshot.MirrorToUnityConsole)
+        {
+            snapshot.MirrorToUnityConsole = mirror;
+            DebugConsolePreferenceStore.SetBool(MirrorToUnityPrefKey, mirror);
+            SaveSnapshotIfAvailable();
+        }
+
+        bool autoScroll = GUILayout.Toggle(_autoScroll, "Auto Scroll", GUILayout.Width(100f));
+        if (autoScroll != _autoScroll)
+        {
+            _autoScroll = autoScroll;
+            SaveEditorUiState();
+        }
+
+        bool hideTransform = GUILayout.Toggle(_hideTransform, "Hide Transform", GUILayout.Width(120f));
+        if (hideTransform != _hideTransform)
+        {
+            _hideTransform = hideTransform;
+            SaveEditorUiState();
+        }
+
+        bool collapsePrevious = GUILayout.Toggle(_collapsePreviousOnSelection, "Collapse Prev", GUILayout.Width(120f));
+        if (collapsePrevious != _collapsePreviousOnSelection)
+        {
+            _collapsePreviousOnSelection = collapsePrevious;
+            SaveEditorUiState();
+        }
+
+        bool collapseLogs = GUILayout.Toggle(_collapseLogs, "Collapse Logs", GUILayout.Width(120f));
+        if (collapseLogs != _collapseLogs)
+        {
+            _collapseLogs = collapseLogs;
+            SaveEditorUiState();
+        }
+
+        bool showLogs = GUILayout.Toggle(IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Log), "Log", GUILayout.Width(70f));
+        if (showLogs != IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Log))
+            SetSnapshotLevelEnabled(snapshot, DebugLogLevel.Log, showLogs);
+
+        bool showWarnings = GUILayout.Toggle(IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Warning), "Warn", GUILayout.Width(75f));
+        if (showWarnings != IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Warning))
+            SetSnapshotLevelEnabled(snapshot, DebugLogLevel.Warning, showWarnings);
+
+        bool showErrors = GUILayout.Toggle(IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Error), "Error", GUILayout.Width(75f));
+        if (showErrors != IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Error))
+            SetSnapshotLevelEnabled(snapshot, DebugLogLevel.Error, showErrors);
+    }
+
+    private void DrawSnapshotToolbarToggleGroupWrapped(DebugConsoleEditorSnapshot snapshot, float availableWidth)
+    {
+        int splitIndex = GetWrappedSplitIndex(_toolbarToggleItems, availableWidth);
+        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+        DrawSnapshotToolbarToggleItems(snapshot, 0, splitIndex);
+        EditorGUILayout.EndHorizontal();
+
+        if (splitIndex < _toolbarToggleItems.Length)
+        {
+            EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+            DrawSnapshotToolbarToggleItems(snapshot, splitIndex, _toolbarToggleItems.Length);
+            EditorGUILayout.EndHorizontal();
+        }
+    }
+
+    private void DrawSnapshotToolbarToggleItems(DebugConsoleEditorSnapshot snapshot, int startIndex, int endIndex)
+    {
+        for (int i = startIndex; i < endIndex; i++)
+        {
+            switch (_toolbarToggleItems[i].label)
+            {
+                case "Global":
+                {
+                    bool value = GUILayout.Toggle(snapshot.GlobalEnabled, "Global", GUILayout.Width(80f));
+                    if (value != snapshot.GlobalEnabled)
+                    {
+                        snapshot.GlobalEnabled = value;
+                        DebugConsolePreferenceStore.SetBool(GlobalEnabledPrefKey, value);
+                        SaveSnapshotIfAvailable();
+                    }
+                    break;
+                }
+
+                case "Mirror Unity":
+                {
+                    bool value = GUILayout.Toggle(snapshot.MirrorToUnityConsole, "Mirror Unity", GUILayout.Width(110f));
+                    if (value != snapshot.MirrorToUnityConsole)
+                    {
+                        snapshot.MirrorToUnityConsole = value;
+                        DebugConsolePreferenceStore.SetBool(MirrorToUnityPrefKey, value);
+                        SaveSnapshotIfAvailable();
+                    }
+                    break;
+                }
+
+                case "Auto Scroll":
+                {
+                    bool value = GUILayout.Toggle(_autoScroll, "Auto Scroll", GUILayout.Width(100f));
+                    if (value != _autoScroll)
+                    {
+                        _autoScroll = value;
+                        SaveEditorUiState();
+                    }
+                    break;
+                }
+
+                case "Hide Transform":
+                {
+                    bool value = GUILayout.Toggle(_hideTransform, "Hide Transform", GUILayout.Width(120f));
+                    if (value != _hideTransform)
+                    {
+                        _hideTransform = value;
+                        SaveEditorUiState();
+                    }
+                    break;
+                }
+
+                case "Collapse Prev":
+                {
+                    bool value = GUILayout.Toggle(_collapsePreviousOnSelection, "Collapse Prev", GUILayout.Width(120f));
+                    if (value != _collapsePreviousOnSelection)
+                    {
+                        _collapsePreviousOnSelection = value;
+                        SaveEditorUiState();
+                    }
+                    break;
+                }
+
+                case "Collapse Logs":
+                {
+                    bool value = GUILayout.Toggle(_collapseLogs, "Collapse Logs", GUILayout.Width(120f));
+                    if (value != _collapseLogs)
+                    {
+                        _collapseLogs = value;
+                        SaveEditorUiState();
+                    }
+                    break;
+                }
+
+                case "Log":
+                {
+                    bool value = GUILayout.Toggle(IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Log), "Log", GUILayout.Width(70f));
+                    if (value != IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Log))
+                        SetSnapshotLevelEnabled(snapshot, DebugLogLevel.Log, value);
+                    break;
+                }
+
+                case "Warn":
+                {
+                    bool value = GUILayout.Toggle(IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Warning), "Warn", GUILayout.Width(75f));
+                    if (value != IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Warning))
+                        SetSnapshotLevelEnabled(snapshot, DebugLogLevel.Warning, value);
+                    break;
+                }
+
+                case "Error":
+                {
+                    bool value = GUILayout.Toggle(IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Error), "Error", GUILayout.Width(75f));
+                    if (value != IsSnapshotLevelEnabled(snapshot, DebugLogLevel.Error))
+                        SetSnapshotLevelEnabled(snapshot, DebugLogLevel.Error, value);
+                    break;
+                }
+            }
+
+            if (i < endIndex - 1)
+                GUILayout.Space(8f);
+        }
+    }
+
+private void DrawSnapshotToolbarActionGroup(DebugConsoleEditorSnapshot snapshot, string typeButtonLabel)
+{
+    if (GUILayout.Button(typeButtonLabel, GUILayout.Width(160f)))
+    {
+        _showTypeFilterPanel = !_showTypeFilterPanel;
+        SaveEditorUiState();
+    }
+
+    if (GUILayout.Button("All Types On", GUILayout.Width(100f)))
+        SetAllSnapshotTypes(snapshot, true);
+
+    if (GUILayout.Button("All Types Off", GUILayout.Width(100f)))
+        SetAllSnapshotTypes(snapshot, false);
+
+    if (GUILayout.Button("All Levels", GUILayout.Width(100f)))
+        SetAllSnapshotLevels(snapshot, true);
+
+    if (GUILayout.Button("Warn+", GUILayout.Width(80f)))
+        SetSnapshotWarningAndErrorOnly(snapshot);
+
+    if (GUILayout.Button("Error Only", GUILayout.Width(100f)))
+        SetSnapshotErrorOnly(snapshot);
+
+    if (GUILayout.Button("Clear Logs", GUILayout.Width(100f)))
+    {
+        snapshot.Entries?.Clear();
+        _selectedLogIndex = -1;
+        SaveSnapshotIfAvailable();
+    }
+
+    if (GUILayout.Button("Clear Focus", GUILayout.Width(100f)))
+        ClearFocus();
+
+    if (GUILayout.Button("Reset Filters", GUILayout.Width(110f)))
+        ResetStoredManagerPreferencesToDefault(snapshot);
+
+    if (GUILayout.Button("Reset Layout", GUILayout.Width(110f)))
+        ResetEditorLayoutToDefault();
+
+    if (GUILayout.Button("Export Settings", GUILayout.Width(120f)))
+        ExportEditorSettingsToFile();
+
+    if (GUILayout.Button("Import Settings", GUILayout.Width(120f)))
+        ImportEditorSettingsFromFile(snapshot);
+}
+
+private void DrawSnapshotToolbarActionGroupWrapped(DebugConsoleEditorSnapshot snapshot, string typeButtonLabel, float availableWidth)
+    {
+        int splitIndex = GetWrappedSplitIndex(_toolbarActionItems, availableWidth);
+        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+        DrawSnapshotToolbarActionItems(snapshot, typeButtonLabel, 0, splitIndex);
+        EditorGUILayout.EndHorizontal();
+
+        if (splitIndex < _toolbarActionItems.Length)
+        {
+            EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+            DrawSnapshotToolbarActionItems(snapshot, typeButtonLabel, splitIndex, _toolbarActionItems.Length);
+            EditorGUILayout.EndHorizontal();
+        }
+    }
+
+    private void DrawSnapshotToolbarActionItems(DebugConsoleEditorSnapshot snapshot, string typeButtonLabel, int startIndex, int endIndex)
+    {
+        for (int i = startIndex; i < endIndex; i++)
+        {
+            string key = _toolbarActionItems[i].label;
+            float width = _toolbarActionItems[i].width;
+
+            switch (key)
+            {
+                case "TypeFilter":
+                    if (GUILayout.Button(typeButtonLabel, GUILayout.Width(width)))
+                    {
+                        _showTypeFilterPanel = !_showTypeFilterPanel;
+                        SaveEditorUiState();
+                    }
+                    break;
+
+                case "All Types On":
+                    if (GUILayout.Button("All Types On", GUILayout.Width(width)))
+                        SetAllSnapshotTypes(snapshot, true);
+                    break;
+
+                case "All Types Off":
+                    if (GUILayout.Button("All Types Off", GUILayout.Width(width)))
+                        SetAllSnapshotTypes(snapshot, false);
+                    break;
+
+                case "All Levels":
+                    if (GUILayout.Button("All Levels", GUILayout.Width(width)))
+                        SetAllSnapshotLevels(snapshot, true);
+                    break;
+
+                case "Warn+":
+                    if (GUILayout.Button("Warn+", GUILayout.Width(width)))
+                        SetSnapshotWarningAndErrorOnly(snapshot);
+                    break;
+
+                case "Error Only":
+                    if (GUILayout.Button("Error Only", GUILayout.Width(width)))
+                        SetSnapshotErrorOnly(snapshot);
+                    break;
+
+                case "Clear Logs":
+                    if (GUILayout.Button("Clear Logs", GUILayout.Width(width)))
+                    {
+                        snapshot.Entries?.Clear();
+                        _selectedLogIndex = -1;
+                        SaveSnapshotIfAvailable();
+                    }
+                    break;
+
+                case "Clear Focus":
+                    if (GUILayout.Button("Clear Focus", GUILayout.Width(width)))
+                        ClearFocus();
+                    break;
+
+                case "Reset Filters":
+                    if (GUILayout.Button("Reset Filters", GUILayout.Width(width)))
+                        ResetStoredManagerPreferencesToDefault(null);
+                    break;
+
+                case "Reset Layout":
+                    if (GUILayout.Button("Reset Layout", GUILayout.Width(width)))
+                        ResetEditorLayoutToDefault();
+                    break;
+
+                case "Export Settings":
+                    if (GUILayout.Button("Export Settings", GUILayout.Width(width)))
+                        ExportEditorSettingsToFile();
+                    break;
+
+                case "Import Settings":
+                    if (GUILayout.Button("Import Settings", GUILayout.Width(width)))
+                        ImportEditorSettingsFromFile(_lastSnapshot);
+                    break;
+            }
+
+            if (i < endIndex - 1)
+                GUILayout.Space(8f);
+        }
     }
 
     private void InitStyles()
@@ -290,38 +2278,33 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         _stylesDirty = false;
 
-        _titleStyle = new GUIStyle(GUI.skin.label)
+        _titleStyle = new GUIStyle(EditorStyles.boldLabel)
         {
-            fontStyle = FontStyle.Bold,
             fontSize = 13,
             wordWrap = false,
             clipping = TextClipping.Clip
         };
 
-        _boxStyle = new GUIStyle(GUI.skin.box)
+        _boxStyle = new GUIStyle("box")
         {
             alignment = TextAnchor.UpperLeft,
             padding = new RectOffset(8, 8, 8, 8)
         };
 
-        _richLabelStyle = new GUIStyle(GUI.skin.label)
+        _richLabelStyle = new GUIStyle(EditorStyles.label)
         {
             richText = true,
             wordWrap = true,
             fontSize = 12
         };
 
-        _dimLabelStyle = new GUIStyle(GUI.skin.label);
+        _dimLabelStyle = new GUIStyle(EditorStyles.label);
         _dimLabelStyle.normal.textColor = new Color(0.6f, 0.6f, 0.6f);
 
-        _searchTextFieldStyle = new GUIStyle(GUI.skin.textField)
+        _searchTextFieldStyle = new GUIStyle(EditorStyles.textField)
         {
             fontSize = 12
         };
-        _searchTextFieldStyle.normal.textColor = Color.white;
-        _searchTextFieldStyle.focused.textColor = Color.white;
-        _searchTextFieldStyle.hover.textColor = Color.white;
-        _searchTextFieldStyle.active.textColor = Color.white;
 
         _linkButtonStyle = new GUIStyle(GUI.skin.button)
         {
@@ -358,30 +2341,10 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             fontStyle = FontStyle.Bold
         };
 
-        if (_solidTexture == null)
-        {
-            _solidTexture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
-            _solidTexture.SetPixel(0, 0, Color.white);
-            _solidTexture.Apply();
-        }
-
-        _objectFocusedRowStyle = CreateRowStyle(_objectFocusedRowBg);
-        _objectParentFocusedRowStyle = CreateRowStyle(_parentFocusedRowBg);
-        _componentFocusedRowStyle = CreateRowStyle(_componentFocusedRowBg);
-
-        _objectSelectedButtonStyle = CreateButtonStyle(_selectedObjectBg, _selectedText, true, TextAnchor.MiddleLeft);
-        _parentSelectedButtonStyle = CreateButtonStyle(_selectedParentBg, _selectedParentText, true, TextAnchor.MiddleLeft);
-        _componentSelectedButtonStyle = CreateButtonStyle(_selectedComponentBg, _selectedText, true, TextAnchor.MiddleLeft);
-
-        _toolbarButtonStyle = new GUIStyle(GUI.skin.button)
-        {
-            alignment = TextAnchor.MiddleCenter
-        };
-
-        _toolbarInfoLabelStyle = new GUIStyle(GUI.skin.label)
+        _toolbarInfoLabelStyle = new GUIStyle(EditorStyles.label)
         {
             alignment = TextAnchor.MiddleLeft,
-            wordWrap = false,
+            wordWrap = true,
             richText = false,
             fontStyle = FontStyle.Bold
         };
@@ -399,7 +2362,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             alignment = TextAnchor.MiddleRight
         };
 
-        _footerLeftLabelStyle = new GUIStyle(GUI.skin.label)
+        _footerLeftLabelStyle = new GUIStyle(EditorStyles.label)
         {
             alignment = TextAnchor.MiddleLeft,
             wordWrap = false,
@@ -412,6 +2375,21 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         {
             alignment = TextAnchor.MiddleRight
         };
+
+        if (_solidTexture == null)
+        {
+            _solidTexture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+            _solidTexture.SetPixel(0, 0, Color.white);
+            _solidTexture.Apply();
+        }
+
+        _objectFocusedRowStyle = CreateRowStyle(_objectFocusedRowBg);
+        _objectParentFocusedRowStyle = CreateRowStyle(_parentFocusedRowBg);
+        _componentFocusedRowStyle = CreateRowStyle(_componentFocusedRowBg);
+
+        _objectSelectedButtonStyle = CreateButtonStyle(_selectedObjectBg, _selectedText, true, TextAnchor.MiddleLeft);
+        _parentSelectedButtonStyle = CreateButtonStyle(_selectedParentBg, _selectedParentText, true, TextAnchor.MiddleLeft);
+        _componentSelectedButtonStyle = CreateButtonStyle(_selectedComponentBg, _selectedText, true, TextAnchor.MiddleLeft);
     }
 
     private void ApplyLabelTextColor(GUIStyle style, Color color)
@@ -426,39 +2404,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         style.onFocused.textColor = color;
     }
 
-    private void DrawWindow(int windowId)
-    {
-        Rect closeButtonRect = new Rect(_windowRect.width - 30f, 4f, 22f, 18f);
-        GUIStyle closeButtonStyle = _closeButtonStyle ?? GUI.skin.button;
-        if (GUI.Button(closeButtonRect, "X", closeButtonStyle))
-        {
-            SetConsoleVisible(false);
-            GUIUtility.ExitGUI();
-        }
-
-        DebugConsoleManager manager = DebugConsoleManager.Instance;
-        if (manager == null)
-        {
-            GUILayout.Label("DebugConsoleManager가 없습니다.");
-            GUI.DragWindow(new Rect(0, 0, Mathf.Max(0f, _windowRect.width - 36f), 20f));
-            return;
-        }
-
-        DrawToolbar(manager);
-        DrawTypeFilterPanel(manager);
-
-        if (_searchOverlay != null)
-            _searchOverlay.SetVisible(false);
-
-        DrawResizablePanels(manager);
-
-        GUI.DragWindow(new Rect(0, 0, Mathf.Max(0f, _windowRect.width - 36f), 24f));
-    }
-
     private void DrawToolbar(DebugConsoleManager manager)
     {
         float availableWidth = GetTopAreaWidth();
-        int layoutLevel = GetTopLayoutLevel(availableWidth);
 
         int enabledCount = GetEnabledTypeCount(manager);
         int totalCount = Enum.GetValues(typeof(DebugType)).Length;
@@ -466,23 +2414,20 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             ? $"Type Filter ▲ ({enabledCount}/{totalCount})"
             : $"Type Filter ▼ ({enabledCount}/{totalCount})";
 
-        if (layoutLevel == 1)
+        if (availableWidth >= 1500f)
         {
-            GUILayout.BeginHorizontal(GUILayout.MinHeight(28f));
+            EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
             DrawToolbarToggleGroup(manager);
             GUILayout.Space(8f);
             DrawToolbarActionGroup(manager, typeButtonLabel);
-            GUILayout.EndHorizontal();
+            EditorGUILayout.EndHorizontal();
+            GUILayout.Space(4f);
             return;
         }
 
-        GUILayout.BeginHorizontal(GUILayout.MinHeight(28f));
-        DrawToolbarToggleGroup(manager);
-        GUILayout.EndHorizontal();
-
-        GUILayout.BeginHorizontal(GUILayout.MinHeight(28f));
-        DrawToolbarActionGroup(manager, typeButtonLabel);
-        GUILayout.EndHorizontal();
+        DrawToolbarToggleGroupWrapped(manager, availableWidth);
+        DrawToolbarActionGroupWrapped(manager, typeButtonLabel, availableWidth);
+        GUILayout.Space(4f);
     }
 
     private void DrawSearchBar()
@@ -491,22 +2436,24 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
         if (availableWidth >= 760f)
         {
-            GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
+            EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
             float hierarchyWidth = Mathf.Clamp((availableWidth - 330f) * 0.42f, 160f, 320f);
             DrawHierarchySearchField(hierarchyWidth, 105f);
             GUILayout.Space(12f);
             DrawLogSearchField(75f);
-            GUILayout.EndHorizontal();
+            EditorGUILayout.EndHorizontal();
+            GUILayout.Space(4f);
             return;
         }
 
-        GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
+        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
         DrawHierarchySearchField(Mathf.Max(160f, availableWidth - 130f), 105f);
-        GUILayout.EndHorizontal();
+        EditorGUILayout.EndHorizontal();
 
-        GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
+        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
         DrawLogSearchField(75f);
-        GUILayout.EndHorizontal();
+        EditorGUILayout.EndHorizontal();
+        GUILayout.Space(4f);
     }
 
     private void DrawTypeFilterPanel(DebugConsoleManager manager)
@@ -514,45 +2461,56 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         if (!_showTypeFilterPanel)
             return;
 
-        GUILayout.BeginVertical(_boxStyle);
+        EditorGUILayout.BeginVertical(_boxStyle);
         GUILayout.Label("DebugType Filter", _titleStyle);
 
-        _typeFilterScroll = GUILayout.BeginScrollView(_typeFilterScroll, GUILayout.Height(88f));
-
         DebugType[] types = (DebugType[])Enum.GetValues(typeof(DebugType));
-        const int columns = 4;
+
+        const float minItemWidth = 120f;
+        const float itemSpacing = 12f;
+        float availableWidth = Mathf.Max(220f, position.width - 44f);
+        int columns = Mathf.Clamp(Mathf.FloorToInt((availableWidth + itemSpacing) / (minItemWidth + itemSpacing)), 1, types.Length);
+        float itemWidth = Mathf.Floor((availableWidth - itemSpacing * (columns - 1)) / columns);
+        itemWidth = Mathf.Max(minItemWidth, itemWidth);
+
+        int rows = Mathf.CeilToInt(types.Length / (float)columns);
+        float viewHeight = Mathf.Min(120f, rows * 22f + Mathf.Max(0, rows - 1) * 4f + 6f);
+
+        _typeFilterScroll = EditorGUILayout.BeginScrollView(_typeFilterScroll, GUILayout.Height(viewHeight));
 
         for (int row = 0; row < types.Length; row += columns)
         {
-            GUILayout.BeginHorizontal();
+            EditorGUILayout.BeginHorizontal();
 
             for (int col = 0; col < columns; col++)
             {
                 int index = row + col;
                 if (index >= types.Length)
-                {
-                    GUILayout.FlexibleSpace();
-                    continue;
-                }
+                    break;
 
                 DebugType type = types[index];
                 bool current = manager.GetTypeEnabled(type);
-                bool next = GUILayout.Toggle(current, type.ToString(), GUILayout.Width(140f));
+                bool next = GUILayout.Toggle(current, type.ToString(), GUILayout.Width(itemWidth));
 
                 if (next != current)
                     manager.SetTypeEnabled(type, next);
+
+                if (col < columns - 1)
+                    GUILayout.Space(itemSpacing);
             }
 
-            GUILayout.EndHorizontal();
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
         }
 
-        GUILayout.EndScrollView();
-        GUILayout.EndVertical();
+        EditorGUILayout.EndScrollView();
+        EditorGUILayout.EndVertical();
+        GUILayout.Space(4f);
     }
 
     private void DrawResizablePanels(DebugConsoleManager manager)
     {
-        float contentWidth = Mathf.Max(620f, _windowRect.width - 24f);
+        float contentWidth = Mathf.Max(620f, position.width - 24f);
         float maxHierarchyPanelWidth = Mathf.Max(MinHierarchyPanelWidth, contentWidth - MinLogPanelWidth - PanelSplitterWidth);
 
         if (_hierarchyPanelWidth <= 0f)
@@ -561,16 +2519,18 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _hierarchyPanelWidth = Mathf.Clamp(_hierarchyPanelWidth, MinHierarchyPanelWidth, maxHierarchyPanelWidth);
         float logPanelWidth = Mathf.Max(MinLogPanelWidth, contentWidth - _hierarchyPanelWidth - PanelSplitterWidth);
 
-        GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
+        EditorGUILayout.BeginHorizontal(GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
         DrawHierarchyPanel(manager, _hierarchyPanelWidth);
         DrawPanelSplitter(contentWidth);
         DrawLogPanel(manager, logPanelWidth);
-        GUILayout.EndHorizontal();
+        EditorGUILayout.EndHorizontal();
     }
 
     private void DrawPanelSplitter(float contentWidth)
     {
         Rect splitterRect = GUILayoutUtility.GetRect(PanelSplitterWidth, 10f, GUILayout.Width(PanelSplitterWidth), GUILayout.ExpandHeight(true));
+        EditorGUIUtility.AddCursorRect(splitterRect, MouseCursor.ResizeHorizontal);
+
         Event current = Event.current;
         bool hovered = splitterRect.Contains(current.mousePosition);
 
@@ -585,12 +2545,14 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             float maxHierarchyPanelWidth = Mathf.Max(MinHierarchyPanelWidth, contentWidth - MinLogPanelWidth - PanelSplitterWidth);
             _hierarchyPanelWidth = Mathf.Clamp(_hierarchyPanelWidth + current.delta.x, MinHierarchyPanelWidth, maxHierarchyPanelWidth);
             current.Use();
+            Repaint();
         }
 
         if (_isDraggingPanelSplitter && (current.type == EventType.MouseUp || current.rawType == EventType.MouseUp))
         {
             _isDraggingPanelSplitter = false;
-            SaveLayoutPreferences();
+            DebugConsolePreferenceStore.SetFloat(HierarchyPanelWidthPrefKey, _hierarchyPanelWidth);
+            SaveEditorUiState();
             current.Use();
         }
 
@@ -613,9 +2575,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.Label("Scene Objects / Components", _titleStyle, GUILayout.ExpandWidth(true));
         GUILayout.EndHorizontal();
         GUILayout.Space(4f);
-        GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
+        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
         DrawHierarchySearchField(Mathf.Max(160f, panelWidth - 130f), 105f);
-        GUILayout.EndHorizontal();
+        EditorGUILayout.EndHorizontal();
         GUILayout.Space(4f);
 
         _hierarchyScroll = GUILayout.BeginScrollView(_hierarchyScroll);
@@ -627,6 +2589,47 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             DrawGameObjectNode(manager, roots[i], 0, panelWidth);
 
         GUILayout.EndScrollView();
+
+        GUILayout.Space(4f);
+        string footerFocusFullText = GetFocusLabel();
+        string footerFocusDisplayText = GetFooterFocusLabel();
+        string footerCountText = $"Count : {GetVisibleEntryCount(manager)}";
+        float footerHorizontalPadding = 10f;
+        float footerGap = 12f;
+        float footerFocusRequiredWidth = _footerLeftLabelStyle.CalcSize(new GUIContent(footerFocusDisplayText)).x;
+        float footerCountRequiredWidth = _footerRightLabelStyle.CalcSize(new GUIContent(footerCountText)).x;
+        bool useTwoLineFooter = panelWidth < footerFocusRequiredWidth + footerCountRequiredWidth + (footerHorizontalPadding * 2f) + footerGap;
+
+        if (useTwoLineFooter)
+        {
+            GUILayout.BeginVertical(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(52f));
+
+            GUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
+            GUILayout.Space(footerHorizontalPadding);
+            GUILayout.Label(new GUIContent(footerFocusDisplayText, footerFocusFullText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
+            GUILayout.Space(footerHorizontalPadding);
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
+            GUILayout.Space(footerHorizontalPadding);
+            GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerLeftLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(22f));
+            GUILayout.Space(footerHorizontalPadding);
+            GUILayout.EndHorizontal();
+
+            GUILayout.EndVertical();
+        }
+        else
+        {
+            GUILayout.BeginHorizontal(_boxStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(30f));
+            GUILayout.Space(footerHorizontalPadding);
+            float footerCountWidth = Mathf.Ceil(footerCountRequiredWidth) + 4f;
+            float footerLeftWidth = Mathf.Max(60f, panelWidth - footerCountWidth - (footerHorizontalPadding * 2f) - footerGap);
+            GUILayout.Label(new GUIContent(footerFocusDisplayText, footerFocusFullText), _footerLeftLabelStyle, GUILayout.Width(footerLeftWidth), GUILayout.MinHeight(22f));
+            GUILayout.Space(footerGap);
+            GUILayout.Label(new GUIContent(footerCountText, footerCountText), _footerRightLabelStyle, GUILayout.Width(footerCountWidth), GUILayout.MinHeight(22f));
+            GUILayout.Space(footerHorizontalPadding);
+            GUILayout.EndHorizontal();
+        }
         GUILayout.EndVertical();
     }
 
@@ -712,7 +2715,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         {
             string foldoutLabel = showDetails ? "▾" : "▸";
             if (GUILayout.Button(foldoutLabel, _foldoutButtonStyle, GUILayout.Width(HierarchyFoldoutSize), GUILayout.Height(HierarchyRowHeight)))
-                ToggleExpandedSet(_expandedComponents, id);
+                ToggleLiveExpandedDetails(go);
         }
         else
         {
@@ -772,11 +2775,11 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
             float childButtonWidth = GetHierarchyTextButtonWidth(rowContentWidth, childLeadingSpace, true, true);
             if (GUILayout.Button(new GUIContent("하위 오브젝트", "하위 오브젝트"), _linkButtonStyle, GUILayout.Width(childButtonWidth), GUILayout.Height(HierarchyRowHeight)))
-                ToggleExpandedSet(_expandedChildren, id);
+                ToggleLiveExpandedChildren(go);
 
             string childFoldoutLabel = showChildren ? "▾" : "▸";
             if (GUILayout.Button(childFoldoutLabel, _foldoutButtonStyle, GUILayout.Width(HierarchyFoldoutSize), GUILayout.Height(HierarchyRowHeight)))
-                ToggleExpandedSet(_expandedChildren, id);
+                ToggleLiveExpandedChildren(go);
 
             GUILayout.EndHorizontal();
 
@@ -791,28 +2794,27 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
 private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
 {
-    GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
-    GUILayout.BeginHorizontal();
-    string focusSuffix = GetFocusSuffix();
-    GUILayout.Label(new GUIContent("Logs", string.IsNullOrEmpty(focusSuffix) ? "Logs" : $"Logs {focusSuffix}"), _titleStyle, GUILayout.ExpandWidth(true));
-    bool nextShowLogDetails = GUILayout.Toggle(_showLogDetails, "Details", GUILayout.Width(80f));
+    EditorGUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
+    EditorGUILayout.BeginHorizontal();
+    GUILayout.Label($"Logs {GetFocusSuffix()}", _titleStyle);
+    bool nextShowLogDetails = GUILayout.Toggle(_showLogDetails, "Details", GUILayout.Width(70f));
     if (nextShowLogDetails != _showLogDetails)
     {
         _showLogDetails = nextShowLogDetails;
-        SaveLayoutPreferences();
+        SaveEditorUiState();
     }
-    GUILayout.EndHorizontal();
+    EditorGUILayout.EndHorizontal();
     GUILayout.Space(4f);
-    GUILayout.BeginHorizontal(GUILayout.MinHeight(26f));
+    EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(22f));
     DrawLogSearchField(75f);
-    GUILayout.EndHorizontal();
+    EditorGUILayout.EndHorizontal();
     GUILayout.Space(4f);
 
-    float logContentWidth = GetLogContentWidth(panelWidth);
-    float listViewportHeight = Mathf.Max(120f, _windowRect.height - (_showLogDetails ? _logDetailPanelHeight + 190f : 160f));
+    float width = Mathf.Max(GetLogContentWidth(panelWidth), 300f);
+    float listViewportHeight = Mathf.Max(120f, position.height - (_showLogDetails ? _logDetailPanelHeight + 220f : 180f));
 
-    List<VisibleRuntimeLogEntry> visibleEntries = BuildVisibleEntries(manager);
-    List<float> rowHeights = BuildRowHeights(visibleEntries, logContentWidth);
+    List<LiveLogGroup> groups = BuildVisibleLiveLogGroups(manager);
+    List<float> rowHeights = BuildLiveRowHeights(groups, width);
     CalculateVisibleRange(rowHeights, _logScroll.y, listViewportHeight, out int startIndex, out int endIndex, out float topPadding, out float visibleHeight, out float totalHeight);
 
     _logScroll = GUILayout.BeginScrollView(_logScroll, false, !_autoScroll, GUIStyle.none, GetLogVerticalScrollbarStyle(), GUILayout.MinHeight(listViewportHeight), GUILayout.ExpandHeight(true));
@@ -822,8 +2824,8 @@ private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
 
     for (int i = startIndex; i < endIndex; i++)
     {
-        VisibleRuntimeLogEntry visibleEntry = visibleEntries[i];
-        DrawLogEntry(visibleEntry.Entry, visibleEntry.SourceIndex, logContentWidth);
+        LiveLogGroup group = groups[i];
+        DrawLogEntry(group.Entry, group.LastSourceIndex, width, group.Count);
         GUILayout.Space(4f);
     }
 
@@ -831,7 +2833,7 @@ private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     if (bottomPadding > 0f)
         GUILayout.Space(bottomPadding);
 
-    GUILayout.EndScrollView();
+    EditorGUILayout.EndScrollView();
 
     Rect scrollRect = GUILayoutUtility.GetLastRect();
     _lastLogViewportHeight = scrollRect.height;
@@ -844,36 +2846,37 @@ private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     if (_showLogDetails)
     {
         GUILayout.Space(4f);
-        DrawLiveLogDetailPanel(GetSelectedEntry(manager), panelWidth);
+        DebugEntry selectedEntry = GetSelectedLiveEntry(manager);
+        DrawLiveLogDetailPanel(selectedEntry, panelWidth);
     }
 
-    GUILayout.EndVertical();
+    EditorGUILayout.EndVertical();
 }
 
-private float DrawLogEntry(DebugEntry entry, int index, float contentWidth)
+private float DrawLogEntry(DebugEntry entry, int sourceIndex, float width, int repeatCount)
     {
-        GUIContent content = new GUIContent(entry.RichText);
-        float estimatedWidth = Mathf.Max(140f, contentWidth);
-        float height = _richLabelStyle.CalcHeight(content, estimatedWidth);
+        GUIContent content = BuildCollapsedLogContent(entry.RichText, repeatCount);
+        float height = _richLabelStyle.CalcHeight(content, width);
 
-        Rect rect = GUILayoutUtility.GetRect(0f, height + 14f, GUILayout.ExpandWidth(true));
+        Rect rect = GUILayoutUtility.GetRect(10f, height + 12f, GUILayout.ExpandWidth(true));
 
         Color previousColor = GUI.color;
-        if (index == _selectedLogIndex)
+        if (sourceIndex == _selectedLogIndex)
             GUI.color = new Color(0.75f, 0.85f, 1f, 1f);
 
         GUI.Box(rect, GUIContent.none);
         GUI.color = previousColor;
 
-        Rect labelRect = new Rect(rect.x + 6f, rect.y + 6f, Mathf.Max(0f, rect.width - 12f), rect.height - 12f);
+        Rect labelRect = new Rect(rect.x + 6f, rect.y + 6f, rect.width - 12f, rect.height - 12f);
         GUI.Label(labelRect, content, _richLabelStyle);
 
         if (Event.current.type == EventType.MouseDown &&
             Event.current.button == 0 &&
             rect.Contains(Event.current.mousePosition))
         {
-            _selectedLogIndex = index;
+            _selectedLogIndex = sourceIndex;
             FocusEntry(entry);
+            SaveEditorUiState();
 
             if (Event.current.clickCount >= 2)
                 OpenEntryScript(entry);
@@ -885,42 +2888,39 @@ private float DrawLogEntry(DebugEntry entry, int index, float contentWidth)
     }
 
 
-private List<VisibleRuntimeLogEntry> BuildVisibleEntries(DebugConsoleManager manager)
+private List<float> BuildSnapshotRowHeights(List<SnapshotLogGroup> groups, float width)
 {
-    List<VisibleRuntimeLogEntry> result = new List<VisibleRuntimeLogEntry>();
-    if (manager == null)
-        return result;
-
-    IReadOnlyList<DebugEntry> entries = manager.Entries;
-    for (int i = 0; i < entries.Count; i++)
+    List<float> heights = new List<float>(groups.Count);
+    for (int i = 0; i < groups.Count; i++)
     {
-        DebugEntry entry = entries[i];
-        if (!ShouldDisplayEntry(manager, entry))
-            continue;
-
-        result.Add(new VisibleRuntimeLogEntry
+        SnapshotLogGroup group = groups[i];
+        string key = $"{group.LastSourceIndex}:{group.Count}:{Mathf.RoundToInt(width)}";
+        if (!_snapshotLogHeightCache.TryGetValue(key, out float height))
         {
-            Entry = entry,
-            SourceIndex = i
-        });
+            GUIContent content = BuildCollapsedLogContent(group.Entry.RichText, group.Count);
+            height = _richLabelStyle.CalcHeight(content, width) + 16f;
+            _snapshotLogHeightCache[key] = height;
+        }
+
+        heights.Add(height);
     }
 
-    return result;
+    return heights;
 }
 
-private List<float> BuildRowHeights(List<VisibleRuntimeLogEntry> entries, float width)
+private List<float> BuildLiveRowHeights(List<LiveLogGroup> groups, float width)
 {
-    List<float> heights = new List<float>(entries.Count);
-    for (int i = 0; i < entries.Count; i++)
+    List<float> heights = new List<float>(groups.Count);
+    for (int i = 0; i < groups.Count; i++)
     {
-        DebugEntry entry = entries[i].Entry;
-        long sequence = entry != null ? entry.SequenceId : i;
-        string key = $"{sequence}:{Mathf.RoundToInt(width)}";
-        if (!_rowHeightCache.TryGetValue(key, out float height))
+        LiveLogGroup group = groups[i];
+        long sequence = group.Entry != null ? group.Entry.SequenceId : i;
+        string key = $"{sequence}:{group.Count}:{Mathf.RoundToInt(width)}";
+        if (!_liveLogHeightCache.TryGetValue(key, out float height))
         {
-            GUIContent content = new GUIContent(entry != null ? entry.RichText : string.Empty);
-            height = _richLabelStyle.CalcHeight(content, Mathf.Max(140f, width)) + 18f;
-            _rowHeightCache[key] = height;
+            GUIContent content = BuildCollapsedLogContent(group.Entry.RichText, group.Count);
+            height = _richLabelStyle.CalcHeight(content, width) + 16f;
+            _liveLogHeightCache[key] = height;
         }
 
         heights.Add(height);
@@ -943,6 +2943,7 @@ private void CalculateVisibleRange(List<float> rowHeights, float scrollY, float 
     const float overscan = 240f;
     float minY = Mathf.Max(0f, scrollY - overscan);
     float maxY = scrollY + Mathf.Max(0f, viewportHeight) + overscan;
+
     float cumulative = 0f;
     bool started = false;
 
@@ -955,9 +2956,9 @@ private void CalculateVisibleRange(List<float> rowHeights, float scrollY, float 
 
         if (!started && rowEnd >= minY)
         {
-            started = true;
             startIndex = i;
             topPadding = rowStart;
+            started = true;
         }
 
         if (started)
@@ -980,7 +2981,15 @@ private void CalculateVisibleRange(List<float> rowHeights, float scrollY, float 
     }
 }
 
-private DebugEntry GetSelectedEntry(DebugConsoleManager manager)
+private SnapshotLogEntry GetSelectedSnapshotEntry(DebugConsoleEditorSnapshot snapshot)
+{
+    if (snapshot?.Entries == null || _selectedLogIndex < 0 || _selectedLogIndex >= snapshot.Entries.Count)
+        return null;
+
+    return snapshot.Entries[_selectedLogIndex];
+}
+
+private DebugEntry GetSelectedLiveEntry(DebugConsoleManager manager)
 {
     if (manager == null)
         return null;
@@ -992,101 +3001,405 @@ private DebugEntry GetSelectedEntry(DebugConsoleManager manager)
     return entries[_selectedLogIndex];
 }
 
-private void DrawLiveLogDetailPanel(DebugEntry entry, float panelWidth)
+private void DrawSnapshotLogDetailPanel(SnapshotLogEntry entry, float panelWidth)
 {
-    GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.Height(_logDetailPanelHeight));
+    EditorGUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.Height(_logDetailPanelHeight));
     GUILayout.Label("Log Detail", _titleStyle);
 
     if (entry == null)
     {
-        GUILayout.Label("로그를 선택하면 상세 정보가 표시됩니다.", _dimLabelStyle);
-        GUILayout.EndVertical();
+        EditorGUILayout.HelpBox("로그를 선택하면 상세 정보가 표시됩니다.", MessageType.Info);
+        EditorGUILayout.EndVertical();
         return;
     }
 
-    _detailScroll = GUILayout.BeginScrollView(_detailScroll, GUILayout.Height(_logDetailPanelHeight - 28f));
-    GUILayout.Label($"Time : {entry.Time}", _dimLabelStyle);
-    GUILayout.Label($"Type : {entry.Type} / {entry.Level}", _dimLabelStyle);
-    GUILayout.Label($"Source : {entry.SourceName}", _dimLabelStyle);
-    GUILayout.Label($"Member : {entry.MemberName} : {Mathf.Max(1, entry.LineNumber)}", _dimLabelStyle);
-    GUILayout.Label($"Scene : {(string.IsNullOrWhiteSpace(entry.SceneKey) ? "-" : entry.SceneKey)}", _dimLabelStyle);
-    GUILayout.Label($"Path : {(string.IsNullOrWhiteSpace(entry.HierarchyPath) ? "-" : entry.HierarchyPath)}", _dimLabelStyle);
-    GUILayout.Label($"GameObject : {(string.IsNullOrWhiteSpace(entry.GameObjectName) ? "-" : entry.GameObjectName)}", _dimLabelStyle);
-    GUILayout.Label($"Component : {(string.IsNullOrWhiteSpace(entry.ComponentName) ? "-" : entry.ComponentName)}", _dimLabelStyle);
-    GUILayout.Label($"Frame : {entry.FrameCount}", _dimLabelStyle);
+    _detailScroll = EditorGUILayout.BeginScrollView(_detailScroll, GUILayout.Height(_logDetailPanelHeight - 28f));
+    DrawDetailHeader(entry.Time, entry.Type.ToString(), entry.Level.ToString(), entry.SourceName, entry.MemberName, entry.LineNumber, entry.SceneKey, entry.HierarchyPath, entry.GameObjectName, entry.ComponentName, entry.ComponentTypeName, entry.FrameCount, entry.CapturedAtIsoUtc);
+    DrawDetailBody(entry.Message, entry.CallerFilePath, entry.StackTrace);
+    EditorGUILayout.EndScrollView();
+    EditorGUILayout.EndVertical();
+}
+
+private void DrawLiveLogDetailPanel(DebugEntry entry, float panelWidth)
+{
+    EditorGUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.Height(_logDetailPanelHeight));
+    GUILayout.Label("Log Detail", _titleStyle);
+
+    if (entry == null)
+    {
+        EditorGUILayout.HelpBox("로그를 선택하면 상세 정보가 표시됩니다.", MessageType.Info);
+        EditorGUILayout.EndVertical();
+        return;
+    }
+
+    _detailScroll = EditorGUILayout.BeginScrollView(_detailScroll, GUILayout.Height(_logDetailPanelHeight - 28f));
+    DrawDetailHeader(entry.Time, entry.Type.ToString(), entry.Level.ToString(), entry.SourceName, entry.MemberName, entry.LineNumber, entry.SceneKey, entry.HierarchyPath, entry.GameObjectName, entry.ComponentName, entry.ComponentTypeName, entry.FrameCount, entry.CapturedAtIsoUtc);
+    DrawDetailBody(entry.Message, entry.CallerFilePath, entry.StackTrace);
+    EditorGUILayout.EndScrollView();
+    EditorGUILayout.EndVertical();
+}
+
+private void DrawDetailHeader(string time, string type, string level, string sourceName, string memberName, int lineNumber, string sceneKey, string hierarchyPath, string gameObjectName, string componentName, string componentTypeName, int frameCount, string capturedAtIsoUtc)
+{
+    EditorGUILayout.LabelField("Time", string.IsNullOrWhiteSpace(time) ? "-" : time);
+    EditorGUILayout.LabelField("Type", $"{type} / {level}");
+    EditorGUILayout.LabelField("Source", string.IsNullOrWhiteSpace(sourceName) ? "-" : sourceName);
+    EditorGUILayout.LabelField("Member", $"{memberName} : {Mathf.Max(1, lineNumber)}");
+    EditorGUILayout.LabelField("Scene", string.IsNullOrWhiteSpace(sceneKey) ? "-" : sceneKey);
+    EditorGUILayout.LabelField("Path", string.IsNullOrWhiteSpace(hierarchyPath) ? "-" : hierarchyPath);
+    EditorGUILayout.LabelField("GameObject", string.IsNullOrWhiteSpace(gameObjectName) ? "-" : gameObjectName);
+    EditorGUILayout.LabelField("Component", string.IsNullOrWhiteSpace(componentName) ? "-" : componentName);
+    if (!string.IsNullOrWhiteSpace(componentTypeName))
+        EditorGUILayout.LabelField("Component Type", componentTypeName);
+    EditorGUILayout.LabelField("Frame", frameCount.ToString());
+    EditorGUILayout.LabelField("Captured", string.IsNullOrWhiteSpace(capturedAtIsoUtc) ? "-" : capturedAtIsoUtc);
     GUILayout.Space(4f);
+}
 
-    GUILayout.Label("Message", _dimLabelStyle);
+private void DrawDetailBody(string message, string callerFilePath, string stackTrace)
+{
+    GUILayout.Label("Message");
+    bool previousEnabled = GUI.enabled;
     GUI.enabled = false;
-    GUILayout.TextArea(entry.Message ?? string.Empty, GUILayout.MinHeight(68f));
-    GUI.enabled = true;
+    EditorGUILayout.TextArea(message ?? string.Empty, GUILayout.MinHeight(68f));
+    GUI.enabled = previousEnabled;
 
-    if (!string.IsNullOrWhiteSpace(entry.CallerFilePath))
-        GUILayout.Label($"Caller File : {entry.CallerFilePath}", _dimLabelStyle);
+    if (!string.IsNullOrWhiteSpace(callerFilePath))
+        EditorGUILayout.LabelField("Caller File", callerFilePath);
 
-    bool nextFoldout = GUILayout.Toggle(_stackTraceFoldout, "Stack Trace", GUI.skin.button, GUILayout.Height(24f));
+    bool nextFoldout = EditorGUILayout.Foldout(_stackTraceFoldout, "Stack Trace", true);
     if (nextFoldout != _stackTraceFoldout)
     {
         _stackTraceFoldout = nextFoldout;
-        SaveLayoutPreferences();
+        SaveEditorUiState();
     }
 
     if (_stackTraceFoldout)
     {
         GUI.enabled = false;
-        GUILayout.TextArea(string.IsNullOrWhiteSpace(entry.StackTrace) ? "(No Stack Trace)" : entry.StackTrace, GUILayout.MinHeight(96f));
-        GUI.enabled = true;
+        EditorGUILayout.TextArea(string.IsNullOrWhiteSpace(stackTrace) ? "(No Stack Trace)" : stackTrace, GUILayout.MinHeight(88f));
+        GUI.enabled = previousEnabled;
     }
-
-    GUILayout.EndScrollView();
-    GUILayout.EndVertical();
 }
 
-private void ResetRuntimeLayoutToDefault()
+private void ResetEditorLayoutToDefault()
 {
+    _autoScroll = true;
+    _hideTransform = true;
+    _collapsePreviousOnSelection = true;
+    _collapseLogs = true;
+    _showTypeFilterPanel = false;
+    _showLogDetails = true;
+    _stackTraceFoldout = true;
     _hierarchyPanelWidth = 420f;
-    _logDetailPanelHeight = 220f;
+    _logDetailPanelHeight = DefaultLogDetailPanelHeight;
     _hierarchyScroll = Vector2.zero;
     _logScroll = Vector2.zero;
     _typeFilterScroll = Vector2.zero;
     _detailScroll = Vector2.zero;
-    _showTypeFilterPanel = false;
-    _showLogDetails = true;
-    _stackTraceFoldout = true;
-    SaveLayoutPreferences();
+    SaveEditorUiState();
+    Repaint();
+}
+
+private void ResetStoredManagerPreferencesToDefault(DebugConsoleEditorSnapshot snapshot)
+{
+    DebugConsolePreferenceStore.DeleteKey(GlobalEnabledPrefKey);
+    DebugConsolePreferenceStore.DeleteKey(MirrorToUnityPrefKey);
+    DebugConsolePreferenceStore.DeleteKey(LogLevelLogPrefKey);
+    DebugConsolePreferenceStore.DeleteKey(LogLevelWarningPrefKey);
+    DebugConsolePreferenceStore.DeleteKey(LogLevelErrorPrefKey);
+
+    DebugType[] types = (DebugType[])Enum.GetValues(typeof(DebugType));
+    for (int i = 0; i < types.Length; i++)
+        DebugConsolePreferenceStore.DeleteKey(GetTypePrefKey(types[i]));
+
+    DeleteRegistryPrefValues(GameObjectRegistryPrefKey);
+    DeleteRegistryPrefValues(ComponentRegistryPrefKey);
+
+    DebugConsolePreferenceStore.DeleteKey(GameObjectRegistryPrefKey);
+    DebugConsolePreferenceStore.DeleteKey(ComponentRegistryPrefKey);
+
+    if (snapshot != null)
+    {
+        snapshot.GlobalEnabled = true;
+        snapshot.MirrorToUnityConsole = false;
+        snapshot.ShowLogLevelLog = true;
+        snapshot.ShowLogLevelWarning = true;
+        snapshot.ShowLogLevelError = true;
+
+        if (snapshot.TypeFilters != null)
+        {
+            for (int i = 0; i < snapshot.TypeFilters.Length; i++)
+                snapshot.TypeFilters[i] = true;
+        }
+
+        SaveSnapshotIfAvailable();
+    }
+
+    SaveEditorUiState();
+}
+
+private void DeleteRegistryPrefValues(string registryPrefKey)
+{
+    string raw = DebugConsolePreferenceStore.GetString(registryPrefKey, string.Empty);
+    if (string.IsNullOrWhiteSpace(raw))
+        return;
+
+    string[] parts = raw.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+    for (int i = 0; i < parts.Length; i++)
+        DebugConsolePreferenceStore.DeleteKey(parts[i]);
+}
+
+private DebugConsoleStoredManagerSettings CaptureStoredManagerSettings()
+{
+    DebugConsoleStoredManagerSettings settings = new DebugConsoleStoredManagerSettings
+    {
+        GlobalEnabled = DebugConsolePreferenceStore.GetBool(GlobalEnabledPrefKey, true),
+        MirrorToUnityConsole = DebugConsolePreferenceStore.GetBool(MirrorToUnityPrefKey, false),
+        ShowLogLevelLog = DebugConsolePreferenceStore.GetBool(LogLevelLogPrefKey, true),
+        ShowLogLevelWarning = DebugConsolePreferenceStore.GetBool(LogLevelWarningPrefKey, true),
+        ShowLogLevelError = DebugConsolePreferenceStore.GetBool(LogLevelErrorPrefKey, true)
+    };
+
+    DebugType[] types = (DebugType[])Enum.GetValues(typeof(DebugType));
+    settings.TypeFilters = new bool[types.Length];
+    for (int i = 0; i < types.Length; i++)
+        settings.TypeFilters[i] = DebugConsolePreferenceStore.GetBool(GetTypePrefKey(types[i]), true);
+
+    settings.GameObjectFilterValues = CaptureStoredRegistryValues(GameObjectRegistryPrefKey);
+    settings.ComponentFilterValues = CaptureStoredRegistryValues(ComponentRegistryPrefKey);
+    return settings;
+}
+
+private List<DebugConsoleStoredBoolValue> CaptureStoredRegistryValues(string registryPrefKey)
+{
+    List<DebugConsoleStoredBoolValue> values = new List<DebugConsoleStoredBoolValue>();
+    string raw = DebugConsolePreferenceStore.GetString(registryPrefKey, string.Empty);
+    if (string.IsNullOrWhiteSpace(raw))
+        return values;
+
+    string[] parts = raw.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+    for (int i = 0; i < parts.Length; i++)
+    {
+        string key = parts[i];
+        if (string.IsNullOrWhiteSpace(key))
+            continue;
+
+        values.Add(new DebugConsoleStoredBoolValue
+        {
+            Key = key,
+            Value = DebugConsolePreferenceStore.GetBool(key, true)
+        });
+    }
+
+    return values;
+}
+
+private void ApplyStoredManagerSettings(DebugConsoleStoredManagerSettings settings, DebugConsoleEditorSnapshot snapshot)
+{
+    if (settings == null)
+        return;
+
+    ResetStoredManagerPreferencesToDefault(snapshot);
+
+    DebugConsolePreferenceStore.SetBool(GlobalEnabledPrefKey, settings.GlobalEnabled);
+    DebugConsolePreferenceStore.SetBool(MirrorToUnityPrefKey, settings.MirrorToUnityConsole);
+    DebugConsolePreferenceStore.SetBool(LogLevelLogPrefKey, settings.ShowLogLevelLog);
+    DebugConsolePreferenceStore.SetBool(LogLevelWarningPrefKey, settings.ShowLogLevelWarning);
+    DebugConsolePreferenceStore.SetBool(LogLevelErrorPrefKey, settings.ShowLogLevelError);
+
+    DebugType[] types = (DebugType[])Enum.GetValues(typeof(DebugType));
+    if (settings.TypeFilters != null)
+    {
+        for (int i = 0; i < types.Length && i < settings.TypeFilters.Length; i++)
+            DebugConsolePreferenceStore.SetBool(GetTypePrefKey(types[i]), settings.TypeFilters[i]);
+    }
+
+    ApplyStoredRegistryValues(GameObjectRegistryPrefKey, settings.GameObjectFilterValues);
+    ApplyStoredRegistryValues(ComponentRegistryPrefKey, settings.ComponentFilterValues);
+
+    if (snapshot != null)
+        ApplyStoredPreferencesToSnapshot(snapshot);
+}
+
+private void ApplyStoredRegistryValues(string registryPrefKey, List<DebugConsoleStoredBoolValue> values)
+{
+    List<string> registry = new List<string>();
+
+    if (values != null)
+    {
+        for (int i = 0; i < values.Count; i++)
+        {
+            DebugConsoleStoredBoolValue value = values[i];
+            if (value == null || string.IsNullOrWhiteSpace(value.Key))
+                continue;
+
+            registry.Add(value.Key);
+            DebugConsolePreferenceStore.SetBool(value.Key, value.Value);
+        }
+    }
+
+    DebugConsolePreferenceStore.SetString(registryPrefKey, string.Join("\n", registry));
+}
+
+private void ExportEditorSettingsToFile()
+{
+    string path = EditorUtility.SaveFilePanel("Export Debug Console Settings", Application.dataPath, "debug_console_settings", "json");
+    if (string.IsNullOrWhiteSpace(path))
+        return;
+
+    DebugConsoleEditorBackupData data = new DebugConsoleEditorBackupData
+    {
+        ManagerSettings = CaptureStoredManagerSettings(),
+        EditorState = BuildCurrentUiState()
+    };
+
+    File.WriteAllText(path, JsonUtility.ToJson(data, true));
+}
+
+private void ImportEditorSettingsFromFile(DebugConsoleEditorSnapshot snapshot)
+{
+    string path = EditorUtility.OpenFilePanel("Import Debug Console Settings", Application.dataPath, "json");
+    if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        return;
+
+    DebugConsoleEditorBackupData data = JsonUtility.FromJson<DebugConsoleEditorBackupData>(File.ReadAllText(path));
+    if (data == null)
+        return;
+
+    ApplyStoredManagerSettings(data.ManagerSettings, snapshot);
+    ApplyEditorUiState(data.EditorState);
+    SaveEditorUiState();
+    Repaint();
+}
+
+private DebugConsoleEditorUiState BuildCurrentUiState()
+{
+    return new DebugConsoleEditorUiState
+    {
+        AutoScroll = _autoScroll,
+        HideTransform = _hideTransform,
+        CollapsePreviousOnSelection = _collapsePreviousOnSelection,
+        CollapseLogs = _collapseLogs,
+        ShowTypeFilterPanel = _showTypeFilterPanel,
+        ShowLogDetails = _showLogDetails,
+        StackTraceFoldout = _stackTraceFoldout,
+        HierarchyPanelWidth = _hierarchyPanelWidth,
+        LogDetailPanelHeight = _logDetailPanelHeight,
+        HierarchyScroll = _hierarchyScroll,
+        LogScroll = _logScroll,
+        TypeFilterScroll = _typeFilterScroll,
+        DetailScroll = _detailScroll,
+        SelectedLogIndex = _selectedLogIndex,
+        FocusedSnapshotGameObjectKey = _focusedSnapshotGameObjectKey ?? string.Empty,
+        FocusedSnapshotComponentKey = _focusedSnapshotComponentKey ?? string.Empty,
+        FocusedObjectName = _focusedObjectName ?? string.Empty,
+        FocusedComponentName = _focusedComponentName ?? string.Empty,
+        ExpandedSnapshotDetails = new List<string>(_expandedSnapshotDetails),
+        ExpandedSnapshotChildren = new List<string>(_expandedSnapshotChildren)
+    };
+}
+
+private void ApplyEditorUiState(DebugConsoleEditorUiState state)
+{
+    if (state == null)
+        return;
+
+    _autoScroll = state.AutoScroll;
+    _hideTransform = state.HideTransform;
+    _collapsePreviousOnSelection = state.CollapsePreviousOnSelection;
+    _collapseLogs = state.CollapseLogs;
+    _showTypeFilterPanel = state.ShowTypeFilterPanel;
+    _showLogDetails = state.ShowLogDetails;
+    _stackTraceFoldout = state.StackTraceFoldout;
+    _hierarchyPanelWidth = state.HierarchyPanelWidth > 0f ? state.HierarchyPanelWidth : _hierarchyPanelWidth;
+    _logDetailPanelHeight = Mathf.Clamp(state.LogDetailPanelHeight > 0f ? state.LogDetailPanelHeight : DefaultLogDetailPanelHeight, MinLogDetailPanelHeight, MaxLogDetailPanelHeight);
+    _hierarchyScroll = state.HierarchyScroll;
+    _logScroll = state.LogScroll;
+    _typeFilterScroll = state.TypeFilterScroll;
+    _detailScroll = state.DetailScroll;
+    _selectedLogIndex = state.SelectedLogIndex;
+    _focusedSnapshotGameObjectKey = state.FocusedSnapshotGameObjectKey ?? string.Empty;
+    _focusedSnapshotComponentKey = state.FocusedSnapshotComponentKey ?? string.Empty;
+    _focusedObjectName = state.FocusedObjectName ?? string.Empty;
+    _focusedComponentName = state.FocusedComponentName ?? string.Empty;
+
+    _expandedSnapshotDetails.Clear();
+    if (state.ExpandedSnapshotDetails != null)
+    {
+        for (int i = 0; i < state.ExpandedSnapshotDetails.Count; i++)
+        {
+            string key = state.ExpandedSnapshotDetails[i];
+            if (!string.IsNullOrWhiteSpace(key))
+                _expandedSnapshotDetails.Add(key);
+        }
+    }
+
+    _expandedSnapshotChildren.Clear();
+    if (state.ExpandedSnapshotChildren != null)
+    {
+        for (int i = 0; i < state.ExpandedSnapshotChildren.Count; i++)
+        {
+            string key = state.ExpandedSnapshotChildren[i];
+            if (!string.IsNullOrWhiteSpace(key))
+                _expandedSnapshotChildren.Add(key);
+        }
+    }
 }
 
     private void OpenEntryScript(DebugEntry entry)
     {
 #if UNITY_EDITOR
-        if (!TryGetEntryScriptLocation(entry, out UnityEditor.MonoScript script, out int lineNumber, out int columnNumber))
+        if (!TryGetEntryScriptLocation(entry, out MonoScript script, out int lineNumber, out int columnNumber))
             return;
 
-        UnityEditor.AssetDatabase.OpenAsset(script, Mathf.Max(1, lineNumber), Mathf.Max(1, columnNumber));
+        AssetDatabase.OpenAsset(script, Mathf.Max(1, lineNumber), Mathf.Max(1, columnNumber));
+#endif
+    }
+
+    private void OpenEntryScript(SnapshotLogEntry entry)
+    {
+#if UNITY_EDITOR
+        if (entry == null)
+            return;
+
+        if (!TryGetEntryScriptLocation(entry.CallerFilePath, entry.LineNumber, entry.CallerColumn, out MonoScript script, out int lineNumber, out int columnNumber))
+            return;
+
+        AssetDatabase.OpenAsset(script, Mathf.Max(1, lineNumber), Mathf.Max(1, columnNumber));
 #endif
     }
 
 #if UNITY_EDITOR
-    private bool TryGetEntryScriptLocation(DebugEntry entry, out UnityEditor.MonoScript script, out int lineNumber, out int columnNumber)
+    private bool TryGetEntryScriptLocation(DebugEntry entry, out MonoScript script, out int lineNumber, out int columnNumber)
     {
         script = null;
         lineNumber = 1;
         columnNumber = 1;
 
-        if (entry == null || string.IsNullOrWhiteSpace(entry.CallerFilePath))
+        if (entry == null)
             return false;
 
-        lineNumber = Mathf.Max(1, entry.LineNumber);
-        columnNumber = Mathf.Max(1, entry.CallerColumn);
+        return TryGetEntryScriptLocation(entry.CallerFilePath, entry.LineNumber, entry.CallerColumn, out script, out lineNumber, out columnNumber);
+    }
 
-        if (TryConvertCallerPathToAssetPath(entry.CallerFilePath, out string assetPath))
+    private bool TryGetEntryScriptLocation(string callerFilePath, int sourceLineNumber, int sourceColumnNumber, out MonoScript script, out int lineNumber, out int columnNumber)
+    {
+        script = null;
+        lineNumber = Mathf.Max(1, sourceLineNumber);
+        columnNumber = Mathf.Max(1, sourceColumnNumber);
+
+        if (string.IsNullOrWhiteSpace(callerFilePath))
+            return false;
+
+        if (TryConvertCallerPathToAssetPath(callerFilePath, out string assetPath))
         {
-            script = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEditor.MonoScript>(assetPath);
+            script = AssetDatabase.LoadAssetAtPath<MonoScript>(assetPath);
             if (script != null)
                 return true;
         }
 
-        return TryFindScriptByFileName(entry.CallerFilePath, out script);
+        return TryFindScriptByFileName(callerFilePath, out script);
     }
 
     private bool TryConvertCallerPathToAssetPath(string callerFilePath, out string assetPath)
@@ -1122,7 +3435,7 @@ private void ResetRuntimeLayoutToDefault()
         return false;
     }
 
-    private bool TryFindScriptByFileName(string callerFilePath, out UnityEditor.MonoScript script)
+    private bool TryFindScriptByFileName(string callerFilePath, out MonoScript script)
     {
         script = null;
 
@@ -1130,14 +3443,14 @@ private void ResetRuntimeLayoutToDefault()
         if (string.IsNullOrWhiteSpace(fileName))
             return false;
 
-        string[] guids = UnityEditor.AssetDatabase.FindAssets($"{fileName} t:MonoScript");
+        string[] guids = AssetDatabase.FindAssets($"{fileName} t:MonoScript");
         for (int i = 0; i < guids.Length; i++)
         {
-            string assetPath = UnityEditor.AssetDatabase.GUIDToAssetPath(guids[i]);
+            string assetPath = AssetDatabase.GUIDToAssetPath(guids[i]);
             if (!string.Equals(Path.GetFileNameWithoutExtension(assetPath), fileName, StringComparison.Ordinal))
                 continue;
 
-            UnityEditor.MonoScript found = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEditor.MonoScript>(assetPath);
+            MonoScript found = AssetDatabase.LoadAssetAtPath<MonoScript>(assetPath);
             if (found == null)
                 continue;
 
@@ -1154,6 +3467,9 @@ private void ResetRuntimeLayoutToDefault()
         if (entry == null)
             return;
 
+        _focusedSnapshotGameObjectKey = string.Empty;
+        _focusedSnapshotComponentKey = string.Empty;
+
         GameObject targetGameObject = null;
 
         if (entry.Context is GameObject go)
@@ -1161,6 +3477,8 @@ private void ResetRuntimeLayoutToDefault()
             targetGameObject = go;
             _focusedGameObjectId = go.GetInstanceID();
             _focusedComponentId = 0;
+            _focusedSnapshotGameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(go);
+            _focusedSnapshotComponentKey = string.Empty;
             _focusedObjectName = go.name;
             _focusedComponentName = string.Empty;
             PrepareSelectionExpansion(go.transform, true);
@@ -1170,6 +3488,8 @@ private void ResetRuntimeLayoutToDefault()
             targetGameObject = component.gameObject;
             _focusedGameObjectId = component.gameObject.GetInstanceID();
             _focusedComponentId = component.GetInstanceID();
+            _focusedSnapshotGameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(component.gameObject);
+            _focusedSnapshotComponentKey = DebugConsoleFilterKeyUtility.GetComponentKey(component);
             _focusedObjectName = component.gameObject.name;
             _focusedComponentName = component.GetType().Name;
             PrepareSelectionExpansion(component.transform, true);
@@ -1178,10 +3498,9 @@ private void ResetRuntimeLayoutToDefault()
         if (targetGameObject == null)
             return;
 
-#if UNITY_EDITOR
-        UnityEditor.Selection.activeGameObject = targetGameObject;
-        UnityEditor.EditorGUIUtility.PingObject(targetGameObject);
-#endif
+        Selection.activeGameObject = targetGameObject;
+        EditorGUIUtility.PingObject(targetGameObject);
+        SaveEditorUiState();
     }
 
     private void ExpandSelectionPath(Transform target, bool includeTargetDetails)
@@ -1201,6 +3520,25 @@ private void ResetRuntimeLayoutToDefault()
             _expandedComponents.Add(parentId);
             _expandedChildren.Add(parentId);
             current = parent;
+        }
+    }
+
+
+    private void MirrorLiveExpansionToSnapshot(Transform target, bool includeTargetDetails)
+    {
+        if (target == null)
+            return;
+
+        if (includeTargetDetails)
+            _expandedSnapshotDetails.Add(DebugConsoleFilterKeyUtility.GetGameObjectKey(target.gameObject));
+
+        Transform current = target;
+        while (current.parent != null)
+        {
+            current = current.parent;
+            string key = DebugConsoleFilterKeyUtility.GetGameObjectKey(current.gameObject);
+            _expandedSnapshotDetails.Add(key);
+            _expandedSnapshotChildren.Add(key);
         }
     }
 
@@ -1244,10 +3582,13 @@ private void ResetRuntimeLayoutToDefault()
 
         _focusedGameObjectId = id;
         _focusedComponentId = 0;
+        _focusedSnapshotGameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(go);
+        _focusedSnapshotComponentKey = string.Empty;
         _focusedObjectName = go.name;
         _focusedComponentName = string.Empty;
 
         PrepareSelectionExpansion(go.transform, true);
+        SaveEditorUiState();
     }
 
     private void ToggleComponentFocus(Component component)
@@ -1265,10 +3606,13 @@ private void ResetRuntimeLayoutToDefault()
 
         _focusedGameObjectId = component.gameObject.GetInstanceID();
         _focusedComponentId = componentId;
+        _focusedSnapshotGameObjectKey = DebugConsoleFilterKeyUtility.GetGameObjectKey(component.gameObject);
+        _focusedSnapshotComponentKey = DebugConsoleFilterKeyUtility.GetComponentKey(component);
         _focusedObjectName = component.gameObject.name;
         _focusedComponentName = component.GetType().Name;
 
         PrepareSelectionExpansion(component.transform, true);
+        SaveEditorUiState();
     }
 
     private void PrepareSelectionExpansion(Transform target, bool includeDetails)
@@ -1277,9 +3621,13 @@ private void ResetRuntimeLayoutToDefault()
             return;
 
         if (_collapsePreviousOnSelection)
+        {
             PreserveExpansionWithinTopLevelRoot(target);
+            PreserveSnapshotExpansionWithinTopLevelRoot(DebugConsoleFilterKeyUtility.GetGameObjectKey(target.gameObject));
+        }
 
         ExpandSelectionPath(target, includeDetails);
+        MirrorLiveExpansionToSnapshot(target, includeDetails);
     }
 
     private void PreserveExpansionWithinTopLevelRoot(Transform target)
@@ -1323,26 +3671,25 @@ private void ResetRuntimeLayoutToDefault()
             CollectSubtreeIds(node.GetChild(i), ids);
     }
 
-
-    private void SaveLayoutPreferences()
-    {
-        DebugConsolePreferenceStore.SetRect(WindowRectPrefKey, _windowRect);
-        DebugConsolePreferenceStore.SetFloat(HierarchyPanelWidthPrefKey, _hierarchyPanelWidth);
-        DebugConsolePreferenceStore.SetBool(WindowRectPrefKey + ".ShowLogDetails", _showLogDetails);
-        DebugConsolePreferenceStore.SetBool(WindowRectPrefKey + ".StackTraceFoldout", _stackTraceFoldout);
-        DebugConsolePreferenceStore.SetFloat(WindowRectPrefKey + ".LogDetailHeight", _logDetailPanelHeight);
-    }
-
     private void ClearFocus()
     {
         _focusedGameObjectId = 0;
         _focusedComponentId = 0;
         _focusedObjectName = string.Empty;
         _focusedComponentName = string.Empty;
+        _focusedSnapshotGameObjectKey = string.Empty;
+        _focusedSnapshotComponentKey = string.Empty;
+        SaveEditorUiState();
     }
 
     private string GetFocusLabel()
     {
+        if (!string.IsNullOrWhiteSpace(_focusedSnapshotComponentKey))
+            return $"Focus : {_focusedObjectName}/{_focusedComponentName}";
+
+        if (!string.IsNullOrWhiteSpace(_focusedSnapshotGameObjectKey))
+            return $"Focus : {_focusedObjectName} (All Components)";
+
         if (_focusedComponentId != 0)
             return $"Focus : {_focusedObjectName}/{_focusedComponentName}";
 
@@ -1354,6 +3701,20 @@ private void ResetRuntimeLayoutToDefault()
 
     private string GetFooterFocusLabel()
     {
+        if (!string.IsNullOrWhiteSpace(_focusedSnapshotComponentKey))
+        {
+            string objectName = TrimFooterFocusSegment(_focusedObjectName);
+            string componentName = TrimFooterFocusSegment(_focusedComponentName);
+
+            if (string.Equals(_focusedObjectName, _focusedComponentName, StringComparison.Ordinal))
+                return $"Focus : {objectName}";
+
+            return $"Focus : {objectName} / {componentName}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(_focusedSnapshotGameObjectKey))
+            return $"Focus : {TrimFooterFocusSegment(_focusedObjectName)}";
+
         if (_focusedComponentId != 0)
         {
             string objectName = TrimFooterFocusSegment(_focusedObjectName);
@@ -1383,15 +3744,17 @@ private void ResetRuntimeLayoutToDefault()
 
     private string GetFocusSuffix()
     {
+        if (!string.IsNullOrWhiteSpace(_focusedSnapshotComponentKey))
+            return $"({_focusedObjectName}/{_focusedComponentName})";
+
+        if (!string.IsNullOrWhiteSpace(_focusedSnapshotGameObjectKey))
+            return $"({_focusedObjectName})";
+
         if (_focusedComponentId != 0)
-        {
-            string objectName = TrimFooterFocusSegment(_focusedObjectName);
-            string componentName = TrimFooterFocusSegment(_focusedComponentName);
-            return $"({objectName}/{componentName})";
-        }
+            return $"({_focusedObjectName}/{_focusedComponentName})";
 
         if (_focusedGameObjectId != 0)
-            return $"({TrimFooterFocusSegment(_focusedObjectName)})";
+            return $"({_focusedObjectName})";
 
         return string.Empty;
     }
@@ -1402,7 +3765,7 @@ private void ResetRuntimeLayoutToDefault()
         texture.SetPixel(0, 0, backgroundColor);
         texture.Apply();
 
-        return new GUIStyle(GUI.skin.box)
+        return new GUIStyle("box")
         {
             normal = { background = texture },
             border = new RectOffset(0, 0, 0, 0),
@@ -1500,6 +3863,49 @@ private void ResetRuntimeLayoutToDefault()
             set.Add(id);
     }
 
+    private void ToggleExpandedSet(HashSet<string> set, string key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            return;
+
+        if (set.Contains(key))
+            set.Remove(key);
+        else
+            set.Add(key);
+    }
+
+    private void ToggleLiveExpandedDetails(GameObject go)
+    {
+        if (go == null)
+            return;
+
+        ToggleExpandedSet(_expandedComponents, go.GetInstanceID());
+        ToggleExpandedSet(_expandedSnapshotDetails, DebugConsoleFilterKeyUtility.GetGameObjectKey(go));
+        SaveEditorUiState();
+    }
+
+    private void ToggleLiveExpandedChildren(GameObject go)
+    {
+        if (go == null)
+            return;
+
+        ToggleExpandedSet(_expandedChildren, go.GetInstanceID());
+        ToggleExpandedSet(_expandedSnapshotChildren, DebugConsoleFilterKeyUtility.GetGameObjectKey(go));
+        SaveEditorUiState();
+    }
+
+    private void ToggleSnapshotExpandedDetails(string key)
+    {
+        ToggleExpandedSet(_expandedSnapshotDetails, key);
+        SaveEditorUiState();
+    }
+
+    private void ToggleSnapshotExpandedChildren(string key)
+    {
+        ToggleExpandedSet(_expandedSnapshotChildren, key);
+        SaveEditorUiState();
+    }
+
     private int GetEnabledTypeCount(DebugConsoleManager manager)
     {
         int count = 0;
@@ -1514,7 +3920,25 @@ private void ResetRuntimeLayoutToDefault()
 
     private bool ShouldShowGameObject(GameObject go)
     {
-        return go != null;
+        if (go == null)
+            return false;
+
+        if (string.IsNullOrWhiteSpace(_hierarchySearch))
+            return true;
+
+        if (ContainsIgnoreCase(go.name, _hierarchySearch))
+            return true;
+
+        if (HasMatchingComponent(go, _hierarchySearch))
+            return true;
+
+        for (int i = 0; i < go.transform.childCount; i++)
+        {
+            if (ShouldShowGameObject(go.transform.GetChild(i).gameObject))
+                return true;
+        }
+
+        return false;
     }
 
     private bool HasVisibleChildren(GameObject go)
@@ -1574,9 +3998,44 @@ private void ResetRuntimeLayoutToDefault()
         if (_hideTransform && component is Transform)
             return false;
 
-        return true;
+        if (string.IsNullOrWhiteSpace(_hierarchySearch))
+            return true;
+
+        if (ContainsIgnoreCase(ownerName, _hierarchySearch))
+            return true;
+
+        return ContainsIgnoreCase(component.GetType().Name, _hierarchySearch);
     }
 
+
+    private readonly (string label, float width)[] _toolbarToggleItems =
+    {
+        ("Global", 80f),
+        ("Mirror Unity", 110f),
+        ("Auto Scroll", 100f),
+        ("Hide Transform", 120f),
+        ("Collapse Prev", 120f),
+        ("Collapse Logs", 120f),
+        ("Log", 70f),
+        ("Warn", 75f),
+        ("Error", 75f),
+    };
+
+    private readonly (string label, float width)[] _toolbarActionItems =
+    {
+        ("TypeFilter", 160f),
+        ("All Types On", 100f),
+        ("All Types Off", 100f),
+        ("All Levels", 100f),
+        ("Warn+", 80f),
+        ("Error Only", 100f),
+        ("Clear Logs", 100f),
+        ("Clear Focus", 100f),
+        ("Reset Filters", 110f),
+        ("Reset Layout", 110f),
+        ("Export Settings", 120f),
+        ("Import Settings", 120f),
+    };
 
     private void DrawToolbarToggleGroup(DebugConsoleManager manager)
     {
@@ -1590,15 +4049,31 @@ private void ResetRuntimeLayoutToDefault()
 
         bool autoScroll = GUILayout.Toggle(_autoScroll, "Auto Scroll", GUILayout.Width(100f));
         if (autoScroll != _autoScroll)
+        {
             _autoScroll = autoScroll;
+            SaveEditorUiState();
+        }
 
         bool hideTransform = GUILayout.Toggle(_hideTransform, "Hide Transform", GUILayout.Width(120f));
         if (hideTransform != _hideTransform)
+        {
             _hideTransform = hideTransform;
+            SaveEditorUiState();
+        }
 
         bool collapsePrevious = GUILayout.Toggle(_collapsePreviousOnSelection, "Collapse Prev", GUILayout.Width(120f));
         if (collapsePrevious != _collapsePreviousOnSelection)
+        {
             _collapsePreviousOnSelection = collapsePrevious;
+            SaveEditorUiState();
+        }
+
+        bool collapseLogs = GUILayout.Toggle(_collapseLogs, "Collapse Logs", GUILayout.Width(120f));
+        if (collapseLogs != _collapseLogs)
+        {
+            _collapseLogs = collapseLogs;
+            SaveEditorUiState();
+        }
 
         bool showLogs = GUILayout.Toggle(manager.GetLevelEnabled(DebugLogLevel.Log), "Log", GUILayout.Width(70f));
         if (showLogs != manager.GetLevelEnabled(DebugLogLevel.Log))
@@ -1613,134 +4088,301 @@ private void ResetRuntimeLayoutToDefault()
             manager.SetLevelEnabled(DebugLogLevel.Error, showErrors);
     }
 
+    private void DrawToolbarToggleGroupWrapped(DebugConsoleManager manager, float availableWidth)
+    {
+        int splitIndex = GetWrappedSplitIndex(_toolbarToggleItems, availableWidth);
+        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+        DrawToolbarToggleItems(manager, 0, splitIndex);
+        EditorGUILayout.EndHorizontal();
+
+        if (splitIndex < _toolbarToggleItems.Length)
+        {
+            EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+            DrawToolbarToggleItems(manager, splitIndex, _toolbarToggleItems.Length);
+            EditorGUILayout.EndHorizontal();
+        }
+    }
+
+    private void DrawToolbarToggleItems(DebugConsoleManager manager, int startIndex, int endIndex)
+    {
+        for (int i = startIndex; i < endIndex; i++)
+        {
+            switch (_toolbarToggleItems[i].label)
+            {
+                case "Global":
+                {
+                    bool value = GUILayout.Toggle(manager.GlobalEnabled, "Global", GUILayout.Width(80f));
+                    if (value != manager.GlobalEnabled)
+                        manager.GlobalEnabled = value;
+                    break;
+                }
+
+                case "Mirror Unity":
+                {
+                    bool value = GUILayout.Toggle(manager.MirrorToUnityConsole, "Mirror Unity", GUILayout.Width(110f));
+                    if (value != manager.MirrorToUnityConsole)
+                        manager.MirrorToUnityConsole = value;
+                    break;
+                }
+
+                case "Auto Scroll":
+                {
+                    bool value = GUILayout.Toggle(_autoScroll, "Auto Scroll", GUILayout.Width(100f));
+                    if (value != _autoScroll)
+                    {
+                        _autoScroll = value;
+                        SaveEditorUiState();
+                    }
+                    break;
+                }
+
+                case "Hide Transform":
+                {
+                    bool value = GUILayout.Toggle(_hideTransform, "Hide Transform", GUILayout.Width(120f));
+                    if (value != _hideTransform)
+                    {
+                        _hideTransform = value;
+                        SaveEditorUiState();
+                    }
+                    break;
+                }
+
+                case "Collapse Prev":
+                {
+                    bool value = GUILayout.Toggle(_collapsePreviousOnSelection, "Collapse Prev", GUILayout.Width(120f));
+                    if (value != _collapsePreviousOnSelection)
+                    {
+                        _collapsePreviousOnSelection = value;
+                        SaveEditorUiState();
+                    }
+                    break;
+                }
+
+                case "Collapse Logs":
+                {
+                    bool value = GUILayout.Toggle(_collapseLogs, "Collapse Logs", GUILayout.Width(120f));
+                    if (value != _collapseLogs)
+                    {
+                        _collapseLogs = value;
+                        SaveEditorUiState();
+                    }
+                    break;
+                }
+
+                case "Log":
+                {
+                    bool value = GUILayout.Toggle(manager.GetLevelEnabled(DebugLogLevel.Log), "Log", GUILayout.Width(70f));
+                    if (value != manager.GetLevelEnabled(DebugLogLevel.Log))
+                        manager.SetLevelEnabled(DebugLogLevel.Log, value);
+                    break;
+                }
+
+                case "Warn":
+                {
+                    bool value = GUILayout.Toggle(manager.GetLevelEnabled(DebugLogLevel.Warning), "Warn", GUILayout.Width(75f));
+                    if (value != manager.GetLevelEnabled(DebugLogLevel.Warning))
+                        manager.SetLevelEnabled(DebugLogLevel.Warning, value);
+                    break;
+                }
+
+                case "Error":
+                {
+                    bool value = GUILayout.Toggle(manager.GetLevelEnabled(DebugLogLevel.Error), "Error", GUILayout.Width(75f));
+                    if (value != manager.GetLevelEnabled(DebugLogLevel.Error))
+                        manager.SetLevelEnabled(DebugLogLevel.Error, value);
+                    break;
+                }
+            }
+
+            if (i < endIndex - 1)
+                GUILayout.Space(8f);
+        }
+    }
+
 private void DrawToolbarActionGroup(DebugConsoleManager manager, string typeButtonLabel)
 {
-    if (GUILayout.Button(typeButtonLabel, _toolbarButtonStyle, GUILayout.Width(160f)))
+    if (GUILayout.Button(typeButtonLabel, GUILayout.Width(160f)))
+    {
         _showTypeFilterPanel = !_showTypeFilterPanel;
+        SaveEditorUiState();
+    }
 
-    if (GUILayout.Button("All Types On", _toolbarButtonStyle, GUILayout.Width(100f)))
+    if (GUILayout.Button("All Types On", GUILayout.Width(100f)))
         manager.SetAllTypes(true);
 
-    if (GUILayout.Button("All Types Off", _toolbarButtonStyle, GUILayout.Width(100f)))
+    if (GUILayout.Button("All Types Off", GUILayout.Width(100f)))
         manager.SetAllTypes(false);
 
-    if (GUILayout.Button("All Levels", _toolbarButtonStyle, GUILayout.Width(100f)))
+    if (GUILayout.Button("All Levels", GUILayout.Width(100f)))
         manager.SetAllLevels(true);
 
-    if (GUILayout.Button("Warn+", _toolbarButtonStyle, GUILayout.Width(80f)))
+    if (GUILayout.Button("Warn+", GUILayout.Width(80f)))
         manager.SetWarningAndErrorOnly();
 
-    if (GUILayout.Button("Error Only", _toolbarButtonStyle, GUILayout.Width(100f)))
+    if (GUILayout.Button("Error Only", GUILayout.Width(100f)))
         manager.SetErrorOnly();
 
-    if (GUILayout.Button("Clear Logs", _toolbarButtonStyle, GUILayout.Width(100f)))
+    if (GUILayout.Button("Clear Logs", GUILayout.Width(100f)))
         manager.ClearLogs();
 
-    if (GUILayout.Button("Clear Focus", _toolbarButtonStyle, GUILayout.Width(100f)))
+    if (GUILayout.Button("Clear Focus", GUILayout.Width(100f)))
         ClearFocus();
 
-    if (GUILayout.Button("Reset Filters", _toolbarButtonStyle, GUILayout.Width(110f)))
+    if (GUILayout.Button("Reset Filters", GUILayout.Width(110f)))
         manager.ResetAllFiltersToDefault();
 
-    if (GUILayout.Button("Reset Layout", _toolbarButtonStyle, GUILayout.Width(110f)))
-        ResetRuntimeLayoutToDefault();
+    if (GUILayout.Button("Reset Layout", GUILayout.Width(110f)))
+        ResetEditorLayoutToDefault();
+
+    if (GUILayout.Button("Export Settings", GUILayout.Width(120f)))
+        ExportEditorSettingsToFile();
+
+    if (GUILayout.Button("Import Settings", GUILayout.Width(120f)))
+        ImportEditorSettingsFromFile(_lastSnapshot);
 }
 
-private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
+private void DrawToolbarActionGroupWrapped(DebugConsoleManager manager, string typeButtonLabel, float availableWidth)
     {
-        GUILayout.Label(GetFocusLabel(), _toolbarInfoLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(expanded ? 34f : 18f));
+        int splitIndex = GetWrappedSplitIndex(_toolbarActionItems, availableWidth);
+        EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+        DrawToolbarActionItems(manager, typeButtonLabel, 0, splitIndex);
+        EditorGUILayout.EndHorizontal();
+
+        if (splitIndex < _toolbarActionItems.Length)
+        {
+            EditorGUILayout.BeginHorizontal(GUILayout.MinHeight(24f));
+            DrawToolbarActionItems(manager, typeButtonLabel, splitIndex, _toolbarActionItems.Length);
+            EditorGUILayout.EndHorizontal();
+        }
+    }
+
+private void DrawToolbarActionItems(DebugConsoleManager manager, string typeButtonLabel, int startIndex, int endIndex)
+{
+    for (int i = startIndex; i < endIndex; i++)
+    {
+        string key = _toolbarActionItems[i].label;
+        float width = _toolbarActionItems[i].width;
+
+        switch (key)
+        {
+            case "TypeFilter":
+                if (GUILayout.Button(typeButtonLabel, GUILayout.Width(width)))
+                {
+                    _showTypeFilterPanel = !_showTypeFilterPanel;
+                    SaveEditorUiState();
+                }
+                break;
+
+            case "All Types On":
+                if (GUILayout.Button("All Types On", GUILayout.Width(width)))
+                    manager.SetAllTypes(true);
+                break;
+
+            case "All Types Off":
+                if (GUILayout.Button("All Types Off", GUILayout.Width(width)))
+                    manager.SetAllTypes(false);
+                break;
+
+            case "All Levels":
+                if (GUILayout.Button("All Levels", GUILayout.Width(width)))
+                    manager.SetAllLevels(true);
+                break;
+
+            case "Warn+":
+                if (GUILayout.Button("Warn+", GUILayout.Width(width)))
+                    manager.SetWarningAndErrorOnly();
+                break;
+
+            case "Error Only":
+                if (GUILayout.Button("Error Only", GUILayout.Width(width)))
+                    manager.SetErrorOnly();
+                break;
+
+            case "Clear Logs":
+                if (GUILayout.Button("Clear Logs", GUILayout.Width(width)))
+                    manager.ClearLogs();
+                break;
+
+            case "Clear Focus":
+                if (GUILayout.Button("Clear Focus", GUILayout.Width(width)))
+                    ClearFocus();
+                break;
+
+            case "Reset Filters":
+                if (GUILayout.Button("Reset Filters", GUILayout.Width(width)))
+                    manager.ResetAllFiltersToDefault();
+                break;
+
+            case "Reset Layout":
+                if (GUILayout.Button("Reset Layout", GUILayout.Width(width)))
+                    ResetEditorLayoutToDefault();
+                break;
+
+            case "Export Settings":
+                if (GUILayout.Button("Export Settings", GUILayout.Width(width)))
+                    ExportEditorSettingsToFile();
+                break;
+
+            case "Import Settings":
+                if (GUILayout.Button("Import Settings", GUILayout.Width(width)))
+                    ImportEditorSettingsFromFile(_lastSnapshot);
+                break;
+        }
+
+        if (i < endIndex - 1)
+            GUILayout.Space(8f);
+    }
+}
+
+private int GetWrappedSplitIndex((string label, float width)[] items, float availableWidth)
+    {
+        float rowWidth = 0f;
+        const float spacing = 8f;
+
+        for (int i = 0; i < items.Length; i++)
+        {
+            float nextWidth = items[i].width + (i > 0 ? spacing : 0f);
+            if (rowWidth + nextWidth > availableWidth && i > 0)
+                return i;
+
+            rowWidth += nextWidth;
+        }
+
+        return items.Length;
+    }
+
+    private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
+    {
+        GUILayout.Label(GetFocusLabel(), _toolbarInfoLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(expanded ? 30f : 18f));
         GUILayout.Space(8f);
-        GUILayout.Label($"Count : {manager.Entries.Count}", _toolbarInfoLabelStyle, GUILayout.Width(expanded ? 120f : 110f), GUILayout.MinHeight(expanded ? 34f : 18f));
+        GUILayout.Label($"Count : {manager.Entries.Count}", _toolbarInfoLabelStyle, GUILayout.Width(expanded ? 120f : 110f), GUILayout.MinHeight(expanded ? 30f : 18f));
     }
 
     private void DrawHierarchySearchField(float fieldWidth, float labelWidth)
     {
         GUILayout.Label("Hierarchy Search", GUILayout.Width(labelWidth));
-
-        Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, 24f, GUILayout.Width(fieldWidth), GUILayout.Height(24f));
-        GUI.Box(fieldRect, GUIContent.none, _searchTextFieldStyle);
-        _hierarchySearchScreenRect = ToScreenRect(fieldRect);
-
-        Event current = Event.current;
-        if (current.type == EventType.MouseDown && fieldRect.Contains(current.mousePosition))
-        {
-            Rect screenRect = ToScreenRect(fieldRect);
-            _hierarchySearchScreenRect = screenRect;
-            _activeSearchField = SearchFieldFocus.Hierarchy;
-
-            if (_searchOverlay != null)
-            {
-                _searchOverlay.SetVisible(true);
-                _searchOverlay.SetHierarchyRect(screenRect);
-                _searchOverlay.SetTexts(_hierarchySearch, _logSearch);
-                _searchOverlay.FocusHierarchy();
-            }
-
-            current.Use();
-        }
-
-        if (_searchOverlay != null && _searchOverlay.IsHierarchyFocused)
-            _searchFieldFocusedThisFrame = true;
+        Rect fieldRect = GUILayoutUtility.GetRect(fieldWidth, 20f, GUILayout.Width(fieldWidth), GUILayout.Height(20f));
+        _hierarchySearch = (_hierarchySearchFieldControl ??= new SearchField()).OnGUI(fieldRect, _hierarchySearch);
     }
 
     private void DrawLogSearchField(float labelWidth)
     {
         GUILayout.Label("Log Search", GUILayout.Width(labelWidth));
-
-        Rect fieldRect = GUILayoutUtility.GetRect(10f, 24f, GUILayout.ExpandWidth(true), GUILayout.Height(24f));
-        GUI.Box(fieldRect, GUIContent.none, _searchTextFieldStyle);
-        _logSearchScreenRect = ToScreenRect(fieldRect);
-
-        Event current = Event.current;
-        if (current.type == EventType.MouseDown && fieldRect.Contains(current.mousePosition))
-        {
-            Rect screenRect = ToScreenRect(fieldRect);
-            _logSearchScreenRect = screenRect;
-            _activeSearchField = SearchFieldFocus.Log;
-
-            if (_searchOverlay != null)
-            {
-                _searchOverlay.SetVisible(true);
-                _searchOverlay.SetLogRect(screenRect);
-                _searchOverlay.SetTexts(_hierarchySearch, _logSearch);
-                _searchOverlay.FocusLog();
-            }
-
-            current.Use();
-        }
-
-        if (_searchOverlay != null && _searchOverlay.IsLogFocused)
-            _searchFieldFocusedThisFrame = true;
+        Rect fieldRect = GUILayoutUtility.GetRect(10f, 20f, GUILayout.ExpandWidth(true), GUILayout.Height(20f));
+        _logSearch = (_logSearchFieldControl ??= new SearchField()).OnGUI(fieldRect, _logSearch);
 
         if (GUILayout.Button("Clear Search", GUILayout.Width(100f)))
         {
             _hierarchySearch = string.Empty;
             _logSearch = string.Empty;
-            _activeSearchField = SearchFieldFocus.None;
-
-            if (_searchOverlay != null)
-            {
-                _searchOverlay.ClearTexts();
-                _searchOverlay.SetVisible(false);
-            }
+            GUI.FocusControl(null);
+            SaveEditorUiState();
         }
     }
 
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
     private float GetTopAreaWidth()
     {
-        return Mathf.Max(320f, _windowRect.width - 36f);
+        return Mathf.Max(320f, position.width - 32f);
     }
 
     private int GetTopLayoutLevel(float availableWidth)
@@ -1759,7 +4401,7 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
         if (stacked)
             return Mathf.Max(180f, availableWidth - 130f);
 
-        return Mathf.Clamp((availableWidth * 0.28f), 180f, 280f);
+        return Mathf.Clamp(availableWidth * 0.28f, 180f, 280f);
     }
 
     private int GetVisibleEntryCount(DebugConsoleManager manager)
@@ -1825,3 +4467,4 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
         return source.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 }
+#endif
