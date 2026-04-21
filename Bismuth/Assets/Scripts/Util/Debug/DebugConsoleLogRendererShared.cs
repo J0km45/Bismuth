@@ -34,10 +34,10 @@ public static class DebugConsoleLogRendererShared
 
         float contentHeight = 0f;
 
-        ctx.Scroll = GUILayout.BeginScrollView(ctx.Scroll, false, true);
+        ctx.Scroll = GUILayout.BeginScrollView(ctx.Scroll, false, !ctx.AutoScroll, GUIStyle.none, ctx.AutoScroll ? GUIStyle.none : GUI.skin.verticalScrollbar);
 
         IReadOnlyList<DebugEntry> entries = ctx.Entries;
-        float width = Mathf.Max(ctx.PanelWidth - 32f, 300f);
+        float width = Mathf.Max(ctx.PanelWidth - (ctx.AutoScroll ? 20f : 32f), 300f);
 
         for (int i = 0; i < entries.Count; i++)
         {

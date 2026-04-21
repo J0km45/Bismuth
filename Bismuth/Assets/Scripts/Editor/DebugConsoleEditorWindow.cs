@@ -658,9 +658,9 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         float contentHeight = 0f;
 
-        _logScroll = EditorGUILayout.BeginScrollView(_logScroll);
+        _logScroll = GUILayout.BeginScrollView(_logScroll, false, !_autoScroll, GUIStyle.none, GetLogVerticalScrollbarStyle());
 
-        float width = Mathf.Max(panelWidth - 32f, 300f);
+        float width = Mathf.Max(GetLogContentWidth(panelWidth), 300f);
         List<SnapshotLogGroup> groups = BuildVisibleSnapshotLogGroups(snapshot);
         for (int i = 0; i < groups.Count; i++)
         {
@@ -2361,7 +2361,13 @@ public class DebugConsoleEditorWindow : EditorWindow
 
     private float GetLogContentWidth(float panelWidth)
     {
-        return Mathf.Max(140f, panelWidth - _boxStyle.padding.left - _boxStyle.padding.right - 58f);
+        float scrollbarReserve = _autoScroll ? 34f : 58f;
+        return Mathf.Max(140f, panelWidth - _boxStyle.padding.left - _boxStyle.padding.right - scrollbarReserve);
+    }
+
+    private GUIStyle GetLogVerticalScrollbarStyle()
+    {
+        return _autoScroll ? GUIStyle.none : GUI.skin.verticalScrollbar;
     }
 
     private void DrawGameObjectNode(DebugConsoleManager manager, GameObject go, int depth, float panelWidth)
@@ -2498,9 +2504,9 @@ public class DebugConsoleEditorWindow : EditorWindow
 
         float contentHeight = 0f;
 
-        _logScroll = EditorGUILayout.BeginScrollView(_logScroll);
+        _logScroll = GUILayout.BeginScrollView(_logScroll, false, !_autoScroll, GUIStyle.none, GetLogVerticalScrollbarStyle());
 
-        float width = Mathf.Max(panelWidth - 32f, 300f);
+        float width = Mathf.Max(GetLogContentWidth(panelWidth), 300f);
         List<LiveLogGroup> groups = BuildVisibleLiveLogGroups(manager);
 
         for (int i = 0; i < groups.Count; i++)

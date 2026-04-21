@@ -636,7 +636,13 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     private float GetLogContentWidth(float panelWidth)
     {
-        return Mathf.Max(140f, panelWidth - _boxStyle.padding.left - _boxStyle.padding.right - 58f);
+        float scrollbarReserve = _autoScroll ? 34f : 58f;
+        return Mathf.Max(140f, panelWidth - _boxStyle.padding.left - _boxStyle.padding.right - scrollbarReserve);
+    }
+
+    private GUIStyle GetLogVerticalScrollbarStyle()
+    {
+        return _autoScroll ? GUIStyle.none : GUI.skin.verticalScrollbar;
     }
 
     private void DrawGameObjectNode(DebugConsoleManager manager, GameObject go, int depth, float panelWidth)
@@ -775,7 +781,7 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         float contentHeight = 0f;
         float logContentWidth = GetLogContentWidth(panelWidth);
 
-        _logScroll = GUILayout.BeginScrollView(_logScroll);
+        _logScroll = GUILayout.BeginScrollView(_logScroll, false, !_autoScroll, GUIStyle.none, GetLogVerticalScrollbarStyle());
 
         IReadOnlyList<DebugEntry> entries = manager.Entries;
         for (int i = 0; i < entries.Count; i++)
