@@ -124,7 +124,7 @@ public class DebugConsoleEditorWindow : EditorWindow
     private const string SnapshotDirectoryPath = "Library/DebugConsole";
     private const string SnapshotFileName = "DebugConsoleEditorSnapshot.json";
     private const int CurrentSnapshotVersion = 3;
-    private const int MaxSnapshotHierarchyDepth = 8;
+    private const int MaxSnapshotHierarchyDepth = 4;
     private const string EditorStatePrefKey = "DebugConsoleEditorWindow.State";
     private const string ManagerPrefKeyPrefix = "DebugConsole.Manager";
     private const string GlobalEnabledPrefKey = ManagerPrefKeyPrefix + ".GlobalEnabled";
@@ -2880,7 +2880,7 @@ private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     if (bottomPadding > 0f)
         GUILayout.Space(bottomPadding);
 
-    EditorGUILayout.EndScrollView();
+    GUILayout.EndScrollView();
 
     Rect scrollRect = GUILayoutUtility.GetLastRect();
     _lastLogViewportHeight = scrollRect.height;
@@ -2888,7 +2888,11 @@ private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     _lastMaxLogScrollY = Mathf.Max(0f, _lastLogContentHeight - _lastLogViewportHeight);
 
     if (Event.current.type == EventType.Repaint && _autoScroll)
-        _logScroll.y = _lastMaxLogScrollY + 4f;
+    {
+        Vector2 nextScroll = _logScroll;
+        nextScroll.y = _lastMaxLogScrollY + 4f;
+        _logScroll = nextScroll;
+    }
 
     if (_showLogDetails)
     {
