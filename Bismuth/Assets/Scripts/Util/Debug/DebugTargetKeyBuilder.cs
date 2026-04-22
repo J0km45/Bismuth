@@ -1,8 +1,18 @@
+// ------------------------------------------------------------------------------
+// 오브젝트와 컴포넌트를 안정적으로 추적하기 위한 키와 경로 문자열을 만드는 파일이다.
+// 멤버별 주석은 해당 변수, 메서드, 클래스가 왜 필요한지와 호출 시 어떤 역할을 하는지를 빠르게 파악하기 위해 추가하였다.
+// ------------------------------------------------------------------------------
 using System.Text;
 using UnityEngine;
 
+/// <summary>
+/// 씬, 계층 경로, 오브젝트 키, 컴포넌트 키를 만드는 정적 클래스이다.
+/// </summary>
 public static class DebugTargetKeyBuilder
 {
+    /// <summary>
+    /// 씬 식별 키 데이터를 조합해 새 문자열이나 키를 만든다. 동일한 규칙으로 값을 만들기 위해 사용한다.
+    /// </summary>
     public static string BuildSceneKey(GameObject go)
     {
         if (go == null)
@@ -20,6 +30,9 @@ public static class DebugTargetKeyBuilder
         return "[UnnamedScene]";
     }
 
+    /// <summary>
+    /// 계층 경로 데이터를 조합해 새 문자열이나 키를 만든다. 동일한 규칙으로 값을 만들기 위해 사용한다.
+    /// </summary>
     public static string BuildHierarchyPath(Transform transform)
     {
         if (transform == null)
@@ -38,6 +51,9 @@ public static class DebugTargetKeyBuilder
         return builder.ToString();
     }
 
+    /// <summary>
+    /// 오브젝트 식별 키 데이터를 조합해 새 문자열이나 키를 만든다. 동일한 규칙으로 값을 만들기 위해 사용한다.
+    /// </summary>
     public static string BuildGameObjectKey(GameObject go)
     {
         if (go == null)
@@ -46,6 +62,9 @@ public static class DebugTargetKeyBuilder
         return $"{BuildSceneKey(go)}|{BuildHierarchyPath(go.transform)}";
     }
 
+    /// <summary>
+    /// 컴포넌트 식별 키 데이터를 조합해 새 문자열이나 키를 만든다. 동일한 규칙으로 값을 만들기 위해 사용한다.
+    /// </summary>
     public static string BuildComponentKey(Component component)
     {
         if (component == null)
@@ -55,11 +74,17 @@ public static class DebugTargetKeyBuilder
         return $"{BuildGameObjectKey(component.gameObject)}|{component.GetType().FullName}#{sameTypeIndex}";
     }
 
+    /// <summary>
+    /// 경로 구간 데이터를 조합해 새 문자열이나 키를 만든다. 동일한 규칙으로 값을 만들기 위해 사용한다.
+    /// </summary>
     private static string BuildPathSegment(Transform transform)
     {
         return $"{transform.name}[{transform.GetSiblingIndex()}]";
     }
 
+    /// <summary>
+    /// same 타입 index 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private static int GetSameTypeIndex(Component component)
     {
         Component[] components = component.GetComponents<Component>();

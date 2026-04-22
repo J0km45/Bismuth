@@ -1,3 +1,7 @@
+// ------------------------------------------------------------------------------
+// 게임 코드에서 직접 호출하는 디버그 로그 진입점이며, 로그를 구조화해 매니저로 넘기는 공용 유틸 파일이다.
+// 멤버별 주석은 해당 변수, 메서드, 클래스가 왜 필요한지와 호출 시 어떤 역할을 하는지를 빠르게 파악하기 위해 추가하였다.
+// ------------------------------------------------------------------------------
 using System;
 using System.IO;
 using System.Text;
@@ -10,8 +14,12 @@ using Object = UnityEngine.Object;
 /// </summary>
 public static class DebugTool
 {
+    // sequence 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private static long _sequence;
 
+    /// <summary>
+    /// 로그 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     public static void Log(
         string text,
         DebugType type,
@@ -23,6 +31,9 @@ public static class DebugTool
         Write(DebugLogLevel.Log, text, type, context, memberName, filePath, lineNumber);
     }
 
+    /// <summary>
+    /// 경고 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     public static void Warning(
         string text,
         DebugType type,
@@ -46,6 +57,9 @@ public static class DebugTool
         Write(DebugLogLevel.Warning, text, type, context, memberName, filePath, lineNumber);
     }
 
+    /// <summary>
+    /// 오류 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     public static void Error(
         string text,
         DebugType type,
@@ -57,6 +71,9 @@ public static class DebugTool
         Write(DebugLogLevel.Error, text, type, context, memberName, filePath, lineNumber);
     }
 
+    /// <summary>
+    /// missing 컴포넌트 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     public static void MissingComponent(
         string text = null,
         Object context = null,
@@ -71,6 +88,9 @@ public static class DebugTool
         Write(DebugLogLevel.Warning, message, DebugType.Missing, context, memberName, filePath, lineNumber);
     }
 
+    /// <summary>
+    /// debug print all 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     public static void DebugPrintAll(bool value)
     {
         if (DebugConsoleManager.Instance == null)
@@ -79,6 +99,9 @@ public static class DebugTool
         DebugConsoleManager.Instance.GlobalEnabled = value;
     }
 
+    /// <summary>
+    /// debug select 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     public static void DebugSelect(DebugType type, bool value)
     {
         if (DebugConsoleManager.Instance == null)
@@ -87,6 +110,9 @@ public static class DebugTool
         DebugConsoleManager.Instance.SetTypeEnabled(type, value);
     }
 
+    /// <summary>
+    /// 관련 작업를 기록한다.
+    /// </summary>
     private static void Write(
         DebugLogLevel level,
         string text,
@@ -162,6 +188,9 @@ public static class DebugTool
         }
     }
 
+    /// <summary>
+    /// resolve 대상 metadata 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     private static void ResolveTargetMetadata(
         Object context,
         out string sceneKey,
@@ -201,6 +230,9 @@ public static class DebugTool
         }
     }
 
+    /// <summary>
+    /// 대상 ids 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private static void GetTargetIds(Object context, out int gameObjectId, out int componentId)
     {
         gameObjectId = 0;
@@ -219,6 +251,9 @@ public static class DebugTool
         }
     }
 
+    /// <summary>
+    /// 출처 이름 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private static string GetSourceName(Object context, string fallbackFileName)
     {
         if (context == null)
@@ -233,6 +268,9 @@ public static class DebugTool
         return context.name;
     }
 
+    /// <summary>
+    /// print to 유니티 console 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     private static void PrintToUnityConsole(DebugEntry entry)
     {
         switch (entry.Level)
@@ -252,6 +290,9 @@ public static class DebugTool
     }
 
 
+/// <summary>
+/// 스택 트레이스 데이터를 조합해 새 문자열이나 키를 만든다. 동일한 규칙으로 값을 만들기 위해 사용한다.
+/// </summary>
 private static string BuildStackTrace(string filePath, int lineNumber, string memberName)
 {
     try
@@ -287,6 +328,9 @@ private static string BuildStackTrace(string filePath, int lineNumber, string me
     }
 }
 
+/// <summary>
+/// 색상 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+/// </summary>
 private static string GetColor(DebugType type)
 {
         switch (type)
@@ -311,6 +355,9 @@ private static string GetColor(DebugType type)
     }
 }
 
+/// <summary>
+/// DebugType 값을 구분하기 위한 열거형이다.
+/// </summary>
 public enum DebugType
 {
     Game = 0,
