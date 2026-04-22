@@ -2888,11 +2888,7 @@ private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     _lastMaxLogScrollY = Mathf.Max(0f, _lastLogContentHeight - _lastLogViewportHeight);
 
     if (Event.current.type == EventType.Repaint && _autoScroll)
-    {
-        Vector2 nextScroll = _logScroll;
-        nextScroll.y = _lastMaxLogScrollY + 4f;
-        _logScroll = nextScroll;
-    }
+        _logScroll.y = _lastMaxLogScrollY + 4f;
 
     if (_showLogDetails)
     {
