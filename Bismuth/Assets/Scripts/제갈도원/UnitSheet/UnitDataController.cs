@@ -24,8 +24,6 @@ public class UnitDataController : MonoBehaviour
     [SerializeField] private bool _log;
     private void Start()
     {
-        DebugTool.DebugSelect(DebugType.Data, _log);
-        
         if (unitSheet == null || unitDatabaseByTier == null)
         {
             DebugTool.Warnning("unitSheet 또는 unitDatabase가 할당되지 않았습니다.", DebugType.Data, this);

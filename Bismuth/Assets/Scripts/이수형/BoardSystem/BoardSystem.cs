@@ -41,8 +41,6 @@ public class BoardSystem : MonoBehaviour
 
     private void Awake()
     {
-        DebugTool.DebugSelect(DebugType.Board, _log);
-        
         if (Instance != null && Instance != this)
         {
             DebugTool.Warnning("BoardSystem이 중복 생성되었습니다.", DebugType.Board, this);

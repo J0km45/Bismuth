@@ -89,8 +89,6 @@ public class SummonUnit : MonoBehaviour
 
     private void Start()
     {
-        DebugTool.DebugSelect(DebugType.Summon, summonLog);
-        DebugTool.DebugSelect(DebugType.Board, summonLog);
         CleanupNullOwnedTowers();
     }
 

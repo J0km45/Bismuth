@@ -123,11 +123,6 @@ public class CombatManager : MonoBehaviour
             synergyManager.OnSynergyChanged += HandleSynergyChangedForOrc;
     }
 
-    private void Start()
-    {
-        DebugTool.DebugSelect(DebugType.Unit, false);
-    }
-
     private void OnDisable()
     {
         if (_battleWaveRunner != null)
