@@ -1,3 +1,7 @@
+// ------------------------------------------------------------------------------
+// 게임 실행 중 F1로 여는 런타임 디버그 콘솔 창을 그리는 메인 파일이다.
+// 멤버별 주석은 해당 변수, 메서드, 클래스가 왜 필요한지와 호출 시 어떤 역할을 하는지를 빠르게 파악하기 위해 추가하였다.
+// ------------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -7,39 +11,72 @@ using UnityEngine.SceneManagement;
 using UnityEngine.EventSystems;
 using TMPro;
 
+/// <summary>
+/// 런타임 디버그 콘솔의 전체 UI와 입력 처리를 담당하는 MonoBehaviour 클래스이다.
+/// </summary>
 public class RuntimeDebugConsoleWindow : MonoBehaviour
 {
+    /// <summary>
+    /// 로그 원본 인덱스를 유지한 채 런타임 표시 대상 로그를 묶어두는 보조 클래스이다.
+    /// </summary>
     private sealed class VisibleRuntimeLogEntry
     {
+        // 엔트리 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
         public DebugEntry Entry;
+        // 출처 index 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
         public int SourceIndex;
     }
+    // 토글 식별 키 값을 저장한다. 오브젝트나 컴포넌트를 식별하기 위한 키 값을 저장한다.
     [SerializeField] private KeyCode _toggleKey = KeyCode.F1;
+    // 표시 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     [SerializeField] private bool _visible = false;
+    // 창 영역 값을 저장한다. 런타임 창의 위치와 크기를 저장한다.
     [SerializeField] private Rect _windowRect = new Rect(20f, 20f, 1450f, 850f);
+    // 자동 스크롤 값을 저장한다. 새 로그가 들어왔을 때 마지막 항목으로 자동 이동할지 결정한다.
     [SerializeField] private bool _autoScroll = true;
+    // 숨김 transform 값을 저장한다. Transform 컴포넌트를 목록에서 숨길지 결정한다.
     [SerializeField] private bool _hideTransform = true;
+    // 묶기 이전 on 선택 값을 저장한다. 다른 대상을 선택했을 때 이전에 펼친 항목을 접을지 결정한다.
     [SerializeField] private bool _collapsePreviousOnSelection = true;
 
+    // 계층 스크롤 값을 저장한다. 계층 패널의 스크롤 위치를 저장한다.
     private Vector2 _hierarchyScroll;
+    // 로그 스크롤 값을 저장한다. 로그 패널의 스크롤 위치를 저장한다.
     private Vector2 _logScroll;
+    // 타입 필터 스크롤 값을 저장한다. 타입 필터 패널의 스크롤 위치를 저장한다.
     private Vector2 _typeFilterScroll;
+    // 상세 스크롤 값을 저장한다. 상세 패널의 스크롤 위치를 저장한다.
     private Vector2 _detailScroll;
 
+    // 계층 검색 값을 저장한다. 현재 검색어 상태를 저장한다. 목록 필터링이나 표시 대상 계산의 기준으로 사용한다.
     private string _hierarchySearch = string.Empty;
+    // 로그 검색 값을 저장한다. 현재 검색어 상태를 저장한다. 목록 필터링이나 표시 대상 계산의 기준으로 사용한다.
     private string _logSearch = string.Empty;
+    // 대기 계층 검색 값을 저장한다. 지금 즉시 적용하지 않고 다음 단계에서 반영할 임시 상태를 저장한다.
     private string _pendingHierarchySearch = string.Empty;
+    // 대기 로그 검색 값을 저장한다. 지금 즉시 적용하지 않고 다음 단계에서 반영할 임시 상태를 저장한다.
     private string _pendingLogSearch = string.Empty;
+    // 계층 검색 적용 시간 값을 저장한다. 검색 입력을 즉시 반영하지 않고 일정 시간 뒤에 적용하기 위한 기준 시각을 저장한다.
     private float _hierarchySearchApplyTime;
+    // 로그 검색 적용 시간 값을 저장한다. 검색 입력을 즉시 반영하지 않고 일정 시간 뒤에 적용하기 위한 기준 시각을 저장한다.
     private float _logSearchApplyTime;
 
+    // 계층 검색 control 이름 값을 저장한다. 현재 검색어 상태를 저장한다. 목록 필터링이나 표시 대상 계산의 기준으로 사용한다.
     private const string HierarchySearchControlName = "DebugConsole_HierarchySearch";
+    // 로그 검색 control 이름 값을 저장한다. 현재 검색어 상태를 저장한다. 목록 필터링이나 표시 대상 계산의 기준으로 사용한다.
     private const string LogSearchControlName = "DebugConsole_LogSearch";
+    // 이전 IME composition mode 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private IMECompositionMode _previousImeCompositionMode = IMECompositionMode.Auto;
+    // IME composition 캡처 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private bool _imeCompositionCaptured;
+    // 검색 입력 필드 focused this 프레임 값을 저장한다. 현재 포커스된 대상의 식별 정보나 이름을 저장한다. 로그와 계층 패널을 연결하는 기준으로 사용한다.
     private bool _searchFieldFocusedThisFrame;
+    // last focused 검색 입력 필드 영역 값을 저장한다. 현재 포커스된 대상의 식별 정보나 이름을 저장한다. 로그와 계층 패널을 연결하는 기준으로 사용한다.
     private Rect _lastFocusedSearchFieldRect;
 
+    /// <summary>
+    /// SearchFieldFocus 값을 구분하기 위한 열거형이다.
+    /// </summary>
     private enum SearchFieldFocus
     {
         None,
@@ -47,99 +84,180 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         Log
     }
 
+    // active 검색 입력 필드 값을 저장한다. 현재 검색어 상태를 저장한다. 목록 필터링이나 표시 대상 계산의 기준으로 사용한다.
     private SearchFieldFocus _activeSearchField = SearchFieldFocus.None;
+    // 검색 입력 필드 content 스타일 값을 저장한다. 현재 검색어 상태를 저장한다. 목록 필터링이나 표시 대상 계산의 기준으로 사용한다.
     private GUIStyle _searchFieldContentStyle;
+    // close 버튼 스타일 값을 저장한다. 이 영역을 그릴 때 사용할 GUIStyle 참조를 저장한다.
     private GUIStyle _closeButtonStyle;
 
+    // event system 활성화 상태 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private readonly Dictionary<EventSystem, bool> _eventSystemEnabledState = new Dictionary<EventSystem, bool>();
 
+    // 검색 오버레이 값을 저장한다. 현재 검색어 상태를 저장한다. 목록 필터링이나 표시 대상 계산의 기준으로 사용한다.
     private RuntimeDebugConsoleSearchOverlay _searchOverlay;
 
+    // 검색 label 너비 값을 저장한다. 현재 검색어 상태를 저장한다. 목록 필터링이나 표시 대상 계산의 기준으로 사용한다.
     private const float SearchLabelWidth = 48f;
+    // 검색 입력 필드 fixed 너비 값을 저장한다. 현재 검색어 상태를 저장한다. 목록 필터링이나 표시 대상 계산의 기준으로 사용한다.
     private const float SearchFieldFixedWidth = 160f;
+    // 검색 clear 버튼 너비 값을 저장한다. 현재 검색어 상태를 저장한다. 목록 필터링이나 표시 대상 계산의 기준으로 사용한다.
     private const float SearchClearButtonWidth = 56f;
+    // 검색 debounce delay 값을 저장한다. 현재 검색어 상태를 저장한다. 목록 필터링이나 표시 대상 계산의 기준으로 사용한다.
     private const float SearchDebounceDelay = 0.2f;
+    // use compact 로그 행 목록 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private const bool UseCompactLogRows = true;
+    // compact 로그 행 높이 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private const float CompactLogRowHeight = 34f;
+    // 계층 검색 screen 영역 값을 저장한다. 현재 검색어 상태를 저장한다. 목록 필터링이나 표시 대상 계산의 기준으로 사용한다.
     private Rect _hierarchySearchScreenRect;
+    // 로그 검색 screen 영역 값을 저장한다. 현재 검색어 상태를 저장한다. 목록 필터링이나 표시 대상 계산의 기준으로 사용한다.
     private Rect _logSearchScreenRect;
 
+    // show 타입 필터 패널 값을 저장한다. 타입 필터 패널 표시 여부를 저장한다.
     private bool _showTypeFilterPanel;
+    // show 로그 details 값을 저장한다. 하단 상세 패널 표시 여부를 저장한다.
     private bool _showLogDetails = true;
+    // 스택 트레이스 foldout 값을 저장한다. 스택 트레이스 영역의 접힘 상태를 저장한다.
     private bool _stackTraceFoldout = true;
 
+    // focused 오브젝트 id 값을 저장한다. 현재 포커스된 대상의 식별 정보나 이름을 저장한다. 로그와 계층 패널을 연결하는 기준으로 사용한다.
     private int _focusedGameObjectId;
+    // focused 컴포넌트 id 값을 저장한다. 현재 포커스된 대상의 식별 정보나 이름을 저장한다. 로그와 계층 패널을 연결하는 기준으로 사용한다.
     private int _focusedComponentId;
+    // focused 오브젝트 이름 값을 저장한다. 현재 포커스된 대상의 식별 정보나 이름을 저장한다. 로그와 계층 패널을 연결하는 기준으로 사용한다.
     private string _focusedObjectName = string.Empty;
+    // focused 컴포넌트 이름 값을 저장한다. 현재 포커스된 대상의 식별 정보나 이름을 저장한다. 로그와 계층 패널을 연결하는 기준으로 사용한다.
     private string _focusedComponentName = string.Empty;
 
+    // 제목 스타일 값을 저장한다. 이 영역을 그릴 때 사용할 GUIStyle 참조를 저장한다.
     private GUIStyle _titleStyle;
+    // box 스타일 값을 저장한다. 이 영역을 그릴 때 사용할 GUIStyle 참조를 저장한다.
     private GUIStyle _boxStyle;
+    // 리치 label 스타일 값을 저장한다. 이 영역을 그릴 때 사용할 GUIStyle 참조를 저장한다.
     private GUIStyle _richLabelStyle;
+    // dim label 스타일 값을 저장한다. 이 영역을 그릴 때 사용할 GUIStyle 참조를 저장한다.
     private GUIStyle _dimLabelStyle;
+    // 검색 텍스트 입력 필드 스타일 값을 저장한다. 현재 검색어 상태를 저장한다. 목록 필터링이나 표시 대상 계산의 기준으로 사용한다.
     private GUIStyle _searchTextFieldStyle;
+    // link 버튼 스타일 값을 저장한다. 이 영역을 그릴 때 사용할 GUIStyle 참조를 저장한다.
     private GUIStyle _linkButtonStyle;
+    // disabled 버튼 스타일 값을 저장한다. 이 영역을 그릴 때 사용할 GUIStyle 참조를 저장한다.
     private GUIStyle _disabledButtonStyle;
+    // 오브젝트 selected 버튼 스타일 값을 저장한다. 이 영역을 그릴 때 사용할 GUIStyle 참조를 저장한다.
     private GUIStyle _objectSelectedButtonStyle;
+    // 컴포넌트 selected 버튼 스타일 값을 저장한다. 이 영역을 그릴 때 사용할 GUIStyle 참조를 저장한다.
     private GUIStyle _componentSelectedButtonStyle;
+    // 상위 selected 버튼 스타일 값을 저장한다. 이 영역을 그릴 때 사용할 GUIStyle 참조를 저장한다.
     private GUIStyle _parentSelectedButtonStyle;
+    // foldout 버튼 스타일 값을 저장한다. 이 영역을 그릴 때 사용할 GUIStyle 참조를 저장한다.
     private GUIStyle _foldoutButtonStyle;
+    // toolbar 버튼 스타일 값을 저장한다. 이 영역을 그릴 때 사용할 GUIStyle 참조를 저장한다.
     private GUIStyle _toolbarButtonStyle;
+    // toolbar info label 스타일 값을 저장한다. 이 영역을 그릴 때 사용할 GUIStyle 참조를 저장한다.
     private GUIStyle _toolbarInfoLabelStyle;
+    // toolbar info right label 스타일 값을 저장한다. 이 영역을 그릴 때 사용할 GUIStyle 참조를 저장한다.
     private GUIStyle _toolbarInfoRightLabelStyle;
+    // 하단 left label 스타일 값을 저장한다. 이 영역을 그릴 때 사용할 GUIStyle 참조를 저장한다.
     private GUIStyle _footerLeftLabelStyle;
+    // 하단 right label 스타일 값을 저장한다. 이 영역을 그릴 때 사용할 GUIStyle 참조를 저장한다.
     private GUIStyle _footerRightLabelStyle;
+    // 오브젝트 focused 행 스타일 값을 저장한다. 현재 포커스된 대상의 식별 정보나 이름을 저장한다. 로그와 계층 패널을 연결하는 기준으로 사용한다.
     private GUIStyle _objectFocusedRowStyle;
+    // 오브젝트 상위 focused 행 스타일 값을 저장한다. 현재 포커스된 대상의 식별 정보나 이름을 저장한다. 로그와 계층 패널을 연결하는 기준으로 사용한다.
     private GUIStyle _objectParentFocusedRowStyle;
+    // 컴포넌트 focused 행 스타일 값을 저장한다. 현재 포커스된 대상의 식별 정보나 이름을 저장한다. 로그와 계층 패널을 연결하는 기준으로 사용한다.
     private GUIStyle _componentFocusedRowStyle;
+    // solid texture 값을 저장한다. 인스턴스 식별자 값을 저장한다.
     private Texture2D _solidTexture;
+    // 스타일 목록 dirty 값을 저장한다. 이 영역을 그릴 때 사용할 GUIStyle 참조를 저장한다.
     private bool _stylesDirty = true;
 
+    // selected 오브젝트 bg 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private readonly Color _selectedObjectBg = new Color(0.98f, 0.80f, 0.18f, 1f);
+    // selected 컴포넌트 bg 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private readonly Color _selectedComponentBg = new Color(0.84f, 0.64f, 0.14f, 1f);
+    // selected 상위 bg 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private readonly Color _selectedParentBg = new Color(0.50f, 0.38f, 0.08f, 1f);
+    // 오브젝트 focused 행 bg 값을 저장한다. 현재 포커스된 대상의 식별 정보나 이름을 저장한다. 로그와 계층 패널을 연결하는 기준으로 사용한다.
     private readonly Color _objectFocusedRowBg = new Color(0.98f, 0.80f, 0.18f, 0.32f);
+    // 상위 focused 행 bg 값을 저장한다. 현재 포커스된 대상의 식별 정보나 이름을 저장한다. 로그와 계층 패널을 연결하는 기준으로 사용한다.
     private readonly Color _parentFocusedRowBg = new Color(0.76f, 0.58f, 0.12f, 0.22f);
+    // 컴포넌트 focused 행 bg 값을 저장한다. 현재 포커스된 대상의 식별 정보나 이름을 저장한다. 로그와 계층 패널을 연결하는 기준으로 사용한다.
     private readonly Color _componentFocusedRowBg = new Color(0.84f, 0.64f, 0.14f, 0.36f);
+    // selected 텍스트 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private readonly Color _selectedText = new Color(0.18f, 0.11f, 0.00f, 1f);
+    // selected 상위 텍스트 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private readonly Color _selectedParentText = new Color(1.00f, 0.95f, 0.78f, 1f);
+    // toolbar info 텍스트 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private readonly Color _toolbarInfoText = new Color(1.00f, 0.89f, 0.34f, 1f);
+    // 하단 info 텍스트 색상 값을 저장한다. 색상 값을 저장한다.
     private readonly Color _footerInfoTextColor = new Color(0.96f, 0.84f, 0.22f, 1f);
 
+    // 최대 표시 이름 length 값을 저장한다. 표시용 이름 값을 저장한다.
     private const int MaxDisplayNameLength = 15;
+    // 하단 포커스 구간 최대 length 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private const int FooterFocusSegmentMaxLength = 16;
+    // 계층 행 높이 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private const float HierarchyRowHeight = 22f;
+    // 계층 토글 크기 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private const float HierarchyToggleSize = 18f;
+    // 계층 foldout 크기 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private const float HierarchyFoldoutSize = 18f;
+    // 패널 splitter 너비 값을 저장한다. 인스턴스 식별자 값을 저장한다.
     private const float PanelSplitterWidth = 6f;
+    // 최대 계층 indent 패널티 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private const float MaxHierarchyIndentPenalty = 24f;
+    // 최소 계층 패널 너비 값을 저장한다. 패널의 현재 너비 값을 저장한다. 레이아웃 계산과 렌더링 폭 결정에 사용한다.
     private const float MinHierarchyPanelWidth = 220f;
+    // 최소 로그 패널 너비 값을 저장한다. 패널의 현재 너비 값을 저장한다. 레이아웃 계산과 렌더링 폭 결정에 사용한다.
     private const float MinLogPanelWidth = 220f;
+    // 계층 행 content right 예약 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private const float HierarchyRowContentRightReserve = 18f;
 
+    // 창 영역 pref 식별 키 값을 저장한다. 런타임 창의 위치와 크기를 저장한다.
     private const string WindowRectPrefKey = "RuntimeDebugConsoleWindow.WindowRect";
+    // 계층 패널 너비 pref 식별 키 값을 저장한다. 패널의 현재 너비 값을 저장한다. 레이아웃 계산과 렌더링 폭 결정에 사용한다.
     private const string HierarchyPanelWidthPrefKey = "RuntimeDebugConsoleWindow.HierarchyPanelWidth";
 
+    // 계층 패널 너비 값을 저장한다. 패널의 현재 너비 값을 저장한다. 레이아웃 계산과 렌더링 폭 결정에 사용한다.
     [SerializeField] private float _hierarchyPanelWidth = 480f;
+    // is dragging 패널 splitter 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private bool _isDraggingPanelSplitter;
 
+    // last 로그 content 높이 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private float _lastLogContentHeight;
+    // last 로그 viewport 높이 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private float _lastLogViewportHeight;
+    // cached 표시 엔트리 목록 값을 저장한다. 현재 처리하거나 렌더링할 로그 엔트리 목록을 저장한다.
     private List<VisibleRuntimeLogEntry> _cachedVisibleEntries = new List<VisibleRuntimeLogEntry>();
+    // cached 표시 행 heights 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private List<float> _cachedVisibleRowHeights = new List<float>();
+    // cached 표시 엔트리 목록 change version 값을 저장한다. 현재 처리하거나 렌더링할 로그 엔트리 목록을 저장한다.
     private int _cachedVisibleEntriesChangeVersion = -1;
+    // cached 표시 엔트리 목록 signature 값을 저장한다. 현재 처리하거나 렌더링할 로그 엔트리 목록을 저장한다.
     private string _cachedVisibleEntriesSignature = string.Empty;
+    // cached 표시 엔트리 목록 너비 값을 저장한다. 현재 처리하거나 렌더링할 로그 엔트리 목록을 저장한다.
     private float _cachedVisibleEntriesWidth = -1f;
 
+    // last 최대 로그 스크롤 y 값을 저장한다. 로그 패널의 스크롤 위치를 저장한다.
     private float _lastMaxLogScrollY;
+    // 로그 상세 패널 높이 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private float _logDetailPanelHeight = 220f;
+    // 행 높이 cache 상태를 저장한다. 관련 메서드에서 기준값이나 캐시로 사용한다.
     private readonly Dictionary<string, float> _rowHeightCache = new();
 
+    // 펼침 컴포넌트 목록 값을 저장한다. 트리 항목의 펼침 상태를 저장한다.
     private readonly HashSet<int> _expandedComponents = new();
+    // 펼침 하위 목록 값을 저장한다. 트리 항목의 펼침 상태를 저장한다.
     private readonly HashSet<int> _expandedChildren = new();
 
+    // selected 로그 index 값을 저장한다. 현재 선택된 로그 항목의 인덱스를 저장한다.
     private int _selectedLogIndex = -1;
 
+    /// <summary>
+    /// 객체가 활성화될 때 호출되며, 이벤트 등록과 상태 복원을 수행한다.
+    /// </summary>
     private void OnEnable()
     {
         SceneManager.sceneLoaded += HandleSceneLoaded;
@@ -156,6 +274,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         ApplyUiInputBlockState();
     }
 
+    /// <summary>
+    /// 객체가 비활성화될 때 호출되며, 등록한 이벤트나 임시 상태를 정리한다.
+    /// </summary>
     private void OnDisable()
     {
         SceneManager.sceneLoaded -= HandleSceneLoaded;
@@ -166,6 +287,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             _searchOverlay.SetVisible(false);
     }
 
+    /// <summary>
+    /// 씬 loaded와 관련된 입력이나 이벤트를 처리한다.
+    /// </summary>
     private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         _stylesDirty = true;
@@ -183,6 +307,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         ApplyUiInputBlockState();
     }
 
+    /// <summary>
+    /// 매 프레임 호출되며 입력과 시간 기반 상태를 갱신한다.
+    /// </summary>
     private void Update()
     {
         if (Input.GetKeyDown(_toggleKey))
@@ -191,6 +318,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         ProcessSearchDebounce();
     }
 
+    /// <summary>
+    /// set console 표시 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     private void SetConsoleVisible(bool visible)
     {
         _visible = visible;
@@ -205,6 +335,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 준비된 ui 입력 block 상태 값을 실제 상태에 반영한다.
+    /// </summary>
     private void ApplyUiInputBlockState()
     {
         if (_visible)
@@ -213,6 +346,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
             RestoreEventSystems();
     }
 
+    /// <summary>
+    /// disable 씬 event systems 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     private void DisableSceneEventSystems()
     {
         EventSystem[] eventSystems = FindObjectsByType<EventSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
@@ -229,6 +365,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// restore event systems 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     private void RestoreEventSystems()
     {
         List<EventSystem> keys = new List<EventSystem>(_eventSystemEnabledState.Keys);
@@ -244,6 +383,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _eventSystemEnabledState.Clear();
     }
 
+    /// <summary>
+    /// IMGUI 이벤트마다 호출되며, 현재 상태를 읽어 디버그 콘솔 UI를 그린다.
+    /// </summary>
     private void OnGUI()
     {
         EnsureSearchOverlay();
@@ -290,6 +432,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
 
     
 
+    /// <summary>
+    /// 검색 오버레이가 준비되어 있는지 확인하고, 없으면 생성하거나 복구한다.
+    /// </summary>
     private void EnsureSearchOverlay()
     {
         if (_searchOverlay != null)
@@ -307,18 +452,27 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         _searchOverlay.Initialize();
     }
 
+    /// <summary>
+    /// update 검색 오버레이 레이아웃 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     private void UpdateSearchOverlayLayout()
     {
         if (_searchOverlay != null)
             _searchOverlay.SetVisible(false);
     }
 
+    /// <summary>
+    /// to screen 영역 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     private Rect ToScreenRect(Rect guiRect)
     {
         Vector2 topLeft = GUIUtility.GUIToScreenPoint(new Vector2(guiRect.xMin, guiRect.yMin));
         return new Rect(topLeft.x, topLeft.y, guiRect.width, guiRect.height);
     }
 
+    /// <summary>
+    /// init 스타일 목록 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     private void InitStyles()
     {
         if (!_stylesDirty && _titleStyle != null)
@@ -450,6 +604,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         };
     }
 
+    /// <summary>
+    /// 준비된 label 텍스트 색상 값을 실제 상태에 반영한다.
+    /// </summary>
     private void ApplyLabelTextColor(GUIStyle style, Color color)
     {
         style.normal.textColor = color;
@@ -462,6 +619,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         style.onFocused.textColor = color;
     }
 
+    /// <summary>
+    /// 창 영역을 그린다. 현재 상태와 캐시를 읽어 IMGUI 요소를 배치한다.
+    /// </summary>
     private void DrawWindow(int windowId)
     {
         Rect closeButtonRect = new Rect(_windowRect.width - 30f, 4f, 22f, 18f);
@@ -491,6 +651,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUI.DragWindow(new Rect(0, 0, Mathf.Max(0f, _windowRect.width - 36f), 24f));
     }
 
+    /// <summary>
+    /// toolbar 영역을 그린다. 현재 상태와 캐시를 읽어 IMGUI 요소를 배치한다.
+    /// </summary>
     private void DrawToolbar(DebugConsoleManager manager)
     {
         float availableWidth = GetTopAreaWidth();
@@ -521,6 +684,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.EndHorizontal();
     }
 
+    /// <summary>
+    /// 검색 bar 영역을 그린다. 현재 상태와 캐시를 읽어 IMGUI 요소를 배치한다.
+    /// </summary>
     private void DrawSearchBar()
     {
         float availableWidth = GetTopAreaWidth();
@@ -546,6 +712,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.EndHorizontal();
     }
 
+    /// <summary>
+    /// 타입 필터 패널 영역을 그린다. 현재 상태와 캐시를 읽어 IMGUI 요소를 배치한다.
+    /// </summary>
     private void DrawTypeFilterPanel(DebugConsoleManager manager)
     {
         if (!_showTypeFilterPanel)
@@ -587,6 +756,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.EndVertical();
     }
 
+    /// <summary>
+    /// resizable panels 영역을 그린다. 현재 상태와 캐시를 읽어 IMGUI 요소를 배치한다.
+    /// </summary>
     private void DrawResizablePanels(DebugConsoleManager manager)
     {
         float contentWidth = Mathf.Max(620f, _windowRect.width - 24f);
@@ -605,6 +777,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.EndHorizontal();
     }
 
+    /// <summary>
+    /// 패널 splitter 영역을 그린다. 현재 상태와 캐시를 읽어 IMGUI 요소를 배치한다.
+    /// </summary>
     private void DrawPanelSplitter(float contentWidth)
     {
         Rect splitterRect = GUILayoutUtility.GetRect(PanelSplitterWidth, 10f, GUILayout.Width(PanelSplitterWidth), GUILayout.ExpandHeight(true));
@@ -643,6 +818,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUI.color = previousColor;
     }
 
+    /// <summary>
+    /// 계층 패널 영역을 그린다. 현재 상태와 캐시를 읽어 IMGUI 요소를 배치한다.
+    /// </summary>
     private void DrawHierarchyPanel(DebugConsoleManager manager, float panelWidth)
     {
         GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
@@ -667,6 +845,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         GUILayout.EndVertical();
     }
 
+    /// <summary>
+    /// 계층 행 content 너비 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private float GetHierarchyRowContentWidth(float panelWidth)
     {
         float width = panelWidth;
@@ -675,6 +856,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         return Mathf.Max(140f, width);
     }
 
+    /// <summary>
+    /// 계층 텍스트 버튼 너비 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private float GetHierarchyTextButtonWidth(float rowContentWidth, float leadingSpace, bool reserveToggle, bool reserveFoldout)
     {
         float width = rowContentWidth;
@@ -689,17 +873,26 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
         return Mathf.Max(92f, width);
     }
 
+    /// <summary>
+    /// 로그 content 너비 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private float GetLogContentWidth(float panelWidth)
     {
         float scrollbarReserve = _autoScroll ? 34f : 58f;
         return Mathf.Max(140f, panelWidth - _boxStyle.padding.left - _boxStyle.padding.right - scrollbarReserve);
     }
 
+    /// <summary>
+    /// 로그 vertical scrollbar 스타일 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private GUIStyle GetLogVerticalScrollbarStyle()
     {
         return _autoScroll ? GUIStyle.none : GUI.skin.verticalScrollbar;
     }
 
+    /// <summary>
+    /// 오브젝트 node 영역을 그린다. 현재 상태와 캐시를 읽어 IMGUI 요소를 배치한다.
+    /// </summary>
     private void DrawGameObjectNode(DebugConsoleManager manager, GameObject go, int depth, float panelWidth)
     {
         if (go == null)
@@ -826,6 +1019,9 @@ public class RuntimeDebugConsoleWindow : MonoBehaviour
     }
 
 
+/// <summary>
+/// 로그 패널 영역을 그린다. 현재 상태와 캐시를 읽어 IMGUI 요소를 배치한다.
+/// </summary>
 private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
 {
     GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.ExpandHeight(true));
@@ -889,6 +1085,9 @@ private void DrawLogPanel(DebugConsoleManager manager, float panelWidth)
     GUILayout.EndVertical();
 }
 
+/// <summary>
+/// 로그 엔트리 영역을 그린다. 현재 상태와 캐시를 읽어 IMGUI 요소를 배치한다.
+/// </summary>
 private float DrawLogEntry(DebugEntry entry, int index, float contentWidth)
     {
         string displayText = UseCompactLogRows ? entry.SummaryRichText : entry.RichText;
@@ -927,6 +1126,9 @@ private float DrawLogEntry(DebugEntry entry, int index, float contentWidth)
 
 
 
+/// <summary>
+/// 표시 엔트리 목록 signature 데이터를 조합해 새 문자열이나 키를 만든다. 동일한 규칙으로 값을 만들기 위해 사용한다.
+/// </summary>
 private string BuildVisibleEntriesSignature(DebugConsoleManager manager)
 {
     return string.Join("|",
@@ -937,6 +1139,9 @@ private string BuildVisibleEntriesSignature(DebugConsoleManager manager)
         _focusedComponentId);
 }
 
+/// <summary>
+/// 표시 엔트리 목록 and heights 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+/// </summary>
 private void GetVisibleEntriesAndHeights(DebugConsoleManager manager, float width, out List<VisibleRuntimeLogEntry> visibleEntries, out List<float> rowHeights)
 {
     if (manager == null)
@@ -972,6 +1177,9 @@ private void GetVisibleEntriesAndHeights(DebugConsoleManager manager, float widt
     rowHeights = _cachedVisibleRowHeights;
 }
 
+/// <summary>
+/// 표시 엔트리 목록 데이터를 조합해 새 문자열이나 키를 만든다. 동일한 규칙으로 값을 만들기 위해 사용한다.
+/// </summary>
 private List<VisibleRuntimeLogEntry> BuildVisibleEntries(DebugConsoleManager manager)
 {
     List<VisibleRuntimeLogEntry> result = new List<VisibleRuntimeLogEntry>();
@@ -995,6 +1203,9 @@ private List<VisibleRuntimeLogEntry> BuildVisibleEntries(DebugConsoleManager man
     return result;
 }
 
+/// <summary>
+/// 행 heights 데이터를 조합해 새 문자열이나 키를 만든다. 동일한 규칙으로 값을 만들기 위해 사용한다.
+/// </summary>
 private List<float> BuildRowHeights(List<VisibleRuntimeLogEntry> entries, float width)
 {
     List<float> heights = new List<float>(entries.Count);
@@ -1024,6 +1235,9 @@ private List<float> BuildRowHeights(List<VisibleRuntimeLogEntry> entries, float 
     return heights;
 }
 
+/// <summary>
+    /// calculate 표시 range 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
 private void CalculateVisibleRange(List<float> rowHeights, float scrollY, float viewportHeight, out int startIndex, out int endIndex, out float topPadding, out float visibleHeight, out float totalHeight)
 {
     startIndex = 0;
@@ -1075,6 +1289,9 @@ private void CalculateVisibleRange(List<float> rowHeights, float scrollY, float 
     }
 }
 
+/// <summary>
+/// selected 엔트리 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+/// </summary>
 private DebugEntry GetSelectedEntry(DebugConsoleManager manager)
 {
     if (manager == null)
@@ -1087,6 +1304,9 @@ private DebugEntry GetSelectedEntry(DebugConsoleManager manager)
     return entries[_selectedLogIndex];
 }
 
+/// <summary>
+/// live 로그 상세 패널 영역을 그린다. 현재 상태와 캐시를 읽어 IMGUI 요소를 배치한다.
+/// </summary>
 private void DrawLiveLogDetailPanel(DebugEntry entry, float panelWidth)
 {
     GUILayout.BeginVertical(_boxStyle, GUILayout.Width(panelWidth), GUILayout.Height(_logDetailPanelHeight));
@@ -1137,6 +1357,9 @@ private void DrawLiveLogDetailPanel(DebugEntry entry, float panelWidth)
     GUILayout.EndVertical();
 }
 
+/// <summary>
+/// 런타임 레이아웃 to 기본를 기본 상태로 되돌린다. 사용자가 변경한 임시 상태를 초기 기준값으로 복원한다.
+/// </summary>
 private void ResetRuntimeLayoutToDefault()
 {
     _hierarchyPanelWidth = 420f;
@@ -1151,6 +1374,9 @@ private void ResetRuntimeLayoutToDefault()
     SaveLayoutPreferences();
 }
 
+    /// <summary>
+    /// 엔트리 script를 연다. 외부 에셋이나 패널, 스크립트 위치로 이동시키는 데 사용한다.
+    /// </summary>
     private void OpenEntryScript(DebugEntry entry)
     {
 #if UNITY_EDITOR
@@ -1162,6 +1388,9 @@ private void ResetRuntimeLayoutToDefault()
     }
 
 #if UNITY_EDITOR
+    /// <summary>
+    /// get 엔트리 script location 처리를 시도한다. 성공 여부를 bool로 반환하고 실패 시 안전하게 빠져나간다.
+    /// </summary>
     private bool TryGetEntryScriptLocation(DebugEntry entry, out UnityEditor.MonoScript script, out int lineNumber, out int columnNumber)
     {
         script = null;
@@ -1184,6 +1413,9 @@ private void ResetRuntimeLayoutToDefault()
         return TryFindScriptByFileName(entry.CallerFilePath, out script);
     }
 
+    /// <summary>
+    /// convert 호출자 경로 to 에셋 경로 처리를 시도한다. 성공 여부를 bool로 반환하고 실패 시 안전하게 빠져나간다.
+    /// </summary>
     private bool TryConvertCallerPathToAssetPath(string callerFilePath, out string assetPath)
     {
         assetPath = string.Empty;
@@ -1217,6 +1449,9 @@ private void ResetRuntimeLayoutToDefault()
         return false;
     }
 
+    /// <summary>
+    /// find script by file 이름 처리를 시도한다. 성공 여부를 bool로 반환하고 실패 시 안전하게 빠져나간다.
+    /// </summary>
     private bool TryFindScriptByFileName(string callerFilePath, out UnityEditor.MonoScript script)
     {
         script = null;
@@ -1244,6 +1479,9 @@ private void ResetRuntimeLayoutToDefault()
     }
 #endif
 
+    /// <summary>
+    /// 엔트리를 현재 포커스 대상으로 설정한다. 관련 선택 상태도 함께 갱신한다.
+    /// </summary>
     private void FocusEntry(DebugEntry entry)
     {
         if (entry == null)
@@ -1295,6 +1533,9 @@ private void ResetRuntimeLayoutToDefault()
 #endif
     }
 
+    /// <summary>
+    /// expand 선택 경로 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     private void ExpandSelectionPath(Transform target, bool includeTargetDetails)
     {
         Transform current = target;
@@ -1315,6 +1556,9 @@ private void ResetRuntimeLayoutToDefault()
         }
     }
 
+    /// <summary>
+    /// 표시 엔트리를 수행해야 하는지 정책적으로 판단한다.
+    /// </summary>
     private bool ShouldDisplayEntry(DebugConsoleManager manager, DebugEntry entry)
     {
         if (entry == null)
@@ -1340,6 +1584,9 @@ private void ResetRuntimeLayoutToDefault()
         return true;
     }
 
+    /// <summary>
+    /// 오브젝트 포커스 상태를 켜고 끄는 토글 동작을 수행한다.
+    /// </summary>
     private void ToggleGameObjectFocus(GameObject go)
     {
         if (go == null)
@@ -1361,6 +1608,9 @@ private void ResetRuntimeLayoutToDefault()
         PrepareSelectionExpansion(go.transform, true);
     }
 
+    /// <summary>
+    /// 컴포넌트 포커스 상태를 켜고 끄는 토글 동작을 수행한다.
+    /// </summary>
     private void ToggleComponentFocus(Component component)
     {
         if (component == null)
@@ -1382,6 +1632,9 @@ private void ResetRuntimeLayoutToDefault()
         PrepareSelectionExpansion(component.transform, true);
     }
 
+    /// <summary>
+    /// prepare 선택 expansion 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     private void PrepareSelectionExpansion(Transform target, bool includeDetails)
     {
         if (target == null)
@@ -1393,6 +1646,9 @@ private void ResetRuntimeLayoutToDefault()
         ExpandSelectionPath(target, includeDetails);
     }
 
+    /// <summary>
+    /// preserve expansion within top 레벨 root 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     private void PreserveExpansionWithinTopLevelRoot(Transform target)
     {
         Transform topLevelRoot = GetTopLevelRoot(target);
@@ -1411,6 +1667,9 @@ private void ResetRuntimeLayoutToDefault()
         _expandedChildren.RemoveWhere(id => !allowedIds.Contains(id));
     }
 
+    /// <summary>
+    /// top 레벨 root 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private Transform GetTopLevelRoot(Transform target)
     {
         if (target == null)
@@ -1423,6 +1682,9 @@ private void ResetRuntimeLayoutToDefault()
         return current;
     }
 
+    /// <summary>
+    /// 조건에 맞는 subtree ids 항목을 모아 반환한다.
+    /// </summary>
     private void CollectSubtreeIds(Transform node, HashSet<int> ids)
     {
         if (node == null || ids == null)
@@ -1435,6 +1697,9 @@ private void ResetRuntimeLayoutToDefault()
     }
 
 
+    /// <summary>
+    /// 레이아웃 환경설정를 저장소에 기록한다. 다음 실행에서도 같은 상태를 복원하기 위해 사용한다.
+    /// </summary>
     private void SaveLayoutPreferences()
     {
         DebugConsolePreferenceStore.SetRect(WindowRectPrefKey, _windowRect);
@@ -1444,6 +1709,9 @@ private void ResetRuntimeLayoutToDefault()
         DebugConsolePreferenceStore.SetFloat(WindowRectPrefKey + ".LogDetailHeight", _logDetailPanelHeight);
     }
 
+    /// <summary>
+    /// 포커스를 비우거나 초기화한다. 이전 상태를 제거하고 다음 작업을 준비하는 데 사용한다.
+    /// </summary>
     private void ClearFocus()
     {
         _focusedGameObjectId = 0;
@@ -1452,6 +1720,9 @@ private void ResetRuntimeLayoutToDefault()
         _focusedComponentName = string.Empty;
     }
 
+    /// <summary>
+    /// 포커스 label 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private string GetFocusLabel()
     {
         if (_focusedComponentId != 0)
@@ -1463,6 +1734,9 @@ private void ResetRuntimeLayoutToDefault()
         return "Focus : All";
     }
 
+    /// <summary>
+    /// 하단 포커스 label 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private string GetFooterFocusLabel()
     {
         if (_focusedComponentId != 0)
@@ -1482,6 +1756,9 @@ private void ResetRuntimeLayoutToDefault()
         return "Focus : All";
     }
 
+    /// <summary>
+    /// trim 하단 포커스 구간 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     private string TrimFooterFocusSegment(string value)
     {
         if (string.IsNullOrEmpty(value))
@@ -1492,6 +1769,9 @@ private void ResetRuntimeLayoutToDefault()
             : value;
     }
 
+    /// <summary>
+    /// 포커스 suffix 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private string GetFocusSuffix()
     {
         if (_focusedComponentId != 0)
@@ -1507,6 +1787,9 @@ private void ResetRuntimeLayoutToDefault()
         return string.Empty;
     }
 
+    /// <summary>
+    /// 행 스타일 인스턴스나 데이터를 생성한다. 필요한 기본값을 함께 채워 즉시 사용할 수 있게 만든다.
+    /// </summary>
     private GUIStyle CreateRowStyle(Color backgroundColor)
     {
         Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
@@ -1523,6 +1806,9 @@ private void ResetRuntimeLayoutToDefault()
         };
     }
 
+    /// <summary>
+    /// 버튼 스타일 인스턴스나 데이터를 생성한다. 필요한 기본값을 함께 채워 즉시 사용할 수 있게 만든다.
+    /// </summary>
     private GUIStyle CreateButtonStyle(Color backgroundColor, Color textColor, bool bold, TextAnchor alignment)
     {
         Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
@@ -1555,6 +1841,9 @@ private void ResetRuntimeLayoutToDefault()
         return style;
     }
 
+    /// <summary>
+    /// 계층 행 스타일 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private GUIStyle GetHierarchyRowStyle(bool isObjectFocused, bool isComponentParentFocused, bool isComponentFocused)
     {
         if (isComponentFocused)
@@ -1569,21 +1858,33 @@ private void ResetRuntimeLayoutToDefault()
         return GUIStyle.none;
     }
 
+    /// <summary>
+    /// focused 오브젝트 상위 여부를 판정한다. 조건 분기에 사용할 수 있도록 bool 값을 반환한다.
+    /// </summary>
     private bool IsFocusedObjectParent(int gameObjectId)
     {
         return _focusedGameObjectId == gameObjectId && _focusedComponentId != 0;
     }
 
+    /// <summary>
+    /// 오브젝트 focused 여부를 판정한다. 조건 분기에 사용할 수 있도록 bool 값을 반환한다.
+    /// </summary>
     private bool IsObjectFocused(int gameObjectId)
     {
         return _focusedGameObjectId == gameObjectId && _focusedComponentId == 0;
     }
 
+    /// <summary>
+    /// 컴포넌트 focused 여부를 판정한다. 조건 분기에 사용할 수 있도록 bool 값을 반환한다.
+    /// </summary>
     private bool IsComponentFocused(int componentId)
     {
         return _focusedComponentId == componentId;
     }
 
+    /// <summary>
+    /// 오브젝트 버튼 스타일 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private GUIStyle GetObjectButtonStyle(bool objectEnabled, bool isObjectFocused, bool isComponentParentFocused)
     {
         if (isObjectFocused)
@@ -1595,6 +1896,9 @@ private void ResetRuntimeLayoutToDefault()
         return objectEnabled ? _linkButtonStyle : _disabledButtonStyle;
     }
 
+    /// <summary>
+    /// 컴포넌트 버튼 스타일 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private GUIStyle GetComponentButtonStyle(bool objectEnabled, bool isComponentFocused)
     {
         if (isComponentFocused)
@@ -1603,6 +1907,9 @@ private void ResetRuntimeLayoutToDefault()
         return objectEnabled ? _linkButtonStyle : _disabledButtonStyle;
     }
 
+    /// <summary>
+    /// 펼침 set 상태를 켜고 끄는 토글 동작을 수행한다.
+    /// </summary>
     private void ToggleExpandedSet(HashSet<int> set, int id)
     {
         if (set.Contains(id))
@@ -1611,6 +1918,9 @@ private void ResetRuntimeLayoutToDefault()
             set.Add(id);
     }
 
+    /// <summary>
+    /// 활성화 타입 개수 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private int GetEnabledTypeCount(DebugConsoleManager manager)
     {
         int count = 0;
@@ -1623,11 +1933,17 @@ private void ResetRuntimeLayoutToDefault()
         return count;
     }
 
+    /// <summary>
+    /// show 오브젝트를 수행해야 하는지 정책적으로 판단한다.
+    /// </summary>
     private bool ShouldShowGameObject(GameObject go)
     {
         return go != null;
     }
 
+    /// <summary>
+    /// 표시 하위 목록 보유 또는 존재 여부를 검사한다.
+    /// </summary>
     private bool HasVisibleChildren(GameObject go)
     {
         for (int i = 0; i < go.transform.childCount; i++)
@@ -1639,6 +1955,9 @@ private void ResetRuntimeLayoutToDefault()
         return false;
     }
 
+    /// <summary>
+    /// 표시 컴포넌트 목록 보유 또는 존재 여부를 검사한다.
+    /// </summary>
     private bool HasVisibleComponents(Component[] components)
     {
         if (components == null || components.Length == 0)
@@ -1658,6 +1977,9 @@ private void ResetRuntimeLayoutToDefault()
         return false;
     }
 
+    /// <summary>
+    /// matching 컴포넌트 보유 또는 존재 여부를 검사한다.
+    /// </summary>
     private bool HasMatchingComponent(GameObject go, string query)
     {
         Component[] components = go.GetComponents<Component>();
@@ -1677,6 +1999,9 @@ private void ResetRuntimeLayoutToDefault()
         return false;
     }
 
+    /// <summary>
+    /// show 컴포넌트를 수행해야 하는지 정책적으로 판단한다.
+    /// </summary>
     private bool ShouldShowComponent(Component component, string ownerName)
     {
         if (component == null)
@@ -1689,6 +2014,9 @@ private void ResetRuntimeLayoutToDefault()
     }
 
 
+    /// <summary>
+    /// toolbar 토글 그룹 영역을 그린다. 현재 상태와 캐시를 읽어 IMGUI 요소를 배치한다.
+    /// </summary>
     private void DrawToolbarToggleGroup(DebugConsoleManager manager)
     {
         bool global = GUILayout.Toggle(manager.GlobalEnabled, "Global", GUILayout.Width(72f));
@@ -1724,6 +2052,9 @@ private void ResetRuntimeLayoutToDefault()
             manager.SetLevelEnabled(DebugLogLevel.Error, showErrors);
     }
 
+/// <summary>
+/// toolbar action 그룹 영역을 그린다. 현재 상태와 캐시를 읽어 IMGUI 요소를 배치한다.
+/// </summary>
 private void DrawToolbarActionGroup(DebugConsoleManager manager, string typeButtonLabel)
 {
     if (GUILayout.Button(typeButtonLabel, _toolbarButtonStyle, GUILayout.Width(150f)))
@@ -1757,6 +2088,9 @@ private void DrawToolbarActionGroup(DebugConsoleManager manager, string typeButt
         ResetRuntimeLayoutToDefault();
 }
 
+/// <summary>
+/// toolbar info 그룹 영역을 그린다. 현재 상태와 캐시를 읽어 IMGUI 요소를 배치한다.
+/// </summary>
 private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
     {
         GUILayout.Label(GetFocusLabel(), _toolbarInfoLabelStyle, GUILayout.ExpandWidth(true), GUILayout.MinHeight(expanded ? 34f : 18f));
@@ -1764,6 +2098,9 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
         GUILayout.Label($"Count : {manager.Entries.Count}", _toolbarInfoLabelStyle, GUILayout.Width(expanded ? 120f : 110f), GUILayout.MinHeight(expanded ? 34f : 18f));
     }
 
+    /// <summary>
+    /// process 검색 debounce 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     private void ProcessSearchDebounce()
     {
         bool changed = false;
@@ -1791,6 +2128,9 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
         }
     }
 
+    /// <summary>
+    /// collapsed 로그 content 데이터를 조합해 새 문자열이나 키를 만든다. 동일한 규칙으로 값을 만들기 위해 사용한다.
+    /// </summary>
     private GUIContent BuildCollapsedLogContent(string richText, int repeatCount)
     {
         if (repeatCount <= 1 || string.IsNullOrWhiteSpace(richText))
@@ -1800,11 +2140,17 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
         return new GUIContent(richText + suffix);
     }
 
+    /// <summary>
+    /// 계층 검색 입력 필드 영역을 그린다. 현재 상태와 캐시를 읽어 IMGUI 요소를 배치한다.
+    /// </summary>
     private void DrawHierarchySearchField()
     {
         DrawHierarchySearchField(SearchLabelWidth + SearchFieldFixedWidth + 12f);
     }
 
+    /// <summary>
+    /// 계층 검색 입력 필드 영역을 그린다. 현재 상태와 캐시를 읽어 IMGUI 요소를 배치한다.
+    /// </summary>
     private void DrawHierarchySearchField(float availableWidth)
     {
         GUILayout.Label("Search", GUILayout.Width(SearchLabelWidth));
@@ -1836,11 +2182,17 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
             _searchFieldFocusedThisFrame = true;
     }
 
+    /// <summary>
+    /// 로그 검색 입력 필드 영역을 그린다. 현재 상태와 캐시를 읽어 IMGUI 요소를 배치한다.
+    /// </summary>
     private void DrawLogSearchField()
     {
         DrawLogSearchField(SearchLabelWidth + SearchFieldFixedWidth + SearchClearButtonWidth + 20f);
     }
 
+    /// <summary>
+    /// 로그 검색 입력 필드 영역을 그린다. 현재 상태와 캐시를 읽어 IMGUI 요소를 배치한다.
+    /// </summary>
     private void DrawLogSearchField(float availableWidth)
     {
         GUILayout.Label("Search", GUILayout.Width(SearchLabelWidth));
@@ -1886,11 +2238,17 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
         }
     }
 
+    /// <summary>
+    /// top area 너비 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private float GetTopAreaWidth()
     {
         return Mathf.Max(320f, _windowRect.width - 36f);
     }
 
+    /// <summary>
+    /// top 레이아웃 레벨 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private int GetTopLayoutLevel(float availableWidth)
     {
         if (availableWidth >= 1500f)
@@ -1902,6 +2260,9 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
         return 3;
     }
 
+    /// <summary>
+    /// 검색 입력 필드 너비 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private float GetSearchFieldWidth(float availableWidth, bool hasClearButton)
     {
         float reserveWidth = SearchLabelWidth + 10f + (hasClearButton ? SearchClearButtonWidth + 8f : 0f);
@@ -1909,6 +2270,9 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
         return Mathf.Clamp(fieldWidth, 96f, SearchFieldFixedWidth);
     }
 
+    /// <summary>
+    /// 표시 엔트리 개수 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private int GetVisibleEntryCount(DebugConsoleManager manager)
     {
         int count = 0;
@@ -1923,10 +2287,16 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
         return count;
     }
 
+    /// <summary>
+    /// update 계층 버튼 widths 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     private void UpdateHierarchyButtonWidths()
     {
     }
 
+    /// <summary>
+    /// 조건에 맞는 계층 버튼 widths 항목을 모아 반환한다.
+    /// </summary>
     private void CollectHierarchyButtonWidths(GameObject go, ref float maxNameWidth)
     {
         if (go == null || !ShouldShowGameObject(go))
@@ -1947,6 +2317,9 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
             CollectHierarchyButtonWidths(go.transform.GetChild(i).gameObject, ref maxNameWidth);
     }
 
+    /// <summary>
+    /// 표시 이름 값을 계산해 반환한다. 조회용 메서드이므로 호출자는 반환값을 기준으로 다음 동작을 결정한다.
+    /// </summary>
     private string GetDisplayName(string source)
     {
         if (string.IsNullOrEmpty(source))
@@ -1955,6 +2328,9 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
         return source.Length > MaxDisplayNameLength ? source.Substring(0, MaxDisplayNameLength) + "..." : source;
     }
 
+    /// <summary>
+    /// near bottom 여부를 판정한다. 조건 분기에 사용할 수 있도록 bool 값을 반환한다.
+    /// </summary>
     private bool IsNearBottom(float maxScrollY)
     {
         if (maxScrollY <= 0f)
@@ -1964,6 +2340,9 @@ private void DrawToolbarInfoGroup(DebugConsoleManager manager, bool expanded)
         return remaining <= Mathf.Max(maxScrollY * 0.05f, 32f);
     }
 
+    /// <summary>
+    /// contains ignore case 처리 흐름을 수행한다. 관련 상태를 읽거나 갱신해 디버그 콘솔 동작을 이어간다.
+    /// </summary>
     private bool ContainsIgnoreCase(string source, string keyword)
     {
         if (string.IsNullOrEmpty(source) || string.IsNullOrEmpty(keyword))
