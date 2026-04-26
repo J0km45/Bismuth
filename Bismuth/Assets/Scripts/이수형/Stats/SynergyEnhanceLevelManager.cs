@@ -78,6 +78,13 @@ public class SynergyEnhanceLevelManager : MonoBehaviour
         return data != null ? data.GetLevelValue(level) : 0;
     }
 
+    /// <summary> 시너지 ID 의 5레벨 도달 시 발동되는 bonus_value. 데이터 없으면 0. </summary>
+    public int GetBonusValue(int synergyId)
+    {
+        SynergyEnhanceData data = FindData(synergyId);
+        return data != null ? data.BonusValue : 0;
+    }
+
     /// <summary> 시너지 ID 의 강화 데이터(시트 한 행). 없으면 null. </summary>
     public SynergyEnhanceData FindData(int synergyId)
     {

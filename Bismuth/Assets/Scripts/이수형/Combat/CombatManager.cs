@@ -40,6 +40,7 @@ public class CombatManager : MonoBehaviour
 
     [SerializeField] private PlayerDataManager playerDataManager;
     [SerializeField] private SynergyManager synergyManager;
+    [SerializeField] private SynergyEnhanceLevelManager enhanceLevelManager;
 
     [Header("Wizard Follow-Up")]
     [SerializeField, Min(0.05f)] private float wizardFollowUpDelay = 0.35f;
@@ -102,6 +103,8 @@ public class CombatManager : MonoBehaviour
             _battleWaveRunner = FindFirstObjectByType<BattleWaveRunner>();
         if (playerDataManager == null)
             playerDataManager = FindFirstObjectByType<PlayerDataManager>();
+        if (enhanceLevelManager == null)
+            enhanceLevelManager = FindFirstObjectByType<SynergyEnhanceLevelManager>();
     }
 
     private void OnEnable()
@@ -168,6 +171,7 @@ public class CombatManager : MonoBehaviour
     float attackPower,
     float critChance,
     float critDamage,
+    float bonusVsSlowed,
     MonsterController target,
     GameObject hitEffect,
     GameObject unit,
@@ -186,6 +190,7 @@ public class CombatManager : MonoBehaviour
                 attackPower,
                 critChance,
                 critDamage,
+                bonusVsSlowed,
                 impactPosition,
                 explosionRadius,
                 sourceName,
@@ -199,6 +204,7 @@ public class CombatManager : MonoBehaviour
             attackPower,
             critChance,
             critDamage,
+            bonusVsSlowed,
             target,
             hitEffect,
             sourceName,
@@ -276,11 +282,16 @@ public class CombatManager : MonoBehaviour
     private bool ApplyHitscan(GameObject unit, UnitStat unitStat, string sourceName, List<MonsterController> targets, AttackContext context)
     {
         GameObject hitEffect = GetHitEffect(unitStat);
-        // 공격력/치명타 확률/치명타 데미지 모두 Hub 에서 직접 조회. 반복문 돌기 전에 한 번만 캐시.
+        // 공격력/치명타 확률/치명타 데미지/슬로우 보너스 모두 Hub 에서 직접 조회. 반복문 돌기 전에 한 번만 캐시.
         UnitStatHub hub = unit.GetComponent<UnitStatHub>();
+
+        // 거너 5레벨 보너스 : 발사 시점에 쿨다운 충족이면 임시 buff Add (hub.Get 에 자동 반영)
+        TryApplyGunnerNextShotCharge(unitStat, hub);
+
         float attackPower = hub.Get(StatType.AttackPower);
-        float critChance  = hub.Get(StatType.CritChance);   // Base + Fighter 시너지 합산
-        float critDamage  = hub.Get(StatType.CritDamage);   // 격투가 시너지 강화 등으로 누적
+        float critChance  = hub.Get(StatType.CritChance);            // Base + Fighter 시너지 합산
+        float critDamage  = hub.Get(StatType.CritDamage);            // 격투가 시너지 강화 등으로 누적
+        float bonusVsSlowed = hub.Get(StatType.BonusDamageVsSlowed); // 정령 시너지 강화 5레벨 보너스 (슬로우 적 한정)
         int appliedCount = 0;
 
         for (int i = 0; i < targets.Count; i++)
@@ -293,6 +304,7 @@ public class CombatManager : MonoBehaviour
                 attackPower,
                 critChance,
                 critDamage,
+                bonusVsSlowed,
                 target,
                 hitEffect,
                 sourceName,
@@ -315,6 +327,9 @@ public class CombatManager : MonoBehaviour
             );
         }
 
+        // 거너 5레벨 보너스 : 발사 끝나면 차지 소비 (다음 첫 공격만 효과)
+        ConsumeGunnerNextShotCharge(hub);
+
         return appliedCount > 0;
     }
 
@@ -324,11 +339,16 @@ public class CombatManager : MonoBehaviour
         GameObject hitEffect = GetHitEffect(unitStat);
         string sourceName = towerUnit != null ? towerUnit.name : unitStat.Name;
 
-        // 공격력/치명타 확률/치명타 데미지 모두 Hub 에서 직접 조회. 투사체 발사 전 한 번만 캐시.
+        // 공격력/치명타 확률/치명타 데미지/슬로우 보너스 모두 Hub 에서 직접 조회. 투사체 발사 전 한 번만 캐시.
         UnitStatHub hub = unit.GetComponent<UnitStatHub>();
+
+        // 거너 5레벨 보너스 : 발사 시점에 쿨다운 충족이면 임시 buff Add (hub.Get 에 자동 반영)
+        TryApplyGunnerNextShotCharge(unitStat, hub);
+
         float attackPower = hub.Get(StatType.AttackPower);
-        float critChance  = hub.Get(StatType.CritChance);   // Base + Fighter 시너지 합산
-        float critDamage  = hub.Get(StatType.CritDamage);   // 격투가 시너지 강화 등으로 누적
+        float critChance  = hub.Get(StatType.CritChance);            // Base + Fighter 시너지 합산
+        float critDamage  = hub.Get(StatType.CritDamage);            // 격투가 시너지 강화 등으로 누적
+        float bonusVsSlowed = hub.Get(StatType.BonusDamageVsSlowed); // 정령 시너지 강화 5레벨 보너스
 
         bool isAoe = unitStat.attackTypes == UnitData.AttackTypes.AOE;
         float explosionRadius = Mathf.Max(0.01f, unitStat.AttackArea);
@@ -366,6 +386,7 @@ public class CombatManager : MonoBehaviour
                 attackPower,
                 critChance,
                 critDamage,
+                bonusVsSlowed,
                 sourceName,
                 target,
                 hitEffect,
@@ -391,6 +412,9 @@ public class CombatManager : MonoBehaviour
             );
         }
 
+        // 거너 5레벨 보너스 : 발사 끝나면 차지 소비 (이미 캐시된 attackPower 가 투사체에 전달됐으므로 안전)
+        ConsumeGunnerNextShotCharge(hub);
+
         return spawnedCount > 0;
     }
 
@@ -398,6 +422,7 @@ public class CombatManager : MonoBehaviour
     float attackPower,
     float critChance,
     float critDamage,
+    float bonusVsSlowed,
     Vector3 impactPosition,
     float radius,
     string sourceName,
@@ -434,6 +459,7 @@ public class CombatManager : MonoBehaviour
                 attackPower,
                 critChance,
                 critDamage,
+                bonusVsSlowed,
                 monster,
                 null,
                 sourceName,
@@ -471,10 +497,153 @@ public class CombatManager : MonoBehaviour
     // 시너지 강화(격투가)의 CritDamage 가 이 위에 합연산으로 들어간다.
     private const float BaseCritMultiplier = 0.5f;
 
+    // 타겟의 슬로우 상태 확인 (정령 시너지 강화 5레벨 보너스 발동 조건용).
+    // MonsterController 가 _mover 를 private 으로 들고 있어 GetComponent 경유.
+    private static bool IsTargetSlowed(MonsterController target)
+    {
+        if (target == null) return false;
+        MonsterMover mover = target.GetComponent<MonsterMover>();
+        return mover != null && mover.IsSlowed;
+    }
+
+    // ───────── 거너 시너지 강화 5레벨 보너스 ─────────
+    // "5초마다 다음 첫 공격 공격력 +N%" (시트 bonusValue=300 → fractional 3.0)
+    // ApplyHitscan / FireProjectiles 진입 시 쿨다운 충족 여부 검사 → Hub 에 임시 모디파이어 Add.
+    // hub.Get(AttackPower) 가 자동 반영. 발사 끝나면 모디파이어 Remove → "다음 첫 공격만" 효과.
+    private const string GunnerNextShotKey = "SynergyEnhanceBonus_Gunner_NextShotAttackPower";
+    private const float GunnerCooldownSeconds = 5f;
+    private static readonly int GunnerSynergyIdCached = (int)SynergyManager.SynergyType.Gunner;
+    // 유닛별 다음 charge 시점 (Time.time 기준)
+    private readonly Dictionary<UnitStat, float> _gunnerNextChargeTimes = new Dictionary<UnitStat, float>();
+
+    /// <summary>
+    /// 거너 강화 5레벨 + 거너 태그 + 쿨다운 충족 시 Hub 에 임시 모디파이어를 Add.
+    /// 호출자는 발사 후 ConsumeGunnerNextShotCharge 로 정리.
+    /// </summary>
+    private void TryApplyGunnerNextShotCharge(UnitStat unitStat, UnitStatHub hub)
+    {
+        if (unitStat == null || hub == null) return;
+        if (enhanceLevelManager == null) return;
+        if (enhanceLevelManager.GetLevel(GunnerSynergyIdCached) < SynergyEnhanceBonusApplier.MaxLevel) return;
+        if (!HasSynergyTag(unitStat, GunnerSynergyIdCached)) return;
+
+        // 첫 등록 : 즉시 차지하지 않고 5초 후부터 차지 가능 (5초 사이클의 시작점)
+        if (!_gunnerNextChargeTimes.TryGetValue(unitStat, out float nextChargeTime))
+        {
+            _gunnerNextChargeTimes[unitStat] = Time.time + GunnerCooldownSeconds;
+            return;
+        }
+
+        // 쿨다운 미충족
+        if (Time.time < nextChargeTime) return;
+
+        int bonusValue = enhanceLevelManager.GetBonusValue(GunnerSynergyIdCached);
+        if (bonusValue <= 0) return;
+
+        // fractional 변환 (시트 300 → 3.0)
+        float fractional = bonusValue * 0.01f;
+
+        // 멱등 : 이전 키 제거 후 새로 Add
+        hub.Remove(GunnerNextShotKey);
+        hub.Add(new StatModifier(
+            StatType.AttackPower,
+            StatOperation.PercentAdd,
+            fractional,
+            ModifierSource.SynergyEnhance,
+            GunnerNextShotKey
+        ));
+
+        // 다음 차지까지 5초
+        _gunnerNextChargeTimes[unitStat] = Time.time + GunnerCooldownSeconds;
+
+        DebugTool.Log(
+            $"[거너 5레벨 보너스] 다음 첫 공격 buff 차지 | unit={unitStat.Name}, bonus={bonusValue}%, value={fractional:F2}",
+            DebugType.Synergy,
+            unitStat
+        );
+    }
+
+    /// <summary> 발사 후 거너 next-shot buff 모디파이어 제거 (있으면). 멱등. </summary>
+    private static void ConsumeGunnerNextShotCharge(UnitStatHub hub)
+    {
+        if (hub == null) return;
+        hub.Remove(GunnerNextShotKey);
+    }
+
+    // ───────── 엘프 시너지 강화 5레벨 보너스 ─────────
+    // "적 처치 시 5초간 공격속도 증가 +N%" (시트 bonusValue=50 → fractional 0.5)
+    // 처치 이벤트 후크 (ApplyDamageToTarget / 마법사 후속타) 에서 호출.
+    // 같은 유닛이 5초 안에 또 처치하면 코루틴 정지 후 재시작 (Add 멱등으로 시간만 갱신).
+    private const string ElfKillBonusKey = "SynergyEnhanceBonus_Elf_AttackSpeed";
+    private const float ElfKillBonusDurationSeconds = 5f;
+    private readonly Dictionary<UnitStat, Coroutine> _elfBuffRoutines = new Dictionary<UnitStat, Coroutine>();
+
+    private void TryTriggerElfKillBonus(UnitStat attackerStat)
+    {
+        if (attackerStat == null) return;
+
+        // 엘프 태그 보유 + 강화 5레벨 도달
+        if (!HasSynergyTag(attackerStat, (int)SynergyManager.SynergyType.Elf)) return;
+        if (enhanceLevelManager == null) return;
+        if (enhanceLevelManager.GetLevel((int)SynergyManager.SynergyType.Elf) < SynergyEnhanceBonusApplier.MaxLevel) return;
+
+        int bonusValue = enhanceLevelManager.GetBonusValue((int)SynergyManager.SynergyType.Elf);
+        if (bonusValue <= 0) return;
+
+        UnitStatHub hub = attackerStat.GetComponent<UnitStatHub>();
+        if (hub == null) return;
+
+        // 시트값 % → fractional 변환
+        float fractional = bonusValue * 0.01f;
+
+        // Hub 모디파이어 멱등 갱신
+        hub.Remove(ElfKillBonusKey);
+        hub.Add(new StatModifier(
+            StatType.AttackSpeed,
+            StatOperation.PercentAdd,
+            fractional,
+            ModifierSource.SynergyEnhance,
+            ElfKillBonusKey
+        ));
+
+        // 기존 만료 코루틴 정지 (같은 유닛이 5초 안에 또 처치한 경우)
+        if (_elfBuffRoutines.TryGetValue(attackerStat, out Coroutine prev) && prev != null)
+            StopCoroutine(prev);
+
+        _elfBuffRoutines[attackerStat] = StartCoroutine(ElfKillBonusExpireRoutine(attackerStat, hub));
+
+        DebugTool.Log(
+            $"[엘프 5레벨 보너스] 처치 시 공속 buff 발동 | unit={attackerStat.Name}, bonus={bonusValue}%, duration={ElfKillBonusDurationSeconds}s",
+            DebugType.Synergy,
+            attackerStat
+        );
+    }
+
+    private IEnumerator ElfKillBonusExpireRoutine(UnitStat stat, UnitStatHub hub)
+    {
+        yield return new WaitForSeconds(ElfKillBonusDurationSeconds);
+
+        if (hub != null)
+            hub.Remove(ElfKillBonusKey);
+
+        if (stat != null)
+            _elfBuffRoutines.Remove(stat);
+
+        if (stat != null)
+        {
+            DebugTool.Log(
+                $"[엘프 5레벨 보너스] 공속 buff 해제 | unit={stat.Name}",
+                DebugType.Synergy,
+                stat
+            );
+        }
+    }
+
     private bool ApplyDamageToTarget(
     float attackPower,
     float critChance,
     float critDamage,
+    float bonusVsSlowed,
     MonsterController target,
     GameObject hitEffect,
     string sourceName,
@@ -493,7 +662,11 @@ public class CombatManager : MonoBehaviour
         float clampedCritChance = Mathf.Clamp01(critChance);
         float crit = (Random.value < clampedCritChance) ? (BaseCritMultiplier + critDamage) : 0f;
 
-        int normalDamage = damageCalculator.CalculateNormalDamage(unitStat, attackPower, target.BaseDefense, crit);
+        // 정령 시너지 강화 5레벨 보너스 : 타겟이 슬로우 상태일 때만 발동.
+        // bonusVsSlowed 자체는 공격자 Hub 에서 미리 조회된 값(태그 없으면 0).
+        float effectiveBonusVsSlowed = (bonusVsSlowed > 0f && IsTargetSlowed(target)) ? bonusVsSlowed : 0f;
+
+        int normalDamage = damageCalculator.CalculateNormalDamage(unitStat, attackPower, target.BaseDefense, crit, effectiveBonusVsSlowed);
         int archerSkillDamage = damageCalculator.CalculateArcherSkillDamage(unitStat, target, context.IsArcherBonus);
 
         int finalDamage = normalDamage + archerSkillDamage;
@@ -540,6 +713,9 @@ public class CombatManager : MonoBehaviour
                 DebugTool.Log(
                     $"엘프 웨이브 킬 적립 | source={sourceName}, elfKill={unitStat.ElfWaveKillCount}",
                     DebugType.Synergy, this);
+
+                // 엘프 시너지 강화 5레벨 보너스 : 처치 시 5초 공속 buff
+                TryTriggerElfKillBonus(unitStat);
             }
         }
 
@@ -905,6 +1081,9 @@ public class CombatManager : MonoBehaviour
                         DebugTool.Log(
                             $"엘프 웨이브 킬 적립 (마법사 후속) | source={sourceName}, elfKill={unitStat.ElfWaveKillCount}",
                             DebugType.Synergy, this);
+
+                        // 엘프 시너지 강화 5레벨 보너스 : 처치 시 5초 공속 buff
+                        TryTriggerElfKillBonus(unitStat);
                     }
                 }
             }
@@ -939,6 +1118,15 @@ public class CombatManager : MonoBehaviour
             if (orcSynergyLog)
                 DebugTool.Log("오크 시너지 버프 사이클 시작 | 웨이브 시작", DebugType.Synergy, this);
         }
+
+        // 정령 시너지가 활성 상태인데 코루틴이 없으면 시작 (웨이브 시작 직후 즉시 첫 슬로우)
+        if (_isSpiritActive && _spiritRoutine == null)
+        {
+            _spiritRoutine = StartCoroutine(SpiritSynergyRoutine());
+
+            if (spiritSynergyLog)
+                DebugTool.Log("정령 시너지 사이클 시작 | 웨이브 시작", DebugType.Synergy, this);
+        }
     }
 
     private void OnWaveCleared(WaveDataSO waveData)
@@ -956,6 +1144,18 @@ public class CombatManager : MonoBehaviour
 
         if (orcSynergyLog)
             DebugTool.Log("오크 시너지 버프 해제 및 쿨타임 초기화 | 웨이브 클리어", DebugType.Synergy, this);
+
+        // 정령 코루틴 정지 + 슬로우 즉시 해제
+        if (_spiritRoutine != null)
+        {
+            StopCoroutine(_spiritRoutine);
+            _spiritRoutine = null;
+        }
+
+        RemoveAllSlows();
+
+        if (spiritSynergyLog)
+            DebugTool.Log("정령 슬로우 해제 및 쿨타임 초기화 | 웨이브 클리어", DebugType.Synergy, this);
     }
 
     private void ResetAllElfWaveKillCounts()
@@ -1000,9 +1200,17 @@ public class CombatManager : MonoBehaviour
             return;
 
         _isSpiritActive = true;
-        _spiritRoutine = StartCoroutine(SpiritSynergyRoutine());
 
-        DebugTool.Log("정령 시너지 활성화 | 쿨다운 타이머 시작", DebugType.Synergy, this);
+        // 웨이브 진행 중이면 즉시 사이클 시작, 정비시간이면 다음 웨이브 시작 시 OnWaveStarted 가 시작
+        if (_isWaveActive)
+        {
+            _spiritRoutine = StartCoroutine(SpiritSynergyRoutine());
+            DebugTool.Log("정령 시너지 활성화 | 사이클 즉시 시작", DebugType.Synergy, this);
+        }
+        else
+        {
+            DebugTool.Log("정령 시너지 활성화 | 정비시간이므로 웨이브 시작 시 발동 예정", DebugType.Synergy, this);
+        }
     }
 
     private void StopSpiritSynergy()
@@ -1023,9 +1231,12 @@ public class CombatManager : MonoBehaviour
         DebugTool.Log("정령 시너지 비활성화 | 슬로우 해제 및 타이머 중단", DebugType.Synergy, this);
     }
 
+    // 적이 등장할 때까지 폴링하는 간격. 사이클 첫 발동을 시각적으로 보장하려는 용도라 짧게.
+    private const float SpiritWaitForMonstersInterval = 0.1f;
+
     private IEnumerator SpiritSynergyRoutine()
     {
-        while (_isSpiritActive)
+        while (_isSpiritActive && _isWaveActive)
         {
 
             if (!TryGetSpiritEffectValues(out float duration, out float slowPercent))
@@ -1037,6 +1248,13 @@ public class CombatManager : MonoBehaviour
                 continue;
             }
 
+            // 적이 1마리도 없으면 등장 대기 (웨이브 시작 직후 적 스폰 전 ApplySlow 가 빈 결과로 끝나는 걸 방지).
+            // 적이 등장하자마자 즉시 슬로우 발동.
+            while (_isSpiritActive && _isWaveActive && !HasAnyActiveMonster())
+                yield return new WaitForSeconds(SpiritWaitForMonstersInterval);
+
+            if (!_isSpiritActive || !_isWaveActive)
+                yield break;
 
             ApplySlowToAllMonsters(slowPercent);
 
@@ -1057,7 +1275,7 @@ public class CombatManager : MonoBehaviour
 
             yield return new WaitForSeconds(spiritCooldown);
 
-            if (!_isSpiritActive)
+            if (!_isSpiritActive || !_isWaveActive)
                 yield break;
         }
     }
@@ -1079,6 +1297,18 @@ public class CombatManager : MonoBehaviour
             return false;
 
         return true;
+    }
+
+    // 활성 상태인 몬스터가 1마리라도 있는지 빠르게 확인 (정령 사이클 폴링용).
+    private static bool HasAnyActiveMonster()
+    {
+        MonsterMover[] all = FindObjectsByType<MonsterMover>(FindObjectsSortMode.None);
+        for (int i = 0; i < all.Length; i++)
+        {
+            if (all[i] != null && all[i].gameObject.activeInHierarchy)
+                return true;
+        }
+        return false;
     }
 
     private void ApplySlowToAllMonsters(float slowPercent)

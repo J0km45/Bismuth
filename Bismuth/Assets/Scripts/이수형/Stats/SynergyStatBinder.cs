@@ -112,18 +112,20 @@ public class SynergyStatBinder : MonoBehaviour
         RefreshAll();
     }
 
-    // 시너지 강화 1라인 — 미리 계산해둔 (시너지ID, 현재레벨, 시트 단계값) 묶음.
+    // 시너지 강화 1라인 — 미리 계산해둔 (시너지ID, 현재레벨, 단계값, bonus값) 묶음.
     // 매 RefreshAll 마다 한 번만 계산해 모든 유닛 루프에서 재사용.
     private readonly struct EnhanceEntry
     {
         public readonly int SynergyId;
         public readonly int Level;
         public readonly int RawValue;
-        public EnhanceEntry(int synergyId, int level, int rawValue)
+        public readonly int BonusValue;  // 5레벨 도달 시 발동 (BonusApplier 가 사용)
+        public EnhanceEntry(int synergyId, int level, int rawValue, int bonusValue)
         {
             SynergyId = synergyId;
             Level = level;
             RawValue = rawValue;
+            BonusValue = bonusValue;
         }
     }
 
@@ -172,6 +174,7 @@ public class SynergyStatBinder : MonoBehaviour
             {
                 EnhanceEntry entry = _enhanceEntries[e];
                 SynergyEnhanceApplier.Apply(record.unitStat, hub, entry.SynergyId, entry.Level, entry.RawValue);
+                SynergyEnhanceBonusApplier.Apply(record.unitStat, hub, entry.SynergyId, entry.Level, entry.BonusValue);
             }
         }
     }
@@ -192,8 +195,9 @@ public class SynergyStatBinder : MonoBehaviour
             int synergyId = (int)st;
             int level = _enhanceLevelManager.GetLevel(synergyId);
             int rawValue = _enhanceLevelManager.GetLevelValue(synergyId, level);
+            int bonusValue = _enhanceLevelManager.GetBonusValue(synergyId);
 
-            _enhanceEntries.Add(new EnhanceEntry(synergyId, level, rawValue));
+            _enhanceEntries.Add(new EnhanceEntry(synergyId, level, rawValue, bonusValue));
         }
     }
 }

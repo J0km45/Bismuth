@@ -19,15 +19,27 @@ public class DamageCalculator : MonoBehaviour
 
     public int CalculateNormalDamage(float damageDealt, float defense, float crit)
     {
-        return CalculateNormalDamage(null, damageDealt, defense, crit);
+        return CalculateNormalDamage(null, damageDealt, defense, crit, 0f);
     }
 
     public int CalculateNormalDamage(UnitStat attackerStat, float damageDealt, float defense, float crit)
     {
+        return CalculateNormalDamage(attackerStat, damageDealt, defense, crit, 0f);
+    }
+
+    public int CalculateNormalDamage(UnitStat attackerStat, float damageDealt, float defense, float crit, float bonusVsSlowed)
+    {
         // Orc / Warrior 시너지 보너스는 이제 Hub.AttackPower 안에 이미 포함되어 들어옴.
         // Elf 는 ElfWaveKillCount 기반이라 아직 Hub 화 전 (Step 6 영역) → 곱셈 멀티플라이어 유지.
         float elfMultiplier = GetElfAttackMultiplier(attackerStat) * 0.01f;
-        float calculatedDamage = damageDealt * (elfMultiplier + 1f) * (1f + crit) * (100f / (defense + 100f));
+
+        // 1) 기본 데미지 (시너지 곱셈 + 치명타 + 방어력 감소)
+        float baseDamage = damageDealt * (elfMultiplier + 1f) * (1f + crit) * (100f / (defense + 100f));
+
+        // 2) 정령 시너지 강화 5레벨 "추가 피해" : 슬로우 적 한정.
+        //    호출측에서 (정령 태그 + 타겟 슬로우) 조건 충족 시만 fractional, 아니면 0.
+        //    "최종 데미지에 (1 + 0.7) = 1.7배" 형태로 마지막에 곱셈.
+        float calculatedDamage = baseDamage * (1f + bonusVsSlowed);
 
         if (Random.value < calculatedDamage - (int)calculatedDamage)
             return (int)calculatedDamage + 1;
