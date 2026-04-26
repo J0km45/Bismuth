@@ -164,7 +164,7 @@ public class UnitAutoAttack : MonoBehaviour
         if (attackLog)
         {
             DebugTool.Log(
-                $"자동공격 초기화 완료 | Range={unitStat.Range}, AttackSpeed={unitStat.AttackSpeed}, Interval={attackInterval:F2}s, HitNormalized={hitNormalizedTime:F2}, Type={unitStat.attackTypes}",
+                $"자동공격 초기화 완료 | Range={statHub.Get(StatType.Range):F2}, AttackSpeed={statHub.Get(StatType.AttackSpeed):F2}, Interval={attackInterval:F2}s, HitNormalized={hitNormalizedTime:F2}, Type={unitStat.attackTypes}",
                 DebugType.Unit,
                 this
             );

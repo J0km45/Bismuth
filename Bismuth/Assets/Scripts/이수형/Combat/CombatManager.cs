@@ -152,7 +152,11 @@ public class CombatManager : MonoBehaviour
         if (!TryGetUnitStat(towerUnit, out UnitStat unitStat))
             return false;
 
-        List<MonsterController> targets = SelectTargets(unitStat, currentTarget, attackSensor);
+        // AttackTargetCount 는 Hub 가 단일 소스. 시너지 강화 보너스 자동 반영.
+        UnitStatHub hub = unit.GetComponent<UnitStatHub>();
+        int currentTargetCount = Mathf.Max(1, Mathf.RoundToInt(hub.Get(StatType.AttackTargetCount)));
+
+        List<MonsterController> targets = SelectTargets(currentTargetCount, currentTarget, attackSensor);
         if (targets.Count == 0)
         {
             DebugTool.Log("피해를 줄 유효한 타겟이 없습니다.", DebugType.Unit, this);
@@ -161,7 +165,9 @@ public class CombatManager : MonoBehaviour
 
         soundManager?.RandomAttackUnit(unitStat);
 
-        if (unitStat.Range > 1.3f)
+        // 공격 방식 분기는 Base Range 로 결정.
+        // 시너지 강화로 사거리가 늘어도 원래 근접이었던 유닛은 계속 히트스캔, 원래 원거리는 계속 투사체.
+        if (hub.GetBase(StatType.Range) > 1.3f)
             return FireProjectiles(unit, towerUnit, unitStat, targets, context);
 
         return ApplyHitscan(unit, unitStat, towerUnit != null ? towerUnit.name : unitStat.Name, targets, context);
@@ -262,9 +268,9 @@ public class CombatManager : MonoBehaviour
         return true;
     }
 
-    private List<MonsterController> SelectTargets(UnitStat unitStat, MonsterController currentTarget, UnitAttackSensor attackSensor)
+    private List<MonsterController> SelectTargets(int targetCount, MonsterController currentTarget, UnitAttackSensor attackSensor)
     {
-        int targetCount = Mathf.Max(1, unitStat.AttackTargetCount);
+        targetCount = Mathf.Max(1, targetCount);
 
         if (attackSensor == null)
         {
@@ -320,8 +326,9 @@ public class CombatManager : MonoBehaviour
 
         if (appliedCount > 0)
         {
+            int requestedCount = Mathf.Max(1, Mathf.RoundToInt(hub.Get(StatType.AttackTargetCount)));
             DebugTool.Log(
-                $"히트스캔 공격 완료 | 요청 수={Mathf.Max(1, unitStat.AttackTargetCount)}, 실제 타격 수={appliedCount}",
+                $"히트스캔 공격 완료 | 요청 수={requestedCount}, 실제 타격 수={appliedCount}",
                 DebugType.Unit,
                 this
             );
@@ -405,8 +412,9 @@ public class CombatManager : MonoBehaviour
 
         if (spawnedCount > 0)
         {
+            int requestedCount = Mathf.Max(1, Mathf.RoundToInt(hub.Get(StatType.AttackTargetCount)));
             DebugTool.Log(
-                $"투사체 발사 완료 | unit={sourceName}, type={unitStat.attackTypes}, 요청 수={Mathf.Max(1, unitStat.AttackTargetCount)}, 실제 생성 수={spawnedCount}",
+                $"투사체 발사 완료 | unit={sourceName}, type={unitStat.attackTypes}, 요청 수={requestedCount}, 실제 생성 수={spawnedCount}",
                 DebugType.Unit,
                 this
             );

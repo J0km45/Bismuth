@@ -9,6 +9,7 @@ public class UnitAttackSensor : MonoBehaviour
     [SerializeField] private CircleCollider2D sensorCollider;
     [SerializeField] private LayerMask monsterLayerMask;
     [SerializeField] private UnitStat unitStat;
+    [SerializeField] private UnitStatHub statHub;
     [SerializeField] private LineRenderer lineRenderer;
     [SerializeField] private AttackRangeVisualizer rangeVisualizer;
     [Header("Debug")]
@@ -44,6 +45,21 @@ public class UnitAttackSensor : MonoBehaviour
             rangeVisualizer.Show();
     }
 
+    private void OnEnable()
+    {
+        // Range 모디파이어가 강화/보너스로 변경되면 즉시 sensor 반경 재계산
+        if (statHub == null)
+            statHub = GetComponentInParent<UnitStatHub>();
+        if (statHub != null)
+            statHub.OnStatChanged += HandleStatChanged;
+    }
+
+    private void HandleStatChanged(StatType type)
+    {
+        if (type == StatType.Range)
+            SyncRadiusFromUnitStat();
+    }
+
     private void EnsureRuntimeComponents()
     {
         if (lineRenderer == null)
@@ -76,6 +92,9 @@ public class UnitAttackSensor : MonoBehaviour
         if (unitStat == null)
             unitStat = GetComponentInParent<UnitStat>();
 
+        if (statHub == null)
+            statHub = GetComponentInParent<UnitStatHub>();
+
         if (lineRenderer == null)
             lineRenderer = GetComponent<LineRenderer>();
 
@@ -95,7 +114,8 @@ public class UnitAttackSensor : MonoBehaviour
         if (sensorCollider == null || unitStat == null)
             return;
 
-        float radius = Mathf.Max(0.01f, unitStat.Range);
+        // Range 는 Hub 가 단일 소스. 시너지 강화 보너스(전사/격투가/오크 사거리 +1) 자동 반영.
+        float radius = Mathf.Max(0.01f, statHub.Get(StatType.Range));
         sensorCollider.radius = radius;
 
         rangeVisualizer.Init(sensorCollider, lineRenderer);
@@ -240,6 +260,9 @@ public class UnitAttackSensor : MonoBehaviour
     private void OnDisable()
     {
         monstersInRange.Clear();
+
+        if (statHub != null)
+            statHub.OnStatChanged -= HandleStatChanged;
     }
 
     private void TryRegister(Collider2D other)
