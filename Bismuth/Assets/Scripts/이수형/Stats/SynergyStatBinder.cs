@@ -101,13 +101,14 @@ public class SynergyStatBinder : MonoBehaviour
         // 현재 효과값 조회. 단위 변환은 각 Applier 내부 책임.
         float gunnerEffect  = _synergyManager.GetEffectValue(GunnerSynergyApplier.SynergyId);
         float fighterEffect = _synergyManager.GetEffectValue(FighterSynergyApplier.SynergyId);
+        float warriorEffect = _synergyManager.GetEffectValue(WarriorSynergyApplier.SynergyId);
 
         IReadOnlyList<SummonUnit.SummonedTowerRecord> towers = _summonUnit.OwnedTowers;
 
         if (_log)
         {
             DebugTool.Log(
-                $"[SynergyStatBinder] RefreshAll | gunnerEffect={gunnerEffect:F2}%, fighterEffect={fighterEffect:F3}, towers={towers.Count}",
+                $"[SynergyStatBinder] RefreshAll | gunnerEffect={gunnerEffect:F2}%, fighterEffect={fighterEffect:F3}, warriorEffect={warriorEffect:F2}%, towers={towers.Count}",
                 DebugType.Synergy,
                 this
             );
@@ -123,6 +124,7 @@ public class SynergyStatBinder : MonoBehaviour
 
             GunnerSynergyApplier.Apply(record.unitStat, hub, gunnerEffect);
             FighterSynergyApplier.Apply(record.unitStat, hub, fighterEffect);
+            WarriorSynergyApplier.Apply(record.unitStat, hub, warriorEffect);
         }
     }
 }

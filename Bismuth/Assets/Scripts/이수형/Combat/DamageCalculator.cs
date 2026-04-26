@@ -2,7 +2,6 @@ using UnityEngine;
 
 public class DamageCalculator : MonoBehaviour
 {
-    private const int WarriorSynergyId = (int)SynergyManager.SynergyType.Warrior;
     private const int WizardSynergyId = (int)SynergyManager.SynergyType.Magician;
     private const int ArcherSynergyId = (int)SynergyManager.SynergyType.Archer;
     private const int ElfSynergyId = (int)SynergyManager.SynergyType.Elf;
@@ -25,11 +24,10 @@ public class DamageCalculator : MonoBehaviour
 
     public int CalculateNormalDamage(UnitStat attackerStat, float damageDealt, float defense, float crit)
     {
-        // Orc 시너지 보너스는 이제 Hub.AttackPower 안에 이미 포함되어 들어옴.
-        // Warrior / Elf 는 아직 Hub 화 전이라 곱셈 멀티플라이어로 유지.
-        float warriorMultiplier = GetWarriorAttackMultiplier(attackerStat) * 0.01f;
+        // Orc / Warrior 시너지 보너스는 이제 Hub.AttackPower 안에 이미 포함되어 들어옴.
+        // Elf 는 ElfWaveKillCount 기반이라 아직 Hub 화 전 (Step 6 영역) → 곱셈 멀티플라이어 유지.
         float elfMultiplier = GetElfAttackMultiplier(attackerStat) * 0.01f;
-        float calculatedDamage = damageDealt * (warriorMultiplier + elfMultiplier + 1f) * (1f + crit) * (100f / (defense + 100f));
+        float calculatedDamage = damageDealt * (elfMultiplier + 1f) * (1f + crit) * (100f / (defense + 100f));
 
         if (Random.value < calculatedDamage - (int)calculatedDamage)
             return (int)calculatedDamage + 1;
@@ -155,34 +153,6 @@ public class DamageCalculator : MonoBehaviour
         }
 
         return bonus;
-    }
-
-    private float GetWarriorAttackMultiplier(UnitStat attackerStat)
-    {
-        if (!HasSynergyTag(attackerStat, WarriorSynergyId))
-            return 1f;
-
-        TryResolveSynergyManager();
-
-        if (synergyManager == null)
-        {
-            WarnMissingSynergyManager();
-            return 1f;
-        }
-
-        // ID 하나만 넘기면 현재 활성 수에 맞는 효과값이 바로 나옴 (없으면 0)
-        float bonus = synergyManager.GetEffectValue(WarriorSynergyId);
-
-        if (synergyLog && bonus > 0f)
-        {
-            DebugTool.Log(
-                $"전사 공격력 배율 적용 | unit={attackerStat.Name}, active={synergyManager.GetSynergyLevel(WarriorSynergyId)}, bonus={bonus:F2}, multiplier={1f + bonus:F2}",
-                DebugType.Synergy,
-                this
-            );
-        }
-
-        return 1f + bonus;
     }
 
     private float GetElfAttackMultiplier(UnitStat attackerStat)
