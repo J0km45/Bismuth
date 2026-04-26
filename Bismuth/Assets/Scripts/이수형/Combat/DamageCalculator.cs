@@ -5,9 +5,7 @@ public class DamageCalculator : MonoBehaviour
     private const int WarriorSynergyId = (int)SynergyManager.SynergyType.Warrior;
     private const int WizardSynergyId = (int)SynergyManager.SynergyType.Magician;
     private const int ArcherSynergyId = (int)SynergyManager.SynergyType.Archer;
-    private const int FighterSynergyId = (int)SynergyManager.SynergyType.Fighter;
     private const int ElfSynergyId = (int)SynergyManager.SynergyType.Elf;
-    private const int OrcSynergyId = (int)SynergyManager.SynergyType.Orc;
 
     [Header("Synergy")]
     [SerializeField] private SynergyManager synergyManager;
@@ -27,10 +25,11 @@ public class DamageCalculator : MonoBehaviour
 
     public int CalculateNormalDamage(UnitStat attackerStat, float damageDealt, float defense, float crit)
     {
+        // Orc 시너지 보너스는 이제 Hub.AttackPower 안에 이미 포함되어 들어옴.
+        // Warrior / Elf 는 아직 Hub 화 전이라 곱셈 멀티플라이어로 유지.
         float warriorMultiplier = GetWarriorAttackMultiplier(attackerStat) * 0.01f;
         float elfMultiplier = GetElfAttackMultiplier(attackerStat) * 0.01f;
-        float orcMultiplier = GetOrcAttackMultiplier(attackerStat) * 0.01f;
-        float calculatedDamage = damageDealt * (warriorMultiplier + elfMultiplier + orcMultiplier + 1f) * (1f + crit) * (100f / (defense + 100f));
+        float calculatedDamage = damageDealt * (warriorMultiplier + elfMultiplier + 1f) * (1f + crit) * (100f / (defense + 100f));
 
         if (Random.value < calculatedDamage - (int)calculatedDamage)
             return (int)calculatedDamage + 1;
@@ -221,28 +220,6 @@ public class DamageCalculator : MonoBehaviour
         return totalBonus;
     }
 
-    private float GetOrcAttackMultiplier(UnitStat attackerStat)
-    {
-        if (!HasSynergyTag(attackerStat, OrcSynergyId))
-            return 0f;
-
-        if (CombatManager.Instance == null || !CombatManager.Instance.IsOrcBuffActive)
-            return 0f;
-
-        float bonus = CombatManager.Instance.OrcBuffPercent;
-
-        if (synergyLog && bonus > 0f)
-        {
-            DebugTool.Log(
-                $"오크 공격력 배율 적용 | unit={attackerStat.Name}, bonus={bonus:F2}",
-                DebugType.Synergy,
-                this
-            );
-        }
-
-        return bonus;
-    }
-
     private void TryResolveSynergyManager()
     {
         if (synergyManager != null)
@@ -263,53 +240,6 @@ public class DamageCalculator : MonoBehaviour
         }
 
         return false;
-    }
-
-    public float GetFinalCritChance(UnitStat attackerStat, float baseCritChance)
-    {
-        float fighterBonus = GetFighterCritChanceBonus(attackerStat);
-        float finalCritChance = Mathf.Clamp01(baseCritChance + fighterBonus);
-
-        if (synergyLog && fighterBonus > 0f)
-        {
-            DebugTool.Log(
-                $"격투가 치명타 확률 적용 | unit={attackerStat?.Name ?? "None"}, baseCrit={baseCritChance:F3}, fighterBonus={fighterBonus:F3}, finalCrit={finalCritChance:F3}",
-                DebugType.Synergy,
-                this
-            );
-        }
-
-        return finalCritChance;
-    }
-
-    private float GetFighterCritChanceBonus(UnitStat attackerStat)
-    {
-        if (!HasSynergyTag(attackerStat, FighterSynergyId))
-            return 0f;
-
-        TryResolveSynergyManager();
-
-        if (synergyManager == null)
-        {
-            WarnMissingSynergyManager();
-            return 0f;
-        }
-
-        float bonus = synergyManager.GetEffectValue(FighterSynergyId);
-
-        if (bonus > 1f)
-            bonus *= 0.01f;
-
-        if (synergyLog && bonus > 0f)
-        {
-            DebugTool.Log(
-                $"격투가 치명타 보너스 조회 | unit={attackerStat.Name}, active={synergyManager.GetSynergyLevel(FighterSynergyId)}, bonus={bonus:F3}",
-                DebugType.Synergy,
-                this
-            );
-        }
-
-        return bonus;
     }
 
     private void WarnMissingSynergyManager()

@@ -65,11 +65,7 @@ public class CombatManager : MonoBehaviour
     private bool _isOrcActive;
     private bool _isOrcBuffActive;
     private bool _isWaveActive;
-    private float _orcBuffPercent;
     private static readonly Color OrcBuffTintColor = new Color(1f, 0.5f, 0.5f, 1f);
-
-    public bool IsOrcBuffActive => _isOrcBuffActive;
-    public float OrcBuffPercent => _orcBuffPercent;
 
     private Collider2D[] aoeOverlapResults;
 
@@ -277,6 +273,10 @@ public class CombatManager : MonoBehaviour
     private bool ApplyHitscan(GameObject unit, UnitStat unitStat, string sourceName, List<MonsterController> targets, AttackContext context)
     {
         GameObject hitEffect = GetHitEffect(unitStat);
+        // Step 2b : 공격력/치명타 확률 모두 Hub 에서 직접 조회. 반복문 돌기 전에 한 번만 캐시.
+        UnitStatHub hub = unit.GetComponent<UnitStatHub>();
+        float attackPower = hub.Get(StatType.AttackPower);
+        float critChance  = hub.Get(StatType.CritChance);  // Base + Fighter 시너지 합산 반영
         int appliedCount = 0;
 
         for (int i = 0; i < targets.Count; i++)
@@ -286,8 +286,8 @@ public class CombatManager : MonoBehaviour
                 continue;
 
             bool success = ApplyDamageToTarget(
-                unitStat.CurrentAttackPower,
-                unitStat.CritChance,
+                attackPower,
+                critChance,
                 target,
                 hitEffect,
                 sourceName,
@@ -318,6 +318,11 @@ public class CombatManager : MonoBehaviour
         GameObject projectilePrefab = GetProjectilePrefab(unitStat);
         GameObject hitEffect = GetHitEffect(unitStat);
         string sourceName = towerUnit != null ? towerUnit.name : unitStat.Name;
+
+        // Step 2b : 공격력/치명타 확률 모두 Hub 에서 직접 조회. 투사체 발사 전 한 번만 캐시.
+        UnitStatHub hub = unit.GetComponent<UnitStatHub>();
+        float attackPower = hub.Get(StatType.AttackPower);
+        float critChance  = hub.Get(StatType.CritChance);  // Base + Fighter 시너지 합산 반영
 
         bool isAoe = unitStat.attackTypes == UnitData.AttackTypes.AOE;
         float explosionRadius = Mathf.Max(0.01f, unitStat.AttackArea);
@@ -352,8 +357,8 @@ public class CombatManager : MonoBehaviour
                 projectile = projectileObject.AddComponent<UnitProjectile>();
 
             projectile.Initialize(
-                unitStat.CurrentAttackPower,
-                unitStat.CritChance,
+                attackPower,
+                critChance,
                 sourceName,
                 target,
                 hitEffect,
@@ -467,11 +472,8 @@ public class CombatManager : MonoBehaviour
         if (!IsTargetValid(target))
             return false;
 
-        float finalCritChance = critChance;
-        if (damageCalculator != null)
-            finalCritChance = damageCalculator.GetFinalCritChance(unitStat, critChance);
-
-        float clampedCritChance = Mathf.Clamp01(finalCritChance);
+        // critChance 는 호출측이 Hub 에서 조회한 값 (Base + Fighter 시너지 합산 완료).
+        float clampedCritChance = Mathf.Clamp01(critChance);
         float crit = (Random.value < clampedCritChance) ? 0.5f : 0f;
 
         int normalDamage = damageCalculator.CalculateNormalDamage(unitStat, attackPower, target.BaseDefense, crit);
@@ -1115,10 +1117,28 @@ public class CombatManager : MonoBehaviour
         if (shouldBeActive && !_isOrcActive)
         {
             StartOrcSynergy();
+            return;
         }
-        else if (!shouldBeActive && _isOrcActive)
+
+        if (!shouldBeActive && _isOrcActive)
         {
             StopOrcSynergy();
+            return;
+        }
+
+        // 활성 유지 + 사이클 ON 중 : 단계 변동(효과값 변화) / 새 Orc 유닛 가입을 즉시 반영.
+        // OFF 구간(쿨다운) 이면 다음 사이클의 ApplyOrcBuff 가 자연스레 새 값을 읽으므로 불필요.
+        if (_isOrcActive && _isOrcBuffActive)
+        {
+            if (TryGetOrcEffectValues(out _, out float refreshedPercent))
+            {
+                if (orcSynergyLog)
+                    DebugTool.Log(
+                        $"오크 시너지 단계 변동 감지 → 버프 즉시 갱신 | newPercent={refreshedPercent:F1}%",
+                        DebugType.Synergy, this);
+
+                ApplyOrcBuff(refreshedPercent);
+            }
         }
     }
 
@@ -1214,33 +1234,46 @@ public class CombatManager : MonoBehaviour
 
     private void ApplyOrcBuff(float attackPercent)
     {
-        _orcBuffPercent = attackPercent;
-        _isOrcBuffActive = true;
+        // 재진입 안전 : 사이클 중 단계 변동으로 다시 호출될 수 있다.
+        // 기존 틴트가 남아있으면 먼저 원색 복원 후 새로 적용한다.
+        for (int t = 0; t < _orcTintedUnits.Count; t++)
+            _orcTintedUnits[t]?.Remove();
         _orcTintedUnits.Clear();
+
+        _isOrcBuffActive = true;
 
         const int orcId = (int)SynergyManager.SynergyType.Orc;
         UnitStat[] allUnits = FindObjectsByType<UnitStat>(FindObjectsSortMode.None);
 
+        int hubAppliedCount = 0;
         for (int i = 0; i < allUnits.Length; i++)
         {
             if (!HasSynergyTag(allUnits[i], orcId))
                 continue;
 
+            // 비주얼 : 틴트
             SpriteColorTint tint = new SpriteColorTint(allUnits[i].gameObject);
             tint.Apply(OrcBuffTintColor);
             _orcTintedUnits.Add(tint);
+
+            // 스탯 : Hub 모디파이어
+            UnitStatHub hub = allUnits[i].GetComponent<UnitStatHub>();
+            if (hub != null)
+            {
+                OrcSynergyApplier.Apply(allUnits[i], hub, attackPercent);
+                hubAppliedCount++;
+            }
         }
 
         if (orcSynergyLog)
             DebugTool.Log(
-                $"오크 버프 적용 | percent={attackPercent:F1}%, tintedUnits={_orcTintedUnits.Count}",
+                $"오크 버프 적용 | percent={attackPercent:F1}%, tintedUnits={_orcTintedUnits.Count}, hubApplied={hubAppliedCount}",
                 DebugType.Synergy, this);
     }
 
     private void RemoveOrcBuff()
     {
         _isOrcBuffActive = false;
-        _orcBuffPercent = 0f;
 
         for (int i = 0; i < _orcTintedUnits.Count; i++)
         {
@@ -1249,8 +1282,25 @@ public class CombatManager : MonoBehaviour
 
         _orcTintedUnits.Clear();
 
+        // Hub 모디파이어는 Orc 태그 유닛 전체 순회로 제거. 키 단위라 없는 유닛에는 무영향.
+        const int orcId = (int)SynergyManager.SynergyType.Orc;
+        UnitStat[] allUnits = FindObjectsByType<UnitStat>(FindObjectsSortMode.None);
+        int hubRemovedCount = 0;
+        for (int i = 0; i < allUnits.Length; i++)
+        {
+            if (!HasSynergyTag(allUnits[i], orcId))
+                continue;
+
+            UnitStatHub hub = allUnits[i].GetComponent<UnitStatHub>();
+            if (hub != null)
+            {
+                OrcSynergyApplier.Remove(allUnits[i], hub);
+                hubRemovedCount++;
+            }
+        }
+
         if (orcSynergyLog)
-            DebugTool.Log("오크 버프 해제 | 틴트 제거 완료", DebugType.Synergy, this);
+            DebugTool.Log($"오크 버프 해제 | 틴트 제거 완료, hubRemoved={hubRemovedCount}", DebugType.Synergy, this);
     }
 
     private int GetOrcMinActiveCount()

@@ -9,6 +9,7 @@ public class UnitAutoAttack : MonoBehaviour
     [SerializeField] private UnitStat unitStat;
     [SerializeField] private UnitAttackSensor attackSensor;
     [SerializeField] private AnimationController anim;
+    [SerializeField] private UnitStatHub statHub;
 
     [Header("Attack Sync")]
     [SerializeField, Min(0)] private int attackAnimationIndex = 0;
@@ -24,7 +25,6 @@ public class UnitAutoAttack : MonoBehaviour
     [Header("Skill")]
     [SerializeField] private SkillCast skillCast;
 
-    private const int GunnerSynergyId = (int)SynergyManager.SynergyType.Gunner;
     private const int WizardSynergyId = (int)SynergyManager.SynergyType.Magician;
     private const int ArcherSynergyId = (int)SynergyManager.SynergyType.Archer;
     private const int FurrySynergyId = (int)SynergyManager.SynergyType.Furry;
@@ -57,6 +57,9 @@ public class UnitAutoAttack : MonoBehaviour
     {
         if (unitStat == null)
             unitStat = GetComponent<UnitStat>();
+
+        if (statHub == null)
+            statHub = GetComponent<UnitStatHub>();
 
         if (anim == null)
             anim = GetComponent<AnimationController>();
@@ -111,6 +114,9 @@ public class UnitAutoAttack : MonoBehaviour
     {
         if (unitStat == null)
             unitStat = GetComponent<UnitStat>();
+
+        if (statHub == null)
+            statHub = GetComponent<UnitStatHub>();
 
         if (anim == null)
             anim = GetComponent<AnimationController>();
@@ -167,11 +173,13 @@ public class UnitAutoAttack : MonoBehaviour
 
     private float CalculateAttackInterval()
     {
-        float attackSpeedPerSecond = Mathf.Max(0.01f, unitStat.AttackSpeed);
+        // AttackSpeed 는 Hub 가 단일 소스. 거너 시너지 효과는
+        // SynergyStatBinder → GunnerSynergyApplier 를 통해 이미 Hub 모디파이어로 누적됨.
+        float attackSpeedPerSecond = statHub != null
+            ? statHub.Get(StatType.AttackSpeed)
+            : unitStat.AttackSpeed;
 
-        float gunnerBonusPercent = GetGunnerAttackSpeedBonusPercent();
-        attackSpeedPerSecond *= 1f + gunnerBonusPercent * 0.01f;
-
+        attackSpeedPerSecond = Mathf.Max(0.01f, attackSpeedPerSecond);
         return 1f / attackSpeedPerSecond;
     }
 
@@ -858,31 +866,6 @@ public class UnitAutoAttack : MonoBehaviour
         {
             DebugTool.Log(
                 $"마법사 추가 대미지 준비 가능 | unit={unitStat.Name}, active={CombatManager.Instance.GetSynergyLevel(WizardSynergyId)}, bonusPercent={bonusPercent:F2}",
-                DebugType.Synergy,
-                this
-            );
-        }
-
-        return bonusPercent;
-    }
-
-    private float GetGunnerAttackSpeedBonusPercent()
-    {
-        if (unitStat == null)
-            return 0f;
-
-        if (!HasSynergyTag(GunnerSynergyId))
-            return 0f;
-
-        if (CombatManager.Instance == null)
-            return 0f;
-
-        float bonusPercent = CombatManager.Instance.GetSynergyEffectValue(GunnerSynergyId);
-
-        if (attackLog && bonusPercent > 0f)
-        {
-            DebugTool.Log(
-                $"거너 공속 보너스 적용 | unit={unitStat.Name}, active={CombatManager.Instance.GetSynergyLevel(GunnerSynergyId)}, bonusPercent={bonusPercent:F2}",
                 DebugType.Synergy,
                 this
             );
