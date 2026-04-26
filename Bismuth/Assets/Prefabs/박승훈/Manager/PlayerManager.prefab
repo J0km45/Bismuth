@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 8423151259897990698}
   - component: {fileID: 3962914728387289638}
   - component: {fileID: 8140035803927745397}
+  - component: {fileID: 7464948112616133436}
   - component: {fileID: 651773196946485032}
   - component: {fileID: 3586491415078184626}
   - component: {fileID: 8554172300313096461}
@@ -100,6 +101,22 @@ MonoBehaviour:
       m_Calls: []
   _unitCount: 0
   _log: 0
+--- !u!114 &7464948112616133436
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4351018382781704222}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1554fe8207fefb43811d519ea51eeef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SynergyEnhanceLevelManager
+  _enhanceSO: {fileID: 11400000, guid: 1544abcb239f52c4b99dfe03dd80285f, type: 2}
+  _playerDataManager: {fileID: 8423151259897990698}
+  _maxLevel: 5
+  _log: 1
 --- !u!114 &651773196946485032
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -297,4 +314,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SynergyStatBinder
   _synergyManager: {fileID: 8140035803927745397}
   _summonUnit: {fileID: 8554172300313096461}
+  _enhanceLevelManager: {fileID: 7464948112616133436}
   _log: 1

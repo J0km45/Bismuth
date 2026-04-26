@@ -167,6 +167,7 @@ public class CombatManager : MonoBehaviour
     public bool ResolveProjectileHit(
     float attackPower,
     float critChance,
+    float critDamage,
     MonsterController target,
     GameObject hitEffect,
     GameObject unit,
@@ -184,6 +185,7 @@ public class CombatManager : MonoBehaviour
             return ApplyExplosionDamage(
                 attackPower,
                 critChance,
+                critDamage,
                 impactPosition,
                 explosionRadius,
                 sourceName,
@@ -196,6 +198,7 @@ public class CombatManager : MonoBehaviour
         return ApplyDamageToTarget(
             attackPower,
             critChance,
+            critDamage,
             target,
             hitEffect,
             sourceName,
@@ -273,10 +276,11 @@ public class CombatManager : MonoBehaviour
     private bool ApplyHitscan(GameObject unit, UnitStat unitStat, string sourceName, List<MonsterController> targets, AttackContext context)
     {
         GameObject hitEffect = GetHitEffect(unitStat);
-        // Step 2b : 공격력/치명타 확률 모두 Hub 에서 직접 조회. 반복문 돌기 전에 한 번만 캐시.
+        // 공격력/치명타 확률/치명타 데미지 모두 Hub 에서 직접 조회. 반복문 돌기 전에 한 번만 캐시.
         UnitStatHub hub = unit.GetComponent<UnitStatHub>();
         float attackPower = hub.Get(StatType.AttackPower);
-        float critChance  = hub.Get(StatType.CritChance);  // Base + Fighter 시너지 합산 반영
+        float critChance  = hub.Get(StatType.CritChance);   // Base + Fighter 시너지 합산
+        float critDamage  = hub.Get(StatType.CritDamage);   // 격투가 시너지 강화 등으로 누적
         int appliedCount = 0;
 
         for (int i = 0; i < targets.Count; i++)
@@ -288,6 +292,7 @@ public class CombatManager : MonoBehaviour
             bool success = ApplyDamageToTarget(
                 attackPower,
                 critChance,
+                critDamage,
                 target,
                 hitEffect,
                 sourceName,
@@ -319,10 +324,11 @@ public class CombatManager : MonoBehaviour
         GameObject hitEffect = GetHitEffect(unitStat);
         string sourceName = towerUnit != null ? towerUnit.name : unitStat.Name;
 
-        // Step 2b : 공격력/치명타 확률 모두 Hub 에서 직접 조회. 투사체 발사 전 한 번만 캐시.
+        // 공격력/치명타 확률/치명타 데미지 모두 Hub 에서 직접 조회. 투사체 발사 전 한 번만 캐시.
         UnitStatHub hub = unit.GetComponent<UnitStatHub>();
         float attackPower = hub.Get(StatType.AttackPower);
-        float critChance  = hub.Get(StatType.CritChance);  // Base + Fighter 시너지 합산 반영
+        float critChance  = hub.Get(StatType.CritChance);   // Base + Fighter 시너지 합산
+        float critDamage  = hub.Get(StatType.CritDamage);   // 격투가 시너지 강화 등으로 누적
 
         bool isAoe = unitStat.attackTypes == UnitData.AttackTypes.AOE;
         float explosionRadius = Mathf.Max(0.01f, unitStat.AttackArea);
@@ -359,6 +365,7 @@ public class CombatManager : MonoBehaviour
             projectile.Initialize(
                 attackPower,
                 critChance,
+                critDamage,
                 sourceName,
                 target,
                 hitEffect,
@@ -390,6 +397,7 @@ public class CombatManager : MonoBehaviour
     private bool ApplyExplosionDamage(
     float attackPower,
     float critChance,
+    float critDamage,
     Vector3 impactPosition,
     float radius,
     string sourceName,
@@ -425,6 +433,7 @@ public class CombatManager : MonoBehaviour
             bool success = ApplyDamageToTarget(
                 attackPower,
                 critChance,
+                critDamage,
                 monster,
                 null,
                 sourceName,
@@ -458,9 +467,14 @@ public class CombatManager : MonoBehaviour
         return appliedCount > 0;
     }
 
+    // 기본 치명타 데미지 계수. 향후 시트화 가능.
+    // 시너지 강화(격투가)의 CritDamage 가 이 위에 합연산으로 들어간다.
+    private const float BaseCritMultiplier = 0.5f;
+
     private bool ApplyDamageToTarget(
     float attackPower,
     float critChance,
+    float critDamage,
     MonsterController target,
     GameObject hitEffect,
     string sourceName,
@@ -472,9 +486,12 @@ public class CombatManager : MonoBehaviour
         if (!IsTargetValid(target))
             return false;
 
-        // critChance 는 호출측이 Hub 에서 조회한 값 (Base + Fighter 시너지 합산 완료).
+        // critChance/critDamage 는 호출측이 Hub 에서 조회한 값.
+        //   critChance : Base + Fighter 시너지 스킬 합산
+        //   critDamage : Base(0) + 격투가 시너지 강화(Flat) 합산
+        // 치명타 발동 시 데미지 계수 = BaseCritMultiplier + critDamage
         float clampedCritChance = Mathf.Clamp01(critChance);
-        float crit = (Random.value < clampedCritChance) ? 0.5f : 0f;
+        float crit = (Random.value < clampedCritChance) ? (BaseCritMultiplier + critDamage) : 0f;
 
         int normalDamage = damageCalculator.CalculateNormalDamage(unitStat, attackPower, target.BaseDefense, crit);
         int archerSkillDamage = damageCalculator.CalculateArcherSkillDamage(unitStat, target, context.IsArcherBonus);
