@@ -134,8 +134,12 @@ public class UnitInfoPanelUI : MonoBehaviour
     {
         _levelText.text = $"Lv {_unitStat.Level}";
 
-        _statText.text = $"{LocalizationManager.Instance.Get("ATTACK_POWER")} : {_unitStat.CurrentAttackPower}" + 
-            $"\n{LocalizationManager.Instance.Get("ATTACK_SPEED")} : {_unitStat.AttackSpeed}" + 
+        // 공격력은 UnitStatHub 가 단일 소스. (강화/시너지/시너지강화 모두 Hub 로 합산)
+        UnitStatHub hub = _unitStat.GetComponent<UnitStatHub>();
+        float attackPower = hub != null ? hub.Get(StatType.AttackPower) : _unitStat.BaseAttackPower;
+
+        _statText.text = $"{LocalizationManager.Instance.Get("ATTACK_POWER")} : {attackPower}" +
+            $"\n{LocalizationManager.Instance.Get("ATTACK_SPEED")} : {_unitStat.AttackSpeed}" +
             $"\n{LocalizationManager.Instance.Get("RANGE")} : {_unitStat.Range}";
 
         PlayerUIController controller = _collectUnitInfo.PlayerUIController;

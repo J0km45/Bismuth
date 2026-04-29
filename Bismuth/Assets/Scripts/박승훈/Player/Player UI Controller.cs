@@ -148,13 +148,20 @@ public class PlayerUIController : MonoBehaviour
 
         float UpgradeRatio = _unitEnhanceSO.UnitEnhanceDatas[unitID - 10001].EnhanceValue;
 
+        UnitStatHub hub = unit.GetComponent<UnitStatHub>();
+        float beforeAttackPower = hub.Get(StatType.AttackPower);
+
         _player.Gold -= gold;
         stat.Level++;
-        float upgradeAttackPower = stat.BaseAttackPower * UpgradeRatio * unitLevel;
-        float beforeAttackPower = stat.CurrentAttackPower;
-        stat.CurrentAttackPower = stat.BaseAttackPower + upgradeAttackPower;
+
+        // 유닛 강화는 Hub 의 UnitEnhance 모디파이어로 기록된다. (단일 소스)
+        UnitEnhanceApplier.Apply(stat, hub, UpgradeRatio);
+
+        float afterAttackPower = hub.Get(StatType.AttackPower);
+        float upgradeAttackPower = afterAttackPower - beforeAttackPower;
+
         DebugTool.Log($"유닛 강화 성공! [유닛 레벨 : {unitLevel} | 소모 골드 : {gold}\n" +
-                      $"이전 공격력 : {beforeAttackPower}, 추가 공격력 : {upgradeAttackPower}, 현재 공격력 : {stat.CurrentAttackPower}", DebugType.Unit, this);
+                      $"이전 공격력 : {beforeAttackPower}, 추가 공격력 : {upgradeAttackPower}, 현재 공격력 : {afterAttackPower}", DebugType.Unit, this);
 
         SFXController.Instance.OnEnforce();
         _unitInfoPanelUI.RefreshStats();

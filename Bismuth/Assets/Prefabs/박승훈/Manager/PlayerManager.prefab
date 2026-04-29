@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 8423151259897990698}
   - component: {fileID: 3962914728387289638}
   - component: {fileID: 8140035803927745397}
+  - component: {fileID: 7464948112616133436}
   - component: {fileID: 651773196946485032}
   - component: {fileID: 3586491415078184626}
   - component: {fileID: 8554172300313096461}
@@ -19,6 +20,7 @@ GameObject:
   - component: {fileID: 5106607783468869301}
   - component: {fileID: 2799974427374469838}
   - component: {fileID: 7812345678901234502}
+  - component: {fileID: 5877217470729030653}
   m_Layer: 0
   m_Name: PlayerManager
   m_TagString: Untagged
@@ -98,6 +100,22 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   _unitCount: 0
+  _log: 0
+--- !u!114 &7464948112616133436
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4351018382781704222}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1554fe8207fefb43811d519ea51eeef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SynergyEnhanceLevelManager
+  _enhanceSO: {fileID: 11400000, guid: 1544abcb239f52c4b99dfe03dd80285f, type: 2}
+  _playerDataManager: {fileID: 8423151259897990698}
+  _maxLevel: 5
   _log: 1
 --- !u!114 &651773196946485032
 MonoBehaviour:
@@ -112,7 +130,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SummonManager
   summonUnit: {fileID: 0}
-  BoardLog: 1
+  BoardLog: 0
 --- !u!114 &3586491415078184626
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -129,7 +147,7 @@ MonoBehaviour:
   _summonUnit: {fileID: 0}
   _units: {fileID: 11400000, guid: cd09fb10c1adca94facd263909f98d92, type: 2}
   _combineSO: {fileID: 11400000, guid: 0dfded2c1c40dd54498084b03b040f27, type: 2}
-  _log: 1
+  _log: 0
   OnAddUnit:
     m_PersistentCalls:
       m_Calls: []
@@ -214,7 +232,7 @@ MonoBehaviour:
   - {fileID: 3715344090090077805, guid: 6469e238013eabc42b5a7777d07a1c1e, type: 3}
   - {fileID: 4662263023091883543, guid: 7c5cfd8c835d81c4a91eceea394af01c, type: 3}
   ownedTowers: []
-  summonLog: 1
+  summonLog: 0
   boardLog: 0
 --- !u!114 &7012402871630413712
 MonoBehaviour:
@@ -235,7 +253,7 @@ MonoBehaviour:
     m_Bits: 1024
   unitInfoPanel: {fileID: 0}
   _combinationScrollView: {fileID: 0}
-  _holdDuration: 0.5
+  _holdDuration: 0.25
 --- !u!114 &5106607783468869301
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -253,7 +271,7 @@ MonoBehaviour:
   OnSummonUnit:
     m_PersistentCalls:
       m_Calls: []
-  _log: 1
+  _log: 0
 --- !u!114 &2799974427374469838
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -268,9 +286,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BattleRewardHandler
   _battleWaveRunner: {fileID: 0}
   _playerDataManager: {fileID: 0}
-  _synergySO: {fileID: 11400000, guid: ae19ff350cd21684392c987d6ab5e999, type: 2}
-  _synergyManager: {fileID: 0}
-  _log: 1
+  _log: 0
 --- !u!114 &7812345678901234502
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -284,3 +300,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CatalogPersistenceBootstrap
   _unitCatalogSO: {fileID: 11400000, guid: c1255872189f01c4d8d4cae2d5512b13, type: 2}
+--- !u!114 &5877217470729030653
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4351018382781704222}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3f38374e5cfa8642bc8c37c76a1fef4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SynergyStatBinder
+  _synergyManager: {fileID: 8140035803927745397}
+  _summonUnit: {fileID: 8554172300313096461}
+  _enhanceLevelManager: {fileID: 7464948112616133436}
+  _log: 1
