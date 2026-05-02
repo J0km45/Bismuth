@@ -1,8 +1,8 @@
 using UnityEngine;
 
-public class TimeScaleController : MonoBehaviour
+public class TimeScaleManager : MonoBehaviour
 {
-    public static TimeScaleController Instance { get; private set; }
+    public static TimeScaleManager Instance { get; private set; }
 
     private float _currentSpeed = 1f;
 
