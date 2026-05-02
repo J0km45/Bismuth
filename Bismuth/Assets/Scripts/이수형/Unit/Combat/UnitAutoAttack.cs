@@ -24,6 +24,7 @@ public class UnitAutoAttack : MonoBehaviour
 
     [Header("Skill")]
     [SerializeField] private SkillCast skillCast;
+    [SerializeField] private UnitSkillRunner skillRunner;
 
     private const int WizardSynergyId = (int)SynergyManager.SynergyType.Magician;
     private const int ArcherSynergyId = (int)SynergyManager.SynergyType.Archer;
@@ -70,6 +71,10 @@ public class UnitAutoAttack : MonoBehaviour
         if (skillCast == null)
             skillCast = gameObject.AddComponent<SkillCast>();
 
+        // SkillRunner 는 스킬 보유 유닛에만 붙는다. 없으면 null 유지(스킬 없는 유닛).
+        if (skillRunner == null)
+            skillRunner = GetComponent<UnitSkillRunner>();
+
         EnsureSensor();
 
     }
@@ -106,6 +111,14 @@ public class UnitAutoAttack : MonoBehaviour
 
         if (Time.time < nextAttackReadyTime)
             return;
+
+        // 보유 스킬이 액티브 + 쿨다운 충족이면 일반공격 대신 스킬 발동
+        if (skillRunner != null && skillRunner.ShouldCastInsteadOfNormalAttack())
+        {
+            AttackContext skillContext = skillRunner.BuildSkillContext();
+            StartAttack(currentTarget, skillContext);
+            return;
+        }
 
         StartAttack(currentTarget, AttackContext.Normal());
     }
@@ -324,7 +337,7 @@ public class UnitAutoAttack : MonoBehaviour
         float effectiveAttackSpeed = unitStat.AttackSpeed * context.AnimSpeedMultiplier;
 
 
-        bool isSkillAttack = context.IsWarriorBonus || context.IsFurryBonus || context.IsWizardBonus;
+        bool isSkillAttack = context.IsWarriorBonus || context.IsFurryBonus || context.IsWizardBonus || context.IsActiveSkill;
         int animIndex = isSkillAttack ? 1 : attackAnimationIndex;
 
         AttackPlaybackData playback = anim.PlayAttackAnimation(animIndex, effectiveAttackSpeed);
@@ -344,6 +357,10 @@ public class UnitAutoAttack : MonoBehaviour
                 this
             );
         }
+
+        // 액티브 스킬 발동 → 쿨다운 시작 (히트 성공/실패 무관, 발동 자체가 일어나면 카운트)
+        if (context.IsActiveSkill && skillRunner != null)
+            skillRunner.StartCooldown();
     }
 
     private void UpdateAttackProgress()
@@ -418,6 +435,35 @@ public class UnitAutoAttack : MonoBehaviour
             return;
         }
 
+        // 비고 룰: "스킬 시전 중 타겟 사망시 다음 타겟에게 재시전, 없으면 쿨타임 초기화"
+        // 액티브 스킬이 허망하게 빗나가서 쿨타임만 까먹는 걸 방지.
+        if (currentAttackContext.IsActiveSkill && !CanHitLockedTarget())
+        {
+            if (TryRetargetSkill())
+            {
+                if (attackLog)
+                {
+                    DebugTool.Log(
+                        $"[Skill] 시전 중 타겟 사망 → 새 타겟으로 재시전 | newTarget={lockedTarget.name}",
+                        DebugType.Unit, this);
+                }
+                // lockedTarget 갱신 완료 → 아래 정상 흐름으로 진행
+            }
+            else
+            {
+                if (skillRunner != null)
+                    skillRunner.ResetCooldown();
+
+                if (attackLog)
+                {
+                    DebugTool.Log(
+                        $"[Skill] 시전 중 타겟 사망 + 다음 타겟 없음 → 쿨타임 초기화 (허망 발동 방지)",
+                        DebugType.Unit, this);
+                }
+                return;
+            }
+        }
+
         if (!CanHitLockedTarget())
         {
             if (attackLog)
@@ -461,6 +507,33 @@ public class UnitAutoAttack : MonoBehaviour
                 this
             );
         }
+
+        // 30003 케이스: 매 공격에 추가 투사체가 따라붙음.
+        // 일반공격 hit 가 정상 발동된 경우에만 (락 타겟 무효 분기엔 들어오지 않음) 발사.
+        TryFireExtraProjectiles();
+    }
+
+    /// <summary>
+    /// 30003(추가 투사체 패시브)을 보유한 경우, 일반공격 hit 시점에 추가 투사체를 발사한다.
+    /// CombatManager.DamageOccured 를 한 번 더 호출하되 ForceProjectile 컨텍스트로 분기.
+    /// </summary>
+    private void TryFireExtraProjectiles()
+    {
+        if (skillRunner == null || !skillRunner.IsExtraProjectileSkill)
+            return;
+
+        if (CombatManager.Instance == null)
+            return;
+
+        AttackContext extraCtx = skillRunner.BuildExtraProjectileContext();
+        CombatManager.Instance.DamageOccured(this.gameObject, lockedTarget, attackSensor, extraCtx);
+
+        if (attackLog)
+        {
+            DebugTool.Log(
+                $"[Skill 추가 투사체] 발사 | skillId={skillRunner.Skill.Id}, target={lockedTarget.name}, context=[{extraCtx}]",
+                DebugType.Unit, this);
+        }
     }
 
 
@@ -475,6 +548,29 @@ public class UnitAutoAttack : MonoBehaviour
         if (lockedTarget.CurrentHp <= 0f)
             return false;
 
+        return true;
+    }
+
+    /// <summary>
+    /// 액티브 스킬 시전 중 락 타겟이 사망했을 때 attackSensor 에서 새 타겟을 찾아 락을 갱신.
+    /// 새 타겟이 있으면 lockedTarget/currentTarget 모두 갱신하고 true.
+    /// </summary>
+    private bool TryRetargetSkill()
+    {
+        if (attackSensor == null)
+            return false;
+
+        MonsterController newTarget = attackSensor.GetFirstTarget();
+
+        if (newTarget == null
+            || !newTarget.gameObject.activeInHierarchy
+            || newTarget.CurrentHp <= 0f)
+        {
+            return false;
+        }
+
+        lockedTarget = newTarget;
+        currentTarget = newTarget;
         return true;
     }
 

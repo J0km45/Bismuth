@@ -53,6 +53,8 @@ public class CombatManager : MonoBehaviour
     [SerializeField, Min(0.1f)] private float spiritCooldown = 10f;
     [SerializeField] private bool spiritSynergyLog = false;
 
+    private const string SpiritSlowSourceKey = "Synergy_Spirit";
+
     private Coroutine _spiritRoutine;
     private readonly List<MonsterMover> _slowedMonsters = new();
     private bool _isSpiritActive;
@@ -153,8 +155,11 @@ public class CombatManager : MonoBehaviour
             return false;
 
         // AttackTargetCount 는 Hub 가 단일 소스. 시너지 강화 보너스 자동 반영.
+        // 단, 액티브 스킬이 SkillTargetCountOverride 를 채워서 들어오면 그 값 우선 사용 (예: 30001 광역).
         UnitStatHub hub = unit.GetComponent<UnitStatHub>();
-        int currentTargetCount = Mathf.Max(1, Mathf.RoundToInt(hub.Get(StatType.AttackTargetCount)));
+        int currentTargetCount = context.SkillTargetCountOverride > 0
+            ? context.SkillTargetCountOverride
+            : Mathf.Max(1, Mathf.RoundToInt(hub.Get(StatType.AttackTargetCount)));
 
         List<MonsterController> targets = SelectTargets(currentTargetCount, currentTarget, attackSensor);
         if (targets.Count == 0)
@@ -164,6 +169,10 @@ public class CombatManager : MonoBehaviour
         }
 
         soundManager?.RandomAttackUnit(unitStat);
+
+        // ForceProjectile 컨텍스트(예: 30003 추가 투사체)는 분기 무시하고 무조건 투사체.
+        if (context.ForceProjectile)
+            return FireProjectiles(unit, towerUnit, unitStat, targets, context);
 
         // 공격 방식 분기는 Base Range 로 결정.
         // 시너지 강화로 사거리가 늘어도 원래 근접이었던 유닛은 계속 히트스캔, 원래 원거리는 계속 투사체.
@@ -342,7 +351,11 @@ public class CombatManager : MonoBehaviour
 
     private bool FireProjectiles(GameObject unit, TowerUnit towerUnit, UnitStat unitStat, List<MonsterController> targets, AttackContext context)
     {
-        GameObject projectilePrefab = GetProjectilePrefab(unitStat);
+        // 컨텍스트에 프리팹 오버라이드가 있으면 우선 사용 (예: 30003 근접 유닛의 추가 투사체).
+        // 없으면 유닛 본래 프리팹.
+        GameObject projectilePrefab = context.ProjectilePrefabOverride != null
+            ? context.ProjectilePrefabOverride
+            : GetProjectilePrefab(unitStat);
         GameObject hitEffect = GetHitEffect(unitStat);
         string sourceName = towerUnit != null ? towerUnit.name : unitStat.Name;
 
@@ -383,6 +396,19 @@ public class CombatManager : MonoBehaviour
             {
                 projectileObject = new GameObject($"{sourceName}_Projectile");
                 projectileObject.transform.position = spawnPosition;
+            }
+
+            // 추가 투사체 등 ProjectileScaleMultiplier 가 채워져 있으면 크기 적용.
+            // 풀에서 재사용된 오브젝트도 매번 새로 셋업되도록 절대값으로 설정.
+            float scaleMul = context.EffectiveProjectileScale;
+            if (!Mathf.Approximately(scaleMul, 1f))
+            {
+                Vector3 baseScale = Vector3.one;
+                projectileObject.transform.localScale = baseScale * scaleMul;
+            }
+            else
+            {
+                projectileObject.transform.localScale = Vector3.one;
             }
 
             UnitProjectile projectile = projectileObject.GetComponent<UnitProjectile>();
@@ -674,7 +700,23 @@ public class CombatManager : MonoBehaviour
         // bonusVsSlowed 자체는 공격자 Hub 에서 미리 조회된 값(태그 없으면 0).
         float effectiveBonusVsSlowed = (bonusVsSlowed > 0f && IsTargetSlowed(target)) ? bonusVsSlowed : 0f;
 
-        int normalDamage = damageCalculator.CalculateNormalDamage(unitStat, attackPower, target.BaseDefense, crit, effectiveBonusVsSlowed);
+        int normalDamage;
+
+        if (context.IsActiveSkill && context.DamageBase == SkillDamageBaseType.MaxHp)
+        {
+            // 적 최대 체력 비례 데미지 (방어력/치명타/슬로우보너스 무시).
+            // 궁수 시너지 스킬과 동일 판정 — DamageCalculator.CalculateMaxHpRatioDamage 재사용.
+            normalDamage = damageCalculator.CalculateMaxHpRatioDamage(target, context.MaxHpRatio);
+        }
+        else
+        {
+            normalDamage = damageCalculator.CalculateNormalDamage(unitStat, attackPower, target.BaseDefense, crit, effectiveBonusVsSlowed);
+
+            // 액티브 스킬 데미지 멀티플라이어 적용. 일반공격은 1f 라 영향 없음.
+            // EffectiveDamageMultiplier 가 0/음수일 땐 자동으로 1f 로 보정되어 안전.
+            normalDamage = Mathf.RoundToInt(normalDamage * context.EffectiveDamageMultiplier);
+        }
+
         int archerSkillDamage = damageCalculator.CalculateArcherSkillDamage(unitStat, target, context.IsArcherBonus);
 
         int finalDamage = normalDamage + archerSkillDamage;
@@ -728,6 +770,22 @@ public class CombatManager : MonoBehaviour
         }
 
         unitStat.DealtDamage += finalDamage;
+
+        // 슬로우 디버프 적용 (액티브 스킬이 컨텍스트에 채워서 들어옴, 살아있는 적에만).
+        // MonsterMover 가 source 기반이라 같은 스킬 재시전 시 갱신, 정령/타 슬로우와 max(percent) 공존.
+        if (context.DebuffSlowPercent > 0f
+            && context.DebuffDuration > 0f
+            && context.DebuffSourceKey != null
+            && target != null
+            && target.gameObject.activeInHierarchy
+            && target.CurrentHp > 0f)
+        {
+            MonsterMover mover = target.GetComponent<MonsterMover>();
+            if (mover != null)
+            {
+                mover.ApplySlow(context.DebuffSourceKey, context.DebuffSlowPercent, context.DebuffDuration);
+            }
+        }
 
         DebugTool.Log(
             $"{attackChannel} 피해 적용 | source={sourceName}, target={target.name}, final={finalDamage}, normal={normalDamage}, archerSkill={archerSkillDamage}, wizardFollowUp={context.IsWizardBonus}, crit={(crit > 0f ? "Yes" : "No")}, context=[{context}]",
@@ -1332,7 +1390,9 @@ public class CombatManager : MonoBehaviour
             if (mover == null || !mover.gameObject.activeInHierarchy)
                 continue;
 
-            mover.ApplySlow(slowPercent);
+            // 정령 슬로우는 자체 사이클 코루틴이 명시적으로 RemoveSlow 호출.
+            // duration 무한(-1) 으로 두고 source key 로 식별. 30001/30006 등 다른 슬로우와 max(percent) 로 공존.
+            mover.ApplySlow(SpiritSlowSourceKey, slowPercent, -1f);
             _slowedMonsters.Add(mover);
         }
     }
@@ -1346,7 +1406,7 @@ public class CombatManager : MonoBehaviour
             if (mover == null || !mover.gameObject.activeInHierarchy)
                 continue;
 
-            mover.RemoveSlow();
+            mover.RemoveSlow(SpiritSlowSourceKey);
         }
 
         _slowedMonsters.Clear();
