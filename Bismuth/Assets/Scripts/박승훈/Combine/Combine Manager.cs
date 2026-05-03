@@ -15,10 +15,11 @@ public class CombineManager : MonoBehaviour
     
     [SerializeField] private CombineSO _combineSO;
     
-    //보유중인 유닛의 중복 개수
+    // 재료 유닛으로 합성 레시피 찾기
+    private Dictionary<int, List<int>> _sourceToRecipeDict = new();
+    
+    // 보유중인 유닛 전체가 아닌 해당 유닛을 중복 개수로 관리 (중복 체크)
     private Dictionary<int, int> _ownedUnitCounts = new();
-    // 재료 유닛으로 결과 유닛 찾기
-    private Dictionary<int, List<int>> sourceToRecipeDict = new();
     
     // 실제 합성 가능한 리스트
     public List<int[]> CombineList = new();
@@ -212,7 +213,7 @@ public class CombineManager : MonoBehaviour
     // 모든 합성법 초기화 
     public void InitSourceToResultDict()
     {
-        sourceToRecipeDict.Clear();
+        _sourceToRecipeDict.Clear();
         
         // 모든 유닛 수 만큼 반복
         for (int recipeIndex = 0; recipeIndex < _combineSO.CombineDatas.Count; recipeIndex++)
@@ -226,10 +227,10 @@ public class CombineManager : MonoBehaviour
                 if (sourceId == 0)
                     continue;
                 // 유닛이 합성법 재료에 있으면 리스트에 추가 
-                if (!sourceToRecipeDict.TryGetValue(sourceId, out List<int> resultList))
+                if (!_sourceToRecipeDict.TryGetValue(sourceId, out List<int> resultList))
                 {
                     resultList = new();
-                    sourceToRecipeDict.Add(sourceId, resultList);
+                    _sourceToRecipeDict.Add(sourceId, resultList);
                 }
                 
                 resultList.Add(recipeIndex);
@@ -237,7 +238,7 @@ public class CombineManager : MonoBehaviour
         }
     }
 
-    // 유닛 생성 시 해당유닛 보유량 변경
+    // 유닛 생성 시 해당 유닛 중복 보유량 변경
     private void AddOwnedUnit(int unitId)
     {
         if(_ownedUnitCounts.ContainsKey(unitId))
@@ -246,7 +247,7 @@ public class CombineManager : MonoBehaviour
             _ownedUnitCounts.Add(unitId, 1);
     }
 
-    // 유닛 삭제 시 해당 유닛 보유량 변경
+    // 유닛 삭제 시 해당 유닛 중복 보유량 변경
     private void RemoveOwnedUnit(int unitId)
     {
         if (!_ownedUnitCounts.ContainsKey(unitId))
@@ -268,7 +269,7 @@ public class CombineManager : MonoBehaviour
         {
             int ownedUnitId = owned.Key;
 
-            if (!sourceToRecipeDict.TryGetValue(ownedUnitId, out List<int> recipeIndices))
+            if (!_sourceToRecipeDict.TryGetValue(ownedUnitId, out List<int> recipeIndices))
                 continue;
 
             foreach (int recipeIndex in recipeIndices)
@@ -304,7 +305,7 @@ public class CombineManager : MonoBehaviour
         return result;
     }
 
-    // 추가된 조합법 리스트 중 조합 가능 여부 출력
+    // 추가된 조합법 리스트 중 조합 가능 여부 출력 (디버깅 용)
     private void PrintCombineList(int a)
     {
         StringBuilder log = new();
@@ -360,7 +361,6 @@ public class CombineManager : MonoBehaviour
         _summonManager = GetComponent<SummonManager>();
         _summonUnit = GetComponent<SummonUnit>();
         
-        DebugTool.DebugSelect(DebugType.Combine, _log);
         InitSourceToResultDict();
     }
 }

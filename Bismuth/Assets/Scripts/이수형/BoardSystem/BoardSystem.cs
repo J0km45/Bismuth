@@ -35,20 +35,30 @@ public class BoardSystem : MonoBehaviour
     [SerializeField] private LayerMask summonableSlotLayer;
     [SerializeField] private Transform placedTowerRoot;
 
+    [Header("Placement Limit")]
+    [Tooltip("배치 수 업그레이드 단계에 따라 배치 가능한 타일 수를 제한할지 여부")]
+    [SerializeField] private bool usePlayerPlaceableTileLimit = true;
+
+    [Tooltip("배치 가능 타일 수를 제공하는 플레이어 데이터")]
+    [SerializeField] private PlayerDataManager playerDataManager;
+
     private Dictionary<PlacementSlot, SlotData> slotMap = new Dictionary<PlacementSlot, SlotData>();
+    private readonly List<SlotData> orderedSlots = new List<SlotData>();
 
     [SerializeField] private bool _log = true;
 
     private void Awake()
     {
-        DebugTool.DebugSelect(DebugType.Board, _log);
-        
         if (Instance != null && Instance != this)
         {
             DebugTool.Warnning("BoardSystem이 중복 생성되었습니다.", DebugType.Board, this);
         }
 
         Instance = this;
+
+        if (playerDataManager == null)
+            playerDataManager = FindAnyObjectByType<PlayerDataManager>();
+
         RebuildBoard();
     }
     
@@ -63,6 +73,7 @@ public class BoardSystem : MonoBehaviour
     public void RebuildBoard()
     {
         slotMap.Clear();
+        orderedSlots.Clear();
 
         if (placementSlotRoot == null)
         {
@@ -79,7 +90,9 @@ public class BoardSystem : MonoBehaviour
 
             if (!slotMap.ContainsKey(slot))
             {
-                slotMap.Add(slot, new SlotData(slot));
+                SlotData slotData = new SlotData(slot);
+                slotMap.Add(slot, slotData);
+                orderedSlots.Add(slotData);
             }
         }
 
@@ -101,7 +114,10 @@ public class BoardSystem : MonoBehaviour
         if (slot == null)
             return false;
 
-        return slotMap.TryGetValue(slot, out slotData);
+        if (!slotMap.TryGetValue(slot, out slotData))
+            return false;
+
+        return IsSlotPlaceable(slot);
     }
 
     public bool TryGetSlotData(PlacementSlot slot, out SlotData slotData)
@@ -112,14 +128,6 @@ public class BoardSystem : MonoBehaviour
             return false;
 
         return slotMap.TryGetValue(slot, out slotData);
-    }
-
-    public bool CanPlaceAtWorld(Vector3 worldPos, out SlotData slotData)
-    {
-        if (!TryGetSlotFromWorld(worldPos, out slotData))
-            return false;
-
-        return !slotData.isOccupied;
     }
 
     public bool PlaceNewTower(GameObject towerPrefab, SlotData targetSlot, out TowerUnit createdTower)
@@ -134,6 +142,12 @@ public class BoardSystem : MonoBehaviour
 
         if (targetSlot == null || targetSlot.slot == null)
             return false;
+
+        if (!IsSlotPlaceable(targetSlot.slot))
+        {
+            DebugTool.Warnning($"아직 배치할 수 없는 슬롯입니다. slot={targetSlot.slot.name}", DebugType.Board, this);
+            return false;
+        }
 
         if (targetSlot.isOccupied)
             return false;
@@ -167,16 +181,6 @@ public class BoardSystem : MonoBehaviour
         );
 
         return true;
-    }
-
-    public bool TryPlaceNewTowerAtWorld(GameObject towerPrefab, Vector3 worldPos, out TowerUnit createdTower)
-    {
-        createdTower = null;
-
-        if (!CanPlaceAtWorld(worldPos, out SlotData slotData))
-            return false;
-
-        return PlaceNewTower(towerPrefab, slotData, out createdTower);
     }
 
     public bool TryReleaseTowerSlot(TowerUnit tower, out SlotData releasedSlot)
@@ -249,6 +253,12 @@ public class BoardSystem : MonoBehaviour
 
         if (tower == null || targetSlot == null || targetSlot.slot == null)
             return false;
+
+        if (!IsSlotPlaceable(targetSlot.slot))
+        {
+            DebugTool.Warnning($"아직 이동할 수 없는 슬롯입니다. slot={targetSlot.slot.name}", DebugType.Board, this);
+            return false;
+        }
 
         if (!TryGetSlotData(tower.CurrentSlot, out SlotData sourceSlot))
         {
@@ -363,33 +373,57 @@ public class BoardSystem : MonoBehaviour
             DebugTool.Warnning("placementSlotRoot가 비어 있습니다.", DebugType.Board, this);
             return false;
         }
-        
-        PlacementSlot[] slots = placementSlotRoot.GetComponentsInChildren<PlacementSlot>(true);
-        List<SlotData> emptySlots = new List<SlotData>();
-        
-        foreach (PlacementSlot slot in slots)
-        {
-            if (slot == null)
-                continue;
 
-            if (!slotMap.TryGetValue(slot, out SlotData slotData))
+        int placeableSlotCount = GetCurrentPlaceableSlotCount();
+        List<SlotData> emptySlots = new List<SlotData>();
+
+        for (int i = 0; i < placeableSlotCount; i++)
+        {
+            SlotData slotData = orderedSlots[i];
+
+            if (slotData == null || slotData.slot == null)
                 continue;
 
             if (!slotData.isOccupied)
-            {
                 emptySlots.Add(slotData);
-                continue;
-            }
         }
+
         if (emptySlots.Count <= 0)
+        {
+            DebugTool.Warnning($"배치 가능한 타일 안에 빈 슬롯이 없습니다. 현재 제한: {placeableSlotCount}", DebugType.Board, this);
             return false;
-        
+        }
+
         int randomIndex = Random.Range(0, emptySlots.Count);
-        
-        
         emptySlot = emptySlots[randomIndex];
-    
-        DebugTool.Log($"{emptySlot.worldCenter}", DebugType.Board, this);
+
+        DebugTool.Log($"배치 슬롯 선택 - {emptySlot.slot.name} / 위치 {emptySlot.worldCenter}", DebugType.Board, this);
         return true;
+    }
+
+    public int GetCurrentPlaceableSlotCount()
+    {
+        if (!usePlayerPlaceableTileLimit || playerDataManager == null)
+            return orderedSlots.Count;
+
+        return Mathf.Clamp(playerDataManager.PlaceableTileCount, 0, orderedSlots.Count);
+    }
+
+    public bool IsSlotPlaceable(PlacementSlot slot)
+    {
+        if (slot == null)
+            return false;
+
+        int placeableSlotCount = GetCurrentPlaceableSlotCount();
+
+        for (int i = 0; i < placeableSlotCount; i++)
+        {
+            SlotData slotData = orderedSlots[i];
+
+            if (slotData != null && slotData.slot == slot)
+                return true;
+        }
+
+        return false;
     }
 }

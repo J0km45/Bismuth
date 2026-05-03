@@ -1,9 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// BattleWaveRunner의 보상 이벤트를 구독하여
-/// 인간 시너지 보너스를 반영한 최종 보상을 PlayerDataManager에 지급한다.
-/// 시너지 참조 패턴은 DamageCalculator와 동일하게 SynergySO 직접 참조 방식을 사용한다.
+/// BattleWaveRunner의 보상 이벤트를 구독하여 PlayerDataManager에 처치/웨이브 클리어 보상을 지급한다.
+/// 인간 시너지 골드 보너스는 CombatManager.GainHumanSynergyGold 에서 처치 시점에 직접 처리한다.
 /// </summary>
 public class BattleRewardHandler : MonoBehaviour
 {
@@ -16,30 +15,14 @@ public class BattleRewardHandler : MonoBehaviour
     [Tooltip("최종 보상을 지급할 플레이어 데이터")]
     [SerializeField] private PlayerDataManager _playerDataManager;
 
-    [Header("====시너지====")]
-    [Tooltip("시너지 효과값 조회용 SO")]
-    [SerializeField] private SynergySO _synergySO;
-
-    [Tooltip("시너지 활성 수 조회용 매니저")]
-    [SerializeField] private SynergyManager _synergyManager;
-
     [Header("====디버그====")]
     [SerializeField] private bool _log = true;
-
-    private bool _warnedMissingSynergySo;
-    private bool _warnedMissingSynergyManager;
 
     private void Awake()
     {
         _playerDataManager = GetComponentInParent<PlayerDataManager>();
-        _synergyManager = GetComponentInParent<SynergyManager>();
     }
-
-    private void Start()
-    {
-        DebugTool.DebugSelect(DebugType.Synergy, _log);
-    }
-
+    
     private void OnEnable()
     {
         if (_battleWaveRunner == null)

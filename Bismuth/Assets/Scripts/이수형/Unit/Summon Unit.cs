@@ -89,8 +89,6 @@ public class SummonUnit : MonoBehaviour
 
     private void Start()
     {
-        DebugTool.DebugSelect(DebugType.Summon, summonLog);
-        DebugTool.DebugSelect(DebugType.Board, summonLog);
         CleanupNullOwnedTowers();
     }
 
@@ -349,7 +347,6 @@ public class SummonUnit : MonoBehaviour
         stat.Level = 1;
         stat.Name = unitData.UnitName;
         stat.BaseAttackPower = unitData.AttackPower;
-        stat.CurrentAttackPower = stat.BaseAttackPower;
         stat.AttackSpeed = unitData.AttackSpeed;
         stat.CritChance = unitData.CriticalChance;
         stat.Range = unitData.Range;
@@ -358,6 +355,20 @@ public class SummonUnit : MonoBehaviour
         stat.AttackTargetCount = unitData.AttackTargetCount;
         stat.SynergIDs = unitData.SynergyIDs;
         stat.AttackClips = unitData.AttackClips; // TODO : 제갈도원 코드 수정 후 사용
+
+        // StatHub 부착 + Base 값 주입 (Step 2a)
+        // 아직 어떤 소비자도 Hub 를 읽지 않는다. 다음 단계에서 소비자 전환 예정.
+        UnitStatHub hub = unitObject.GetComponent<UnitStatHub>()
+                        ?? unitObject.AddComponent<UnitStatHub>();
+        hub.SetBase(StatType.AttackPower,         unitData.AttackPower);
+        hub.SetBase(StatType.AttackSpeed,         unitData.AttackSpeed);
+        hub.SetBase(StatType.CritChance,          unitData.CriticalChance);
+        hub.SetBase(StatType.CritDamage,          0f);
+        hub.SetBase(StatType.Range,               unitData.Range);
+        hub.SetBase(StatType.AttackArea,          unitData.AttackArea);
+        hub.SetBase(StatType.AttackTargetCount,   unitData.AttackTargetCount);
+        hub.SetBase(StatType.BonusDamageVsSlowed, 0f);
+
         DebugTool.Log("스탯 맵핑 완료", DebugType.Data, this);
         return stat;
     }

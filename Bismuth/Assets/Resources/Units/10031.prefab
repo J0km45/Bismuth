@@ -2857,7 +2857,6 @@ GameObject:
   - component: {fileID: 3044890243215581529}
   - component: {fileID: 2010401107117055356}
   - component: {fileID: -7349966964545474406}
-  - component: {fileID: 7025363098700051909}
   m_Layer: 10
   m_Name: 10031
   m_TagString: Untagged
@@ -2894,7 +2893,7 @@ SortingGroup:
   m_GameObject: {fileID: 5791971631792004131}
   m_Enabled: 1
   m_SortingLayerID: 1394943537
-  m_SortingLayer: 3
+  m_SortingLayer: 4
   m_SortingOrder: 0
   m_SortAtRoot: 0
   m_Sort3DAs2D: 0
@@ -9667,26 +9666,6 @@ MonoBehaviour:
   KillCount: 0
   DealtDamage: 0
   ElfWaveKillCount: 0
---- !u!114 &7025363098700051909
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5791971631792004131}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 07b3054a89b28b64b9c97fd15dd55d5f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TowerDragSpawnerUI
-  boardSystem: {fileID: 0}
-  worldCamera: {fileID: 0}
-  rootCanvas: {fileID: 0}
-  cellHighlight: {fileID: 1075189731071507310, guid: 407827aefabc9bb4aa8c747fcf7f977c, type: 3}
-  towerPrefab: {fileID: 0}
-  iconSprite: {fileID: 0}
-  ghostSize: {x: 80, y: 80}
-  ghostAlpha: 0.75
 --- !u!1 &5796830900161691912
 GameObject:
   m_ObjectHideFlags: 0
