@@ -19,12 +19,12 @@ public class PlayerUIController : MonoBehaviour
     private PlayerAction _playerAction;
     public PlayerAction PlayerAction => _playerAction;
     
-    private readonly int MAX_PLAYER_LEVEL = 5;
+    private readonly int MAX_PLACEMENT_UPGRADE_LEVEL = 8;
     private readonly int MAX_UNIT_LEVEL = 20;
     private readonly int COMBINE_GOLD = 50;
     private readonly int SUMMON_GOLD = 50;
     private readonly int[] SELL_GOLD_BY_TIER = { 10, 20, 30, 50 };
-    private readonly int[] PLAYER_UPGRADE_GOLD = { 110, 220, 330, 440, 1100 };
+    private readonly int[] PLACEMENT_UPGRADE_GOLD = { 25, 30, 35, 40, 80, 120, 180, 260 };
 
     public int MaxUnitLevel => MAX_UNIT_LEVEL;
 
@@ -192,17 +192,17 @@ public class PlayerUIController : MonoBehaviour
         }
     }
 
-    // 플레이어 레벨 업그레이드 시 호출
+    // 배치 수 업그레이드 시 호출
     public void PlayerLevelUpgrade()
     {
-        int level = _player.Level;
+        int level = _player.PlacementUpgradeLevel;
         CompareGoldLevel(level);
     }
 
-    // 플레이어 레벨과 골드 비교
+    // 배치 수 업그레이드 단계와 재화를 비교
     private void CompareGoldLevel(int level)
     {
-        if (level == MAX_PLAYER_LEVEL)
+        if (level >= MAX_PLACEMENT_UPGRADE_LEVEL || _player.IsMaxPlacementUpgradeLevel)
         {
             DebugTool.Log("이미 최대 레벨 입니다.", DebugType.Game, this);
             SFXController.Instance.OnUIFailure();
@@ -210,18 +210,27 @@ public class PlayerUIController : MonoBehaviour
             return;
         }
 
-        int gold = PLAYER_UPGRADE_GOLD[level];
+        int gold = GetUpgradeGold(level);
 
-        if (_player.Gold < gold)
-            NotEnoughGold();
-        else
+        if (gold < 0)
         {
-            _player.Gold -= gold;
-            _player.Level++;
-            SFXController.Instance.OnEnforceGatcha();
+            DebugTool.Log("업그레이드 비용 데이터를 찾을 수 없습니다.", DebugType.Game, this);
+            SFXController.Instance.OnUIFailure();
+            _controlPanelUI.ShowWarningText(LocalizationManager.Instance.Get("MAX_LEVEL"));
+            return;
         }
 
-        DebugTool.Log($"골드 : {gold}, 레벨 : {level}", DebugType.Game, this);
+        if (_player.Gold < gold)
+        {
+            NotEnoughGold();
+            return;
+        }
+
+        _player.Gold -= gold;
+        _player.TryIncreasePlacementUpgradeLevel();
+        SFXController.Instance.OnEnforceGatcha();
+
+        DebugTool.Log($"배치 수 업그레이드 성공 - 비용 : {gold}, 현재 단계 : {_player.PlacementUpgradeLevel}, 배치 가능 수 : {_player.PlaceableTileCount}", DebugType.Game, this);
     }
 
     public void OnSummonUnit(InputAction.CallbackContext ctx)
@@ -281,9 +290,11 @@ public class PlayerUIController : MonoBehaviour
 
     public int GetUpgradeGold(int level)
     {
-        if (level >= PLAYER_UPGRADE_GOLD.Length) return -1;
+        if (level < 0) return -1;
+        if (level >= MAX_PLACEMENT_UPGRADE_LEVEL) return -1;
+        if (level >= PLACEMENT_UPGRADE_GOLD.Length) return -1;
 
-        return PLAYER_UPGRADE_GOLD[level];
+        return PLACEMENT_UPGRADE_GOLD[level];
     }
 
     public int GetSellGold(UnitStat stat)
