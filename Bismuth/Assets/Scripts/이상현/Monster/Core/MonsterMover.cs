@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody2D))]
@@ -19,29 +18,14 @@ public class MonsterMover : MonoBehaviour
     private int _currentWaypointIndex;
     private bool _isInitialized;
     private bool _isPathCompleted;
+    private bool _isSlowed;
 
     private SpriteColorTint _colorTint;
     private static readonly Color SlowTintColor = new Color(0.5f, 0.5f, 1f, 1f);
 
-    // Source 기반 슬로우 보관소.
-    //   Key   : 슬로우를 적용한 source 식별자 (예: "Synergy_Spirit", "Skill_30001")
-    //   Value : (percent 0~100, expireTime - 음수면 무한)
-    // 활성 source 중 max(percent) 만큼만 _moveSpeed 에 반영. 각 source 는 자체 만료 시간을 가진다.
-    private readonly Dictionary<object, SlowEntry> _slowEntries = new();
-
-    private struct SlowEntry
-    {
-        public float Percent;
-        public float ExpireTime;
-
-        public bool IsInfinite => ExpireTime < 0f;
-    }
-
-    private readonly List<object> _expiredKeyBuffer = new();
-
     public bool IsMoving { get; private set; }
     public Vector2 MoveDirection { get; private set; }
-    public bool IsSlowed => _slowEntries.Count > 0;
+    public bool IsSlowed => _isSlowed;
 
     public event Action PathCompleted;
 
@@ -64,39 +48,8 @@ public class MonsterMover : MonoBehaviour
         MoveDirection = Vector2.zero;
         _isInitialized = false;
         _isPathCompleted = false;
-        _slowEntries.Clear();
-        _moveSpeed = _baseSpeed;
+        _isSlowed = false;
         _colorTint?.Remove();
-    }
-
-    private void Update()
-    {
-        if (_slowEntries.Count == 0)
-            return;
-
-        // 만료된 슬로우 source 제거
-        _expiredKeyBuffer.Clear();
-        foreach (var kvp in _slowEntries)
-        {
-            SlowEntry entry = kvp.Value;
-            if (!entry.IsInfinite && Time.time >= entry.ExpireTime)
-                _expiredKeyBuffer.Add(kvp.Key);
-        }
-
-        if (_expiredKeyBuffer.Count == 0)
-            return;
-
-        for (int i = 0; i < _expiredKeyBuffer.Count; i++)
-        {
-            object expiredKey = _expiredKeyBuffer[i];
-            _slowEntries.Remove(expiredKey);
-
-            DebugTool.Log(
-                $"슬로우 만료 | source={expiredKey}",
-                DebugType.Enemy, this);
-        }
-
-        RecalculateSlow();
     }
 
     private void FixedUpdate()
@@ -114,7 +67,7 @@ public class MonsterMover : MonoBehaviour
         _currentWaypointIndex = 1;
         _isPathCompleted = false;
         _isInitialized = false;
-        _slowEntries.Clear();
+        _isSlowed = false;
         IsMoving = false;
         MoveDirection = Vector2.zero;
 
@@ -147,97 +100,34 @@ public class MonsterMover : MonoBehaviour
     }
 
 
-    /// <summary>
-    /// Source 기반 슬로우 적용.
-    /// duration &lt;= 0 이면 만료 시간 없음(명시적 RemoveSlow(source) 호출 전까지 유지).
-    /// 같은 source 키로 재호출하면 갱신(percent, duration 모두 새 값).
-    /// 활성 source 중 max(percent) 가 실제 _moveSpeed 에 반영된다.
-    /// </summary>
-    public void ApplySlow(object source, float percent, float duration)
+    public void ApplySlow(float percent)
     {
-        if (source == null)
-        {
-            DebugTool.Warnning("[MonsterMover] ApplySlow source가 null입니다.", DebugType.Enemy, this);
-            return;
-        }
-
         if (percent <= 0f)
             return;
 
         float clampedPercent = Mathf.Clamp(percent, 0f, 100f);
-        float expireTime = duration > 0f ? Time.time + duration : -1f;
-
-        _slowEntries[source] = new SlowEntry
-        {
-            Percent = clampedPercent,
-            ExpireTime = expireTime
-        };
-
-        RecalculateSlow();
-
-        DebugTool.Log(
-            $"이동속도 감소 적용 | source={source}, percent={clampedPercent:F1}%, duration={(duration > 0f ? duration.ToString("F1") + "s" : "infinite")}, current={_moveSpeed:F2}",
-            DebugType.Enemy, this);
-    }
-
-    /// <summary>
-    /// 특정 source 의 슬로우만 제거. 다른 source 슬로우는 영향 없음.
-    /// 제거 후 max(percent) 재계산.
-    /// </summary>
-    public void RemoveSlow(object source)
-    {
-        if (source == null)
-            return;
-
-        if (_slowEntries.Remove(source))
-        {
-            RecalculateSlow();
-
-            DebugTool.Log(
-                $"이동속도 감소 해제 | source={source}, current={_moveSpeed:F2}",
-                DebugType.Enemy, this);
-        }
-    }
-
-    /// <summary>
-    /// 전체 슬로우 source 일괄 제거. (웨이브 종료, 몬스터 비활성화 등)
-    /// </summary>
-    public void RemoveAllSlows()
-    {
-        if (_slowEntries.Count == 0)
-            return;
-
-        int count = _slowEntries.Count;
-        _slowEntries.Clear();
-        RecalculateSlow();
-
-        DebugTool.Log(
-            $"이동속도 감소 전체 해제 | 제거된 source 수={count}",
-            DebugType.Enemy, this);
-    }
-
-    /// <summary>
-    /// 활성 슬로우 source 중 가장 높은 percent 를 _moveSpeed 에 반영한다.
-    /// 슬로우가 비어 있으면 base 속도 복원 + 색 복원.
-    /// </summary>
-    private void RecalculateSlow()
-    {
-        if (_slowEntries.Count == 0)
-        {
-            _moveSpeed = _baseSpeed;
-            _colorTint?.Remove();
-            return;
-        }
-
-        float maxPercent = 0f;
-        foreach (var entry in _slowEntries.Values)
-        {
-            if (entry.Percent > maxPercent)
-                maxPercent = entry.Percent;
-        }
-
-        _moveSpeed = _baseSpeed * (1f - maxPercent * 0.01f);
+        _moveSpeed = _baseSpeed * (1f - clampedPercent * 0.01f);
+        _isSlowed = true;
         _colorTint?.Apply(SlowTintColor);
+
+        DebugTool.Log(
+            $"이동속도 감소 적용 | base={_baseSpeed:F2}, slow={clampedPercent:F1}%, current={_moveSpeed:F2}",
+            DebugType.Enemy, this);
+    }
+
+
+    public void RemoveSlow()
+    {
+        if (!_isSlowed)
+            return;
+
+        _moveSpeed = _baseSpeed;
+        _isSlowed = false;
+        _colorTint?.Remove();
+
+        DebugTool.Log(
+            $"이동속도 감소 해제 | 복원 속도={_baseSpeed:F2}",
+            DebugType.Enemy, this);
     }
 
     private void MoveAlongPath()

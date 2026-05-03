@@ -32,7 +32,6 @@ public class UnitInfoPanelUI : MonoBehaviour
     private List<GameObject> _synergyTags = new List<GameObject>();
 
     private UnitStat _unitStat;
-    private UnitStatHub _hub;
 
     private void Awake()
     {
@@ -42,24 +41,12 @@ public class UnitInfoPanelUI : MonoBehaviour
     private void OnEnable()
     {
         RefreshUnitInfo();
-        LocalizationManager.Instance.OnLocalizationLoaded += RefreshAllText;
+        LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
     }
 
     private void OnDisable()
     {
-        LocalizationManager.Instance.OnLocalizationLoaded -= RefreshAllText;
-
-        if (_hub != null)
-        {
-            _hub.OnStatChanged -= OnStatChanged;
-            _hub = null;
-        }
-    }
-
-    private void RefreshAllText()
-    {
-        RefreshText();
-        RefreshStats();
+        LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
     }
 
     public void RefreshUnitInfo()
@@ -82,19 +69,7 @@ public class UnitInfoPanelUI : MonoBehaviour
 
         GameObject unit = _collectUnitInfo.selectedUnit;
 
-        if (_hub != null)
-        {
-            _hub.OnStatChanged -= OnStatChanged;
-            _hub = null;
-        }
-
         _unitStat = unit.GetComponent<UnitStat>();
-        _hub = unit.GetComponent<UnitStatHub>();
-
-        if (_hub != null)
-        {
-            _hub.OnStatChanged += OnStatChanged;
-        }
 
         if (_unitStat == null || _unitStat.Id == 0)
         {
@@ -155,24 +130,13 @@ public class UnitInfoPanelUI : MonoBehaviour
         return "";
     }
 
-    private void OnStatChanged(StatType type)
-    {
-        RefreshStats();
-    }
-
     public void RefreshStats()
     {
         _levelText.text = $"Lv {_unitStat.Level}";
 
-        // 공격력은 UnitStatHub 가 단일 소스. (강화/시너지/시너지강화 모두 Hub 로 합산)
-        UnitStatHub hub = _unitStat.GetComponent<UnitStatHub>();
-        float attackPower = hub != null ? hub.Get(StatType.AttackPower) : _unitStat.BaseAttackPower;
-        float attackSpeed = hub != null ? hub.Get(StatType.AttackSpeed) : _unitStat.AttackSpeed;
-        float range = hub != null ? hub.Get(StatType.Range) : _unitStat.Range;
-
-        _statText.text = $"{LocalizationManager.Instance.Get("ATTACK_POWER")} : {attackPower}" +
-            $"\n{LocalizationManager.Instance.Get("ATTACK_SPEED")} : {attackSpeed}" +
-            $"\n{LocalizationManager.Instance.Get("RANGE")} : {range}";
+        _statText.text = $"{LocalizationManager.Instance.Get("ATTACK_POWER")} : {_unitStat.CurrentAttackPower}" + 
+            $"\n{LocalizationManager.Instance.Get("ATTACK_SPEED")} : {_unitStat.AttackSpeed}" + 
+            $"\n{LocalizationManager.Instance.Get("RANGE")} : {_unitStat.Range}";
 
         PlayerUIController controller = _collectUnitInfo.PlayerUIController;
         if (_unitStat.Level >= controller.MaxUnitLevel)

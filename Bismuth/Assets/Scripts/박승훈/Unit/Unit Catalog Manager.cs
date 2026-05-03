@@ -18,6 +18,8 @@ public class UnitCatalogManager : MonoBehaviour
 
     private void Start()
     {
+        DebugTool.DebugSelect(DebugType.Catalog, _log);
+
         InitCatalog();
         LoadUnitCatalog();
     }

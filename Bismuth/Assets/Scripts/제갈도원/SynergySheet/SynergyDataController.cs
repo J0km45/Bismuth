@@ -22,6 +22,8 @@ public class SynergyDataController : MonoBehaviour
 
     private void Start()
     {
+        DebugTool.DebugSelect(DebugType.Data, log);
+
         // 1) SO가 있으면 먼저 기본값 로드
         if (synergySo != null)
         {

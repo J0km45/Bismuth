@@ -10,6 +10,7 @@ public class UnitStat : MonoBehaviour
     public int SummonTime;
     public string Name;
     public float BaseAttackPower;
+    public float CurrentAttackPower;
     public float AttackSpeed;
     public float CritChance;
     public float Range;

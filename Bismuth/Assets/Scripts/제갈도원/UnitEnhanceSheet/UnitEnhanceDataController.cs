@@ -19,6 +19,8 @@ public class UnitEnhanceDataController : MonoBehaviour
 
     private void Start()
     {
+        DebugTool.DebugSelect(DebugType.Data, log);
+
         // SO가 있으면 먼저 기본값 로드
         if (unitEnhanceSo != null)
         {
