@@ -2503,6 +2503,7 @@ GameObject:
   - component: {fileID: -544699546532489014}
   - component: {fileID: 5326987539283340705}
   - component: {fileID: -637745887020077514}
+  - component: {fileID: -9220518902812085337}
   m_Layer: 10
   m_Name: 10005
   m_TagString: Untagged
@@ -8822,10 +8823,28 @@ MonoBehaviour:
   attackTypes: 0
   AttackTargetCount: 0
   SynergIDs: 
-  AttackClips: []
   KillCount: 0
   DealtDamage: 0
-  ElfWaveKillCount: 0
+--- !u!114 &-9220518902812085337
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3845496828883880324}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 07b3054a89b28b64b9c97fd15dd55d5f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TowerDragSpawnerUI
+  boardSystem: {fileID: 0}
+  worldCamera: {fileID: 0}
+  rootCanvas: {fileID: 0}
+  cellHighlight: {fileID: 1075189731071507310, guid: 407827aefabc9bb4aa8c747fcf7f977c, type: 3}
+  towerPrefab: {fileID: 0}
+  iconSprite: {fileID: 0}
+  ghostSize: {x: 80, y: 80}
+  ghostAlpha: 0.75
 --- !u!1 &3881553602936777824
 GameObject:
   m_ObjectHideFlags: 0

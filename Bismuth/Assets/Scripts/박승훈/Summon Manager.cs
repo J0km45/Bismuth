@@ -10,7 +10,12 @@ public class SummonManager : MonoBehaviour
         if (summonUnit == null)
             summonUnit = GetComponent<SummonUnit>();
     }
-    
+
+    private void Start()
+    {
+        DebugTool.DebugSelect(DebugType.Board, BoardLog);
+    }
+
     public bool SummonRandomUnit()
     {
         if (summonUnit == null)

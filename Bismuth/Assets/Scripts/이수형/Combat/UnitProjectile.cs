@@ -28,8 +28,6 @@ public class UnitProjectile : MonoBehaviour
 
     private float attackPower;
     private float critChance;
-    private float critDamage;
-    private float bonusVsSlowed;
 
     private bool isAoe;
     private AttackContext attackContext;
@@ -67,8 +65,6 @@ public class UnitProjectile : MonoBehaviour
     public void Initialize(
     float attackPower,
     float critChance,
-    float critDamage,
-    float bonusVsSlowed,
     string sourceName,
     MonsterController target,
     GameObject hitEffect,
@@ -83,8 +79,6 @@ public class UnitProjectile : MonoBehaviour
     {
         this.attackPower = attackPower;
         this.critChance = critChance;
-        this.critDamage = critDamage;
-        this.bonusVsSlowed = bonusVsSlowed;
         this.sourceName = sourceName;
         this.target = target;
         this.hitEffect = hitEffect;
@@ -169,8 +163,6 @@ public class UnitProjectile : MonoBehaviour
             CombatManager.Instance.ResolveProjectileHit(
                 attackPower,
                 critChance,
-                critDamage,
-                bonusVsSlowed,
                 target,
                 hitEffect,
                 owner,
@@ -250,8 +242,6 @@ public class UnitProjectile : MonoBehaviour
         sourceName = null;
         attackPower = 0f;
         critChance = 0f;
-        critDamage = 0f;
-        bonusVsSlowed = 0f;
         isAoe = false;
         attackContext = default;
         explosionRadius = 0f;

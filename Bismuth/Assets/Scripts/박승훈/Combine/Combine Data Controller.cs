@@ -17,6 +17,8 @@ public class CombineDataController : MonoBehaviour
 
     private void Start()
     {
+        DebugTool.DebugSelect(DebugType.Combine, _log);
+        
         if (combineSheet == null || combineDatabase == null)
         {
             DebugTool.Warnning("[CombineSheet] 또는 [CombineDatabase] 가 할당되지 않았습니다.", DebugType.Combine, this);

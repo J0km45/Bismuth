@@ -24,7 +24,7 @@ public class SummonChanceData
 
     public static SummonChanceData Create(string[] line)
     {
-        if (line == null || line.Length < 8) return null;
+        if (line == null || line.Length < 6) return null;
 
         // 2. 강화 단계 파싱
         if (string.IsNullOrWhiteSpace(line[0]) || !int.TryParse(line[0].Trim(), out int nextLevel)) return null;

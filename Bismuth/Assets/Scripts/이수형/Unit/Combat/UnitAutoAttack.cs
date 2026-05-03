@@ -9,7 +9,6 @@ public class UnitAutoAttack : MonoBehaviour
     [SerializeField] private UnitStat unitStat;
     [SerializeField] private UnitAttackSensor attackSensor;
     [SerializeField] private AnimationController anim;
-    [SerializeField] private UnitStatHub statHub;
 
     [Header("Attack Sync")]
     [SerializeField, Min(0)] private int attackAnimationIndex = 0;
@@ -24,8 +23,8 @@ public class UnitAutoAttack : MonoBehaviour
 
     [Header("Skill")]
     [SerializeField] private SkillCast skillCast;
-    [SerializeField] private UnitSkillRunner skillRunner;
 
+    private const int GunnerSynergyId = (int)SynergyManager.SynergyType.Gunner;
     private const int WizardSynergyId = (int)SynergyManager.SynergyType.Magician;
     private const int ArcherSynergyId = (int)SynergyManager.SynergyType.Archer;
     private const int FurrySynergyId = (int)SynergyManager.SynergyType.Furry;
@@ -33,6 +32,11 @@ public class UnitAutoAttack : MonoBehaviour
     private const int FurryRequiredAttackCount = 3;
     private const float WizardBonusCooldownSeconds = 5f;
     private const float FurryTriggerAnimSpeedBoost = 1.3f;
+
+    private SynergySO synergySO => CombatManager.Instance != null ? CombatManager.Instance.SynergySO : null;
+
+    private bool warnedMissingSynergySO = false;
+
 
     private TowerUnit towerUnit;
     private MonsterController currentTarget;
@@ -59,9 +63,6 @@ public class UnitAutoAttack : MonoBehaviour
         if (unitStat == null)
             unitStat = GetComponent<UnitStat>();
 
-        if (statHub == null)
-            statHub = GetComponent<UnitStatHub>();
-
         if (anim == null)
             anim = GetComponent<AnimationController>();
 
@@ -70,10 +71,6 @@ public class UnitAutoAttack : MonoBehaviour
         skillCast = GetComponent<SkillCast>();
         if (skillCast == null)
             skillCast = gameObject.AddComponent<SkillCast>();
-
-        // SkillRunner 는 스킬 보유 유닛에만 붙는다. 없으면 null 유지(스킬 없는 유닛).
-        if (skillRunner == null)
-            skillRunner = GetComponent<UnitSkillRunner>();
 
         EnsureSensor();
 
@@ -112,14 +109,6 @@ public class UnitAutoAttack : MonoBehaviour
         if (Time.time < nextAttackReadyTime)
             return;
 
-        // 보유 스킬이 액티브 + 쿨다운 충족이면 일반공격 대신 스킬 발동
-        if (skillRunner != null && skillRunner.ShouldCastInsteadOfNormalAttack())
-        {
-            AttackContext skillContext = skillRunner.BuildSkillContext();
-            StartAttack(currentTarget, skillContext);
-            return;
-        }
-
         StartAttack(currentTarget, AttackContext.Normal());
     }
 
@@ -127,9 +116,6 @@ public class UnitAutoAttack : MonoBehaviour
     {
         if (unitStat == null)
             unitStat = GetComponent<UnitStat>();
-
-        if (statHub == null)
-            statHub = GetComponent<UnitStatHub>();
 
         if (anim == null)
             anim = GetComponent<AnimationController>();
@@ -177,7 +163,7 @@ public class UnitAutoAttack : MonoBehaviour
         if (attackLog)
         {
             DebugTool.Log(
-                $"자동공격 초기화 완료 | Range={statHub.Get(StatType.Range):F2}, AttackSpeed={statHub.Get(StatType.AttackSpeed):F2}, Interval={attackInterval:F2}s, HitNormalized={hitNormalizedTime:F2}, Type={unitStat.attackTypes}",
+                $"자동공격 초기화 완료 | Range={unitStat.Range}, AttackSpeed={unitStat.AttackSpeed}, Interval={attackInterval:F2}s, HitNormalized={hitNormalizedTime:F2}, Type={unitStat.attackTypes}",
                 DebugType.Unit,
                 this
             );
@@ -186,13 +172,11 @@ public class UnitAutoAttack : MonoBehaviour
 
     private float CalculateAttackInterval()
     {
-        // AttackSpeed 는 Hub 가 단일 소스. 거너 시너지 효과는
-        // SynergyStatBinder → GunnerSynergyApplier 를 통해 이미 Hub 모디파이어로 누적됨.
-        float attackSpeedPerSecond = statHub != null
-            ? statHub.Get(StatType.AttackSpeed)
-            : unitStat.AttackSpeed;
+        float attackSpeedPerSecond = Mathf.Max(0.01f, unitStat.AttackSpeed);
 
-        attackSpeedPerSecond = Mathf.Max(0.01f, attackSpeedPerSecond);
+        float gunnerBonusPercent = GetGunnerAttackSpeedBonusPercent();
+        attackSpeedPerSecond *= 1f + gunnerBonusPercent * 0.01f;
+
         return 1f / attackSpeedPerSecond;
     }
 
@@ -337,7 +321,7 @@ public class UnitAutoAttack : MonoBehaviour
         float effectiveAttackSpeed = unitStat.AttackSpeed * context.AnimSpeedMultiplier;
 
 
-        bool isSkillAttack = context.IsWarriorBonus || context.IsFurryBonus || context.IsWizardBonus || context.IsActiveSkill;
+        bool isSkillAttack = context.IsWarriorBonus || context.IsFurryBonus || context.IsWizardBonus;
         int animIndex = isSkillAttack ? 1 : attackAnimationIndex;
 
         AttackPlaybackData playback = anim.PlayAttackAnimation(animIndex, effectiveAttackSpeed);
@@ -357,10 +341,6 @@ public class UnitAutoAttack : MonoBehaviour
                 this
             );
         }
-
-        // 액티브 스킬 발동 → 쿨다운 시작 (히트 성공/실패 무관, 발동 자체가 일어나면 카운트)
-        if (context.IsActiveSkill && skillRunner != null)
-            skillRunner.StartCooldown();
     }
 
     private void UpdateAttackProgress()
@@ -435,35 +415,6 @@ public class UnitAutoAttack : MonoBehaviour
             return;
         }
 
-        // 비고 룰: "스킬 시전 중 타겟 사망시 다음 타겟에게 재시전, 없으면 쿨타임 초기화"
-        // 액티브 스킬이 허망하게 빗나가서 쿨타임만 까먹는 걸 방지.
-        if (currentAttackContext.IsActiveSkill && !CanHitLockedTarget())
-        {
-            if (TryRetargetSkill())
-            {
-                if (attackLog)
-                {
-                    DebugTool.Log(
-                        $"[Skill] 시전 중 타겟 사망 → 새 타겟으로 재시전 | newTarget={lockedTarget.name}",
-                        DebugType.Unit, this);
-                }
-                // lockedTarget 갱신 완료 → 아래 정상 흐름으로 진행
-            }
-            else
-            {
-                if (skillRunner != null)
-                    skillRunner.ResetCooldown();
-
-                if (attackLog)
-                {
-                    DebugTool.Log(
-                        $"[Skill] 시전 중 타겟 사망 + 다음 타겟 없음 → 쿨타임 초기화 (허망 발동 방지)",
-                        DebugType.Unit, this);
-                }
-                return;
-            }
-        }
-
         if (!CanHitLockedTarget())
         {
             if (attackLog)
@@ -507,33 +458,6 @@ public class UnitAutoAttack : MonoBehaviour
                 this
             );
         }
-
-        // 30003 케이스: 매 공격에 추가 투사체가 따라붙음.
-        // 일반공격 hit 가 정상 발동된 경우에만 (락 타겟 무효 분기엔 들어오지 않음) 발사.
-        TryFireExtraProjectiles();
-    }
-
-    /// <summary>
-    /// 30003(추가 투사체 패시브)을 보유한 경우, 일반공격 hit 시점에 추가 투사체를 발사한다.
-    /// CombatManager.DamageOccured 를 한 번 더 호출하되 ForceProjectile 컨텍스트로 분기.
-    /// </summary>
-    private void TryFireExtraProjectiles()
-    {
-        if (skillRunner == null || !skillRunner.IsExtraProjectileSkill)
-            return;
-
-        if (CombatManager.Instance == null)
-            return;
-
-        AttackContext extraCtx = skillRunner.BuildExtraProjectileContext();
-        CombatManager.Instance.DamageOccured(this.gameObject, lockedTarget, attackSensor, extraCtx);
-
-        if (attackLog)
-        {
-            DebugTool.Log(
-                $"[Skill 추가 투사체] 발사 | skillId={skillRunner.Skill.Id}, target={lockedTarget.name}, context=[{extraCtx}]",
-                DebugType.Unit, this);
-        }
     }
 
 
@@ -548,29 +472,6 @@ public class UnitAutoAttack : MonoBehaviour
         if (lockedTarget.CurrentHp <= 0f)
             return false;
 
-        return true;
-    }
-
-    /// <summary>
-    /// 액티브 스킬 시전 중 락 타겟이 사망했을 때 attackSensor 에서 새 타겟을 찾아 락을 갱신.
-    /// 새 타겟이 있으면 lockedTarget/currentTarget 모두 갱신하고 true.
-    /// </summary>
-    private bool TryRetargetSkill()
-    {
-        if (attackSensor == null)
-            return false;
-
-        MonsterController newTarget = attackSensor.GetFirstTarget();
-
-        if (newTarget == null
-            || !newTarget.gameObject.activeInHierarchy
-            || newTarget.CurrentHp <= 0f)
-        {
-            return false;
-        }
-
-        lockedTarget = newTarget;
-        currentTarget = newTarget;
         return true;
     }
 
@@ -859,7 +760,59 @@ public class UnitAutoAttack : MonoBehaviour
         if (CombatManager.Instance == null)
             return 0f;
 
-        return CombatManager.Instance.GetSynergyEffectValue(ArcherSynergyId);
+        if (synergySO == null)
+        {
+            WarnMissingSynergySO("Archer", ref warnedMissingSynergySO);
+            return 0f;
+        }
+
+        SynergyData archerData = GetSynergyDataById(ArcherSynergyId);
+        if (archerData == null || archerData.Levels == null || archerData.Levels.Count == 0)
+            return 0f;
+
+        int activeCount = CombatManager.Instance.GetSynergyLevel(ArcherSynergyId);
+        float bonusPercent = 0f;
+
+        for (int i = 0; i < archerData.Levels.Count; i++)
+        {
+            SynergyLevelData level = archerData.Levels[i];
+            if (level == null)
+                continue;
+
+            if (activeCount < level.ActiveCount)
+                continue;
+
+            if (level.EffectValues == null || level.EffectValues.Count == 0)
+                continue;
+
+            bonusPercent = level.EffectValues[0];
+        }
+
+        return bonusPercent;
+    }
+
+    private SynergyData GetSynergyDataById(int synergyId)
+    {
+        if (synergySO == null || synergySO.Rows == null)
+            return null;
+
+        for (int i = 0; i < synergySO.Rows.Count; i++)
+        {
+            SynergyData data = synergySO.Rows[i];
+            if (data != null && data.ID == synergyId)
+                return data;
+        }
+
+        return null;
+    }
+
+    private void WarnMissingSynergySO(string synergyName, ref bool warned)
+    {
+        if (warned)
+            return;
+
+        warned = true;
+        DebugTool.Warnning($"SynergySO 참조가 없어 {synergyName} 시너지를 적용하지 않습니다.", DebugType.Synergy, this);
     }
 
 
@@ -942,7 +895,32 @@ public class UnitAutoAttack : MonoBehaviour
         if (CombatManager.Instance == null)
             return 0;
 
-        return (int)CombatManager.Instance.GetSynergyEffectValue(FurrySynergyId);
+        if (synergySO == null)
+            return 0;
+
+        SynergyData furryData = GetSynergyDataById(FurrySynergyId);
+        if (furryData == null || furryData.Levels == null || furryData.Levels.Count == 0)
+            return 0;
+
+        int activeCount = CombatManager.Instance.GetSynergyLevel(FurrySynergyId);
+        int extraAttacks = 0;
+
+        for (int i = 0; i < furryData.Levels.Count; i++)
+        {
+            SynergyLevelData level = furryData.Levels[i];
+            if (level == null)
+                continue;
+
+            if (activeCount < level.ActiveCount)
+                continue;
+
+            if (level.EffectValues == null || level.EffectValues.Count == 0)
+                continue;
+
+            extraAttacks = (int)level.EffectValues[0];
+        }
+
+        return extraAttacks;
     }
 
     private float GetWizardDamageBonusPercent()
@@ -956,12 +934,90 @@ public class UnitAutoAttack : MonoBehaviour
         if (CombatManager.Instance == null)
             return 0f;
 
-        float bonusPercent = CombatManager.Instance.GetSynergyEffectValue(WizardSynergyId);
+        if (synergySO == null)
+        {
+            WarnMissingSynergySO("Wizard", ref warnedMissingSynergySO);
+            return 0f;
+        }
+
+        SynergyData wizardData = GetSynergyDataById(WizardSynergyId);
+        if (wizardData == null || wizardData.Levels == null || wizardData.Levels.Count == 0)
+            return 0f;
+
+        int activeCount = CombatManager.Instance.GetSynergyLevel(WizardSynergyId);
+        float bonusPercent = 0f;
+
+        for (int i = 0; i < wizardData.Levels.Count; i++)
+        {
+            SynergyLevelData level = wizardData.Levels[i];
+            if (level == null)
+                continue;
+
+            if (activeCount < level.ActiveCount)
+                continue;
+
+            if (level.EffectValues == null || level.EffectValues.Count == 0)
+                continue;
+
+            bonusPercent = level.EffectValues[0];
+        }
 
         if (attackLog && bonusPercent > 0f)
         {
             DebugTool.Log(
-                $"마법사 추가 대미지 준비 가능 | unit={unitStat.Name}, active={CombatManager.Instance.GetSynergyLevel(WizardSynergyId)}, bonusPercent={bonusPercent:F2}",
+                $"마법사 추가 대미지 준비 가능 | unit={unitStat.Name}, active={activeCount}, bonusPercent={bonusPercent:F2}",
+                DebugType.Synergy,
+                this
+            );
+        }
+
+        return bonusPercent;
+    }
+
+    private float GetGunnerAttackSpeedBonusPercent()
+    {
+        if (unitStat == null)
+            return 0f;
+
+        if (!HasSynergyTag(GunnerSynergyId))
+            return 0f;
+
+        if (CombatManager.Instance == null)
+            return 0f;
+
+        if (synergySO == null)
+        {
+            WarnMissingSynergySO("Gunner", ref warnedMissingSynergySO);
+            return 0f;
+        }
+
+        SynergyData gunnerData = GetSynergyDataById(GunnerSynergyId);
+        if (gunnerData == null || gunnerData.Levels == null || gunnerData.Levels.Count == 0)
+            return 0f;
+
+        int activeCount = CombatManager.Instance.GetSynergyLevel(GunnerSynergyId);
+        float bonusPercent = 0f;
+
+        for (int i = 0; i < gunnerData.Levels.Count; i++)
+        {
+            SynergyLevelData level = gunnerData.Levels[i];
+            if (level == null)
+                continue;
+
+            if (activeCount < level.ActiveCount)
+                continue;
+
+            if (level.EffectValues == null || level.EffectValues.Count == 0)
+                continue;
+
+
+            bonusPercent = level.EffectValues[0];
+        }
+
+        if (attackLog && bonusPercent > 0f)
+        {
+            DebugTool.Log(
+                $"거너 공속 보너스 적용 | unit={unitStat.Name}, active={activeCount}, bonusPercent={bonusPercent:F2}",
                 DebugType.Synergy,
                 this
             );

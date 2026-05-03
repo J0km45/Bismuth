@@ -19,12 +19,12 @@ public class PlayerUIController : MonoBehaviour
     private PlayerAction _playerAction;
     public PlayerAction PlayerAction => _playerAction;
     
-    private readonly int MAX_PLACEMENT_UPGRADE_LEVEL = 8;
+    private readonly int MAX_PLAYER_LEVEL = 5;
     private readonly int MAX_UNIT_LEVEL = 20;
     private readonly int COMBINE_GOLD = 50;
     private readonly int SUMMON_GOLD = 50;
     private readonly int[] SELL_GOLD_BY_TIER = { 10, 20, 30, 50 };
-    private readonly int[] PLACEMENT_UPGRADE_GOLD = { 25, 30, 35, 40, 80, 120, 180, 260 };
+    private readonly int[] PLAYER_UPGRADE_GOLD = { 110, 220, 330, 440, 1100 };
 
     public int MaxUnitLevel => MAX_UNIT_LEVEL;
 
@@ -148,20 +148,13 @@ public class PlayerUIController : MonoBehaviour
 
         float UpgradeRatio = _unitEnhanceSO.UnitEnhanceDatas[unitID - 10001].EnhanceValue;
 
-        UnitStatHub hub = unit.GetComponent<UnitStatHub>();
-        float beforeAttackPower = hub.Get(StatType.AttackPower);
-
         _player.Gold -= gold;
         stat.Level++;
-
-        // 유닛 강화는 Hub 의 UnitEnhance 모디파이어로 기록된다. (단일 소스)
-        UnitEnhanceApplier.Apply(stat, hub, UpgradeRatio);
-
-        float afterAttackPower = hub.Get(StatType.AttackPower);
-        float upgradeAttackPower = afterAttackPower - beforeAttackPower;
-
+        float upgradeAttackPower = stat.BaseAttackPower * UpgradeRatio * unitLevel;
+        float beforeAttackPower = stat.CurrentAttackPower;
+        stat.CurrentAttackPower = stat.BaseAttackPower + upgradeAttackPower;
         DebugTool.Log($"유닛 강화 성공! [유닛 레벨 : {unitLevel} | 소모 골드 : {gold}\n" +
-                      $"이전 공격력 : {beforeAttackPower}, 추가 공격력 : {upgradeAttackPower}, 현재 공격력 : {afterAttackPower}", DebugType.Unit, this);
+                      $"이전 공격력 : {beforeAttackPower}, 추가 공격력 : {upgradeAttackPower}, 현재 공격력 : {stat.CurrentAttackPower}", DebugType.Unit, this);
 
         SFXController.Instance.OnEnforce();
         _unitInfoPanelUI.RefreshStats();
@@ -192,17 +185,17 @@ public class PlayerUIController : MonoBehaviour
         }
     }
 
-    // 배치 수 업그레이드 시 호출
+    // 플레이어 레벨 업그레이드 시 호출
     public void PlayerLevelUpgrade()
     {
-        int level = _player.PlacementUpgradeLevel;
+        int level = _player.Level;
         CompareGoldLevel(level);
     }
 
-    // 배치 수 업그레이드 단계와 재화를 비교
+    // 플레이어 레벨과 골드 비교
     private void CompareGoldLevel(int level)
     {
-        if (level >= MAX_PLACEMENT_UPGRADE_LEVEL || _player.IsMaxPlacementUpgradeLevel)
+        if (level == MAX_PLAYER_LEVEL)
         {
             DebugTool.Log("이미 최대 레벨 입니다.", DebugType.Game, this);
             SFXController.Instance.OnUIFailure();
@@ -210,27 +203,18 @@ public class PlayerUIController : MonoBehaviour
             return;
         }
 
-        int gold = GetUpgradeGold(level);
-
-        if (gold < 0)
-        {
-            DebugTool.Log("업그레이드 비용 데이터를 찾을 수 없습니다.", DebugType.Game, this);
-            SFXController.Instance.OnUIFailure();
-            _controlPanelUI.ShowWarningText(LocalizationManager.Instance.Get("MAX_LEVEL"));
-            return;
-        }
+        int gold = PLAYER_UPGRADE_GOLD[level];
 
         if (_player.Gold < gold)
-        {
             NotEnoughGold();
-            return;
+        else
+        {
+            _player.Gold -= gold;
+            _player.Level++;
+            SFXController.Instance.OnEnforceGatcha();
         }
 
-        _player.Gold -= gold;
-        _player.TryIncreasePlacementUpgradeLevel();
-        SFXController.Instance.OnEnforceGatcha();
-
-        DebugTool.Log($"배치 수 업그레이드 성공 - 비용 : {gold}, 현재 단계 : {_player.PlacementUpgradeLevel}, 배치 가능 수 : {_player.PlaceableTileCount}", DebugType.Game, this);
+        DebugTool.Log($"골드 : {gold}, 레벨 : {level}", DebugType.Game, this);
     }
 
     public void OnSummonUnit(InputAction.CallbackContext ctx)
@@ -290,11 +274,9 @@ public class PlayerUIController : MonoBehaviour
 
     public int GetUpgradeGold(int level)
     {
-        if (level < 0) return -1;
-        if (level >= MAX_PLACEMENT_UPGRADE_LEVEL) return -1;
-        if (level >= PLACEMENT_UPGRADE_GOLD.Length) return -1;
+        if (level >= PLAYER_UPGRADE_GOLD.Length) return -1;
 
-        return PLACEMENT_UPGRADE_GOLD[level];
+        return PLAYER_UPGRADE_GOLD[level];
     }
 
     public int GetSellGold(UnitStat stat)

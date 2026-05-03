@@ -22,6 +22,8 @@ public class EnemyDataController : MonoBehaviour
 
     private void Start()
     {
+        DebugTool.DebugSelect(DebugType.Data, log);
+
         if (enemySo != null)
         {
             _rows = new List<EnemyData>(enemySo.Rows);

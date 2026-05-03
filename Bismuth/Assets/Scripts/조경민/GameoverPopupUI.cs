@@ -20,7 +20,7 @@ public class GameoverPopupUI : MonoBehaviour
     {
         _gameoverText.text = LocalizationManager.Instance.Get("GAME_OVER");
         _retryText.text = LocalizationManager.Instance.Get("RESTART");
-        _mainText.text = LocalizationManager.Instance.Get("LOBBY");
+        _mainText.text = LocalizationManager.Instance.Get("MAIN");
     }
 
     public void OnClickRetry()
@@ -30,6 +30,6 @@ public class GameoverPopupUI : MonoBehaviour
 
     public void OnClickMain()
     {
-        GameSceneManager.Instance.ChangeScene(1);
+        GameSceneManager.Instance.LoadTitle();
     }
 }
