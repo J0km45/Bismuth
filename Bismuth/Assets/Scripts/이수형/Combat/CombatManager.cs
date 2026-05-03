@@ -48,10 +48,24 @@ public class CombatManager : MonoBehaviour
 
     [Header("Elf Synergy")]
     [SerializeField] private BattleWaveRunner _battleWaveRunner;
+    // 엘프 시너지 강화 5레벨 보너스(처치 시 5초 공속 buff)가 발동된 동안 유닛에 부착되는 지속 이펙트.
+    // 루프 ParticleSystem 프리팹 권장. Instantiate 로 유닛의 자식으로 붙이고, 만료 시 Destroy.
+    [SerializeField] private GameObject elfBuffEffectPrefab;
+    [SerializeField] private bool elfSynergyLog = false;
+
+    [Header("Gunner Synergy")]
+    // 거너 시너지 강화 5레벨 보너스(다음 첫 공격 +N% 강화)가 실제로 차지된 시점에 거너 유닛에 부착되는 단발성 이펙트.
+    // 실제 버프 윈도우는 1회 공격(ms 단위)이지만 시각 피드백을 위해 고정 시간 후 Destroy 한다.
+    [SerializeField] private GameObject gunnerBuffEffectPrefab;
+    [SerializeField, Min(0.05f)] private float gunnerBuffEffectDuration = 0.5f;
+    [SerializeField] private bool gunnerSynergyLog = false;
 
     [Header("Spirit Synergy")]
     [SerializeField, Min(0.1f)] private float spiritCooldown = 10f;
     [SerializeField] private bool spiritSynergyLog = false;
+    // 정령 시너지 강화 5레벨 보너스(슬로우 적 추가 피해)가 발동될 때 추가로 스폰되는 피격 이펙트.
+    // 일반 피격이펙트(GetHitEffect)는 그대로 출력되고, 본 이펙트는 보너스 발동 시 "한 번 더" 스폰되는 형태.
+    [SerializeField] private GameObject spiritBonusHitEffect;
 
     private const string SpiritSlowSourceKey = "Synergy_Spirit";
 
@@ -228,6 +242,33 @@ public class CombatManager : MonoBehaviour
             unit,
             context
         );
+    }
+
+    // 정령 시너지 강화 5레벨 보너스 발동 시 타겟 위치에 스폰되는 추가 피격 이펙트.
+    // 일반 피격이펙트와 같은 풀 시스템을 사용하고, 살아있는 타겟이면 따라가게 한다.
+    private void SpawnSpiritBonusHitEffect(MonsterController target)
+    {
+        if (spiritBonusHitEffect == null || target == null)
+            return;
+
+        Vector3 spawnPos = target.transform.position;
+        GameObject effect = HitEffectPool.SpawnPooled(spiritBonusHitEffect, spawnPos, Quaternion.identity);
+
+        if (effect != null && target.gameObject.activeInHierarchy)
+        {
+            HitEffectSpawner spawner = effect.GetComponent<HitEffectSpawner>();
+            if (spawner != null)
+                spawner.ConfigureFollowTarget(target.transform);
+        }
+
+        if (spiritSynergyLog)
+        {
+            DebugTool.Log(
+                $"정령 보너스 추가 피격이펙트 생성 | target={target.name}, prefab={spiritBonusHitEffect.name}",
+                DebugType.Synergy,
+                this
+            );
+        }
     }
 
     private void SpawnExplosionEffect(GameObject hitEffect, Vector3 impactPosition, float radius)
@@ -549,6 +590,10 @@ public class CombatManager : MonoBehaviour
     private static readonly int GunnerSynergyIdCached = (int)SynergyManager.SynergyType.Gunner;
     // 유닛별 다음 charge 시점 (Time.time 기준)
     private readonly Dictionary<UnitStat, float> _gunnerNextChargeTimes = new Dictionary<UnitStat, float>();
+    // 유닛별 활성 강화공격 시각 이펙트 인스턴스 + 정리 코루틴.
+    // 짧은 시간(gunnerBuffEffectDuration) 안에 또 차지가 일어나면 기존 인스턴스 정리 후 재스폰 (시각 갱신).
+    private readonly Dictionary<UnitStat, GameObject> _gunnerBuffEffects = new Dictionary<UnitStat, GameObject>();
+    private readonly Dictionary<UnitStat, Coroutine> _gunnerBuffRoutines = new Dictionary<UnitStat, Coroutine>();
 
     /// <summary>
     /// 거너 강화 5레벨 + 거너 태그 + 쿨다운 충족 시 Hub 에 임시 모디파이어를 Add.
@@ -590,11 +635,76 @@ public class CombatManager : MonoBehaviour
         // 다음 차지까지 5초
         _gunnerNextChargeTimes[unitStat] = Time.time + GunnerCooldownSeconds;
 
+        // 시각 피드백 : 차지 성공 시점에 단발성 이펙트 부착 (gunnerBuffEffectDuration 후 Destroy).
+        SpawnGunnerBuffEffect(unitStat);
+
         DebugTool.Log(
             $"[거너 5레벨 보너스] 다음 첫 공격 buff 차지 | unit={unitStat.Name}, bonus={bonusValue}%, value={fractional:F2}",
             DebugType.Synergy,
             unitStat
         );
+    }
+
+    private void SpawnGunnerBuffEffect(UnitStat attackerStat)
+    {
+        if (gunnerBuffEffectPrefab == null || attackerStat == null)
+            return;
+
+        // 기존 인스턴스/코루틴이 남아있으면 정리 후 재스폰 (드물지만 짧은 간격에 재차지 시).
+        ClearGunnerBuffEffect(attackerStat);
+
+        // 유닛 transform 자식으로 부착 → 유닛 파괴 시 자식과 함께 자연 소멸.
+        GameObject effect = Instantiate(gunnerBuffEffectPrefab, attackerStat.transform);
+        effect.transform.localPosition = Vector3.zero;
+        effect.transform.localRotation = Quaternion.identity;
+        _gunnerBuffEffects[attackerStat] = effect;
+
+        // 고정 시간 후 자동 Destroy. 코루틴 핸들 추적해 중복 차지 시 명확히 정리 가능하게.
+        _gunnerBuffRoutines[attackerStat] = StartCoroutine(GunnerBuffEffectExpireRoutine(attackerStat));
+
+        if (gunnerSynergyLog)
+        {
+            DebugTool.Log(
+                $"[거너 5레벨 보너스] 강화공격 이펙트 부착 | unit={attackerStat.Name}, prefab={gunnerBuffEffectPrefab.name}, duration={gunnerBuffEffectDuration}s",
+                DebugType.Synergy,
+                attackerStat
+            );
+        }
+    }
+
+    private IEnumerator GunnerBuffEffectExpireRoutine(UnitStat attackerStat)
+    {
+        yield return new WaitForSeconds(gunnerBuffEffectDuration);
+        ClearGunnerBuffEffect(attackerStat);
+    }
+
+    private void ClearGunnerBuffEffect(UnitStat attackerStat)
+    {
+        if (attackerStat == null)
+            return;
+
+        if (_gunnerBuffRoutines.TryGetValue(attackerStat, out Coroutine routine))
+        {
+            if (routine != null)
+                StopCoroutine(routine);
+            _gunnerBuffRoutines.Remove(attackerStat);
+        }
+
+        if (_gunnerBuffEffects.TryGetValue(attackerStat, out GameObject effect))
+        {
+            _gunnerBuffEffects.Remove(attackerStat);
+            if (effect != null)
+                Destroy(effect);
+
+            if (gunnerSynergyLog)
+            {
+                DebugTool.Log(
+                    $"[거너 5레벨 보너스] 강화공격 이펙트 제거 | unit={attackerStat.Name}",
+                    DebugType.Synergy,
+                    attackerStat
+                );
+            }
+        }
     }
 
     /// <summary> 발사 후 거너 next-shot buff 모디파이어 제거 (있으면). 멱등. </summary>
@@ -611,6 +721,9 @@ public class CombatManager : MonoBehaviour
     private const string ElfKillBonusKey = "SynergyEnhanceBonus_Elf_AttackSpeed";
     private const float ElfKillBonusDurationSeconds = 5f;
     private readonly Dictionary<UnitStat, Coroutine> _elfBuffRoutines = new Dictionary<UnitStat, Coroutine>();
+    // 유닛별 부착 이펙트 인스턴스. 5초 안에 재처치 시 기존 인스턴스를 그대로 두어 시각적 끊김 방지.
+    // 만료/재호출 시점에 일관되게 정리되어 유닛 제거 시 자식과 함께 자연 소멸.
+    private readonly Dictionary<UnitStat, GameObject> _elfBuffEffects = new Dictionary<UnitStat, GameObject>();
 
     private void TryTriggerElfKillBonus(UnitStat attackerStat)
     {
@@ -646,11 +759,63 @@ public class CombatManager : MonoBehaviour
 
         _elfBuffRoutines[attackerStat] = StartCoroutine(ElfKillBonusExpireRoutine(attackerStat, hub));
 
+        // 부착 이펙트 스폰 : 이미 활성 이펙트가 있으면 재생성하지 않고 유지 (갱신 시 시각적 끊김 방지).
+        // 인스턴스가 dict 에는 있지만 GameObject 가 외부에서 파괴된 경우엔 새로 만들기 위해 null 체크.
+        TrySpawnElfBuffEffect(attackerStat);
+
         DebugTool.Log(
             $"[엘프 5레벨 보너스] 처치 시 공속 buff 발동 | unit={attackerStat.Name}, bonus={bonusValue}%, duration={ElfKillBonusDurationSeconds}s",
             DebugType.Synergy,
             attackerStat
         );
+    }
+
+    private void TrySpawnElfBuffEffect(UnitStat attackerStat)
+    {
+        if (elfBuffEffectPrefab == null || attackerStat == null)
+            return;
+
+        // 이미 살아있는 인스턴스가 있으면 그대로 유지 (갱신 케이스).
+        if (_elfBuffEffects.TryGetValue(attackerStat, out GameObject existing) && existing != null)
+            return;
+
+        // 유닛 transform 자식으로 부착 → 유닛이 파괴되면 자식도 함께 파괴되어 누수 자동 방지.
+        GameObject effect = Instantiate(elfBuffEffectPrefab, attackerStat.transform);
+        effect.transform.localPosition = Vector3.zero;
+        effect.transform.localRotation = Quaternion.identity;
+        _elfBuffEffects[attackerStat] = effect;
+
+        if (elfSynergyLog)
+        {
+            DebugTool.Log(
+                $"[엘프 5레벨 보너스] 버프 이펙트 부착 | unit={attackerStat.Name}, prefab={elfBuffEffectPrefab.name}",
+                DebugType.Synergy,
+                attackerStat
+            );
+        }
+    }
+
+    private void DestroyElfBuffEffect(UnitStat attackerStat)
+    {
+        if (attackerStat == null)
+            return;
+
+        if (!_elfBuffEffects.TryGetValue(attackerStat, out GameObject effect))
+            return;
+
+        _elfBuffEffects.Remove(attackerStat);
+
+        if (effect != null)
+            Destroy(effect);
+
+        if (elfSynergyLog)
+        {
+            DebugTool.Log(
+                $"[엘프 5레벨 보너스] 버프 이펙트 제거 | unit={attackerStat.Name}",
+                DebugType.Synergy,
+                attackerStat
+            );
+        }
     }
 
     private IEnumerator ElfKillBonusExpireRoutine(UnitStat stat, UnitStatHub hub)
@@ -662,6 +827,9 @@ public class CombatManager : MonoBehaviour
 
         if (stat != null)
             _elfBuffRoutines.Remove(stat);
+
+        // 모디파이어 제거와 동일 시점에 부착 이펙트도 정리 (시각/스탯 동기화).
+        DestroyElfBuffEffect(stat);
 
         if (stat != null)
         {
@@ -731,6 +899,12 @@ public class CombatManager : MonoBehaviour
                 ScheduleWizardFollowUp(target, targetPosition, wizardDamage, hitEffect, sourceName, unitStat);
             }
         }
+
+        // 정령 시너지 강화 5레벨 보너스가 실제로 발동된 경우(태그 + 5레벨 + 타겟 슬로우 모두 만족)에만
+        // 추가 피격 이펙트를 한 번 더 스폰. TakeDamage 호출 전에 두는 이유는, 처치 시 target 이 풀로 회수되며
+        // transform.position 이 무효화되는 케이스를 피하기 위함.
+        if (effectiveBonusVsSlowed > 0f)
+            SpawnSpiritBonusHitEffect(target);
 
         if (target.TakeDamage(finalDamage, hitEffect))
         {
