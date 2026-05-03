@@ -492,6 +492,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 8868012073444114695, guid: c001c78a8ad986e45946ddb08ba1804c, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1507115444}
+    - targetCorrespondingSourceObject: {fileID: 8868012073444114695, guid: c001c78a8ad986e45946ddb08ba1804c, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1507115446}
+    - targetCorrespondingSourceObject: {fileID: 8868012073444114695, guid: c001c78a8ad986e45946ddb08ba1804c, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1507115445}
   m_SourcePrefab: {fileID: 100100000, guid: c001c78a8ad986e45946ddb08ba1804c, type: 3}
 --- !u!1 &135953440
 GameObject:
@@ -2366,6 +2372,37 @@ MonoBehaviour:
     <Url>k__BackingField: https://docs.google.com/spreadsheets/d/1VOCm6Ea1lZwR6bHObUN7oggKR4U9nOfGWR_bl1s3nK4/edit?gid=784761512#gid=784761512
     <Type>k__BackingField: 1
   log: 0
+--- !u!114 &1507115445
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1507115438}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ca9e8a977b599c1439386fed8adf1db1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SkillDataSOGenerator
+  _skillSheetRowProvider: {fileID: 1507115446}
+  _outputFolder: {fileID: 102900000, guid: ce00e7dcfcf5bab4b867da603df3987c, type: 3}
+  _skillDatabase: {fileID: 11400000, guid: 62642b63893b92c469ccd4c1c3d3e79b, type: 2}
+--- !u!114 &1507115446
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1507115438}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a97c3cc2ee4e484cb62ff823a9085c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SkillSheetRowProvider
+  _skillSheetLoader:
+    <Url>k__BackingField: https://docs.google.com/spreadsheets/d/1VOCm6Ea1lZwR6bHObUN7oggKR4U9nOfGWR_bl1s3nK4/edit?gid=633864906#gid=633864906
+  _isLoaded: 0
+  _loadedCount: 0
 --- !u!4 &1541877885 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2099450959876022978, guid: f6e7057ba7c24c7468e0c8ded4aebdfa, type: 3}

@@ -6,5 +6,6 @@ public enum ModifierSource
     UnitEnhance,     // 유닛 강화 (플레이어가 개별 유닛을 업그레이드)
     SynergySkill,    // 시너지 자체 효과 (전사/거너/엘프/오크 등)
     SynergyEnhance,  // 시너지 강화 (시너지 단위 강화, 해당 태그 보유 유닛 전체 적용)
+    UnitSkill,       // 유닛 자체 스킬 발동으로 인한 모디파이어 (예: 30004/30005 자가 버프)
     Debug,           // 디버그 툴에서 주입
 }
