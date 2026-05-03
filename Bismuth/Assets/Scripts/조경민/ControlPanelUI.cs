@@ -61,8 +61,8 @@ public class ControlPanelUI : MonoBehaviour
         _playerAction.Enable();
 
         _playerAction.UI.Combination.performed += OnClickCombination;
-        _playerData.OnLevelChanged += RefreshLevel;
-        _playerData.OnLevelChanged += RefreshUpgradeGold;
+        _playerData.OnPlacementUpgradeLevelChanged += RefreshLevel;
+        _playerData.OnPlacementUpgradeLevelChanged += RefreshUpgradeGold;
     }
 
     private void Start()
@@ -80,8 +80,8 @@ public class ControlPanelUI : MonoBehaviour
         _playerAction.Disable();
         
         LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
-        _playerData.OnLevelChanged -= RefreshLevel;
-        _playerData.OnLevelChanged -= RefreshUpgradeGold;
+        _playerData.OnPlacementUpgradeLevelChanged -= RefreshLevel;
+        _playerData.OnPlacementUpgradeLevelChanged -= RefreshUpgradeGold;
     }
 
     private void RefreshText()
@@ -115,7 +115,7 @@ public class ControlPanelUI : MonoBehaviour
         if (_playerData == null)
             return;
 
-        _levelText.text = $"Lv {_playerData.Level}";
+        _levelText.text = $"Lv {_playerData.PlacementUpgradeLevel}";
     }
 
     public void RefreshGold()
@@ -128,7 +128,10 @@ public class ControlPanelUI : MonoBehaviour
 
     public void RefreshUpgradeGold()
     {
-        int level = _playerData.Level;
+        if (_playerData == null || _playerUIController == null)
+            return;
+
+        int level = _playerData.PlacementUpgradeLevel;
         int gold = _playerUIController.GetUpgradeGold(level);
 
         if(gold < 0)
