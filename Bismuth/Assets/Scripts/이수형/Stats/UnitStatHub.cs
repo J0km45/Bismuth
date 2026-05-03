@@ -23,11 +23,43 @@ public class UnitStatHub : MonoBehaviour
 
     public event Action<StatType> OnStatChanged;
 
+    // ─────────────────────────────────────────────────────────
+    // 인스펙터 디버그 노출 (Dictionary 는 직렬화 안 되므로 List 로 미러링)
+    // _baseInspector  : 편집 가능. 플레이 중 OnValidate 가 _base 로 동기화 + NotifyChanged.
+    // _modsInspector  : Read-only 용. 매 변경 시점에 _mods 로부터 재구성하여 사용자 편집은 덮어씀.
+    // ─────────────────────────────────────────────────────────
+
+    [Serializable]
+    public struct BaseEntry
+    {
+        public StatType Type;
+        public float Value;
+    }
+
+    [Serializable]
+    public struct ModifierEntry
+    {
+        public StatType Target;
+        public StatOperation Op;
+        public float Value;
+        public ModifierSource Source;
+        public string Key; // object Key 를 string 으로 가시화
+    }
+
+    [Header("==== 인스펙터 디버그 (편집 가능: Base) ====")]
+    [Tooltip("Base 값. 플레이 중 인스펙터에서 변경하면 즉시 SetBase 와 동일하게 반영된다 (NotifyChanged 발행).")]
+    [SerializeField] private List<BaseEntry> _baseInspector = new();
+
+    [Header("==== 인스펙터 디버그 (Read-Only: 현재 모디파이어) ====")]
+    [Tooltip("현재 적용된 모든 모디파이어 표시. 인스펙터에서 편집해도 다음 변경 시점에 덮어써짐.")]
+    [SerializeField] private List<ModifierEntry> _modsInspector = new();
+
     // ───────── Base 값 ─────────
 
     public void SetBase(StatType type, float value)
     {
         _base[type] = value;
+        SyncBaseInspector();
         NotifyChanged(type);
 
         if (_log)
@@ -56,6 +88,7 @@ public class UnitStatHub : MonoBehaviour
         }
 
         list.Add(mod);
+        SyncModsInspector();
         NotifyChanged(mod.Target);
 
         if (_log)
@@ -90,6 +123,10 @@ public class UnitStatHub : MonoBehaviour
             if (changedHere)
                 NotifyChanged(kvp.Key);
         }
+
+        if (removed)
+            SyncModsInspector();
+
         return removed;
     }
 
@@ -117,6 +154,9 @@ public class UnitStatHub : MonoBehaviour
             }
         }
 
+        if (total > 0)
+            SyncModsInspector();
+
         if (_log && total > 0)
             DebugTool.Log($"[StatHub] RemoveBySource {source} : {total} 개 제거", DebugType.Unit, this);
 
@@ -131,6 +171,7 @@ public class UnitStatHub : MonoBehaviour
 
         int count = list.Count;
         list.Clear();
+        SyncModsInspector();
         NotifyChanged(type);
 
         if (_log)
@@ -283,5 +324,87 @@ public class UnitStatHub : MonoBehaviour
     private void NotifyChanged(StatType type)
     {
         OnStatChanged?.Invoke(type);
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // 인스펙터 동기화 헬퍼
+    // ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// _base Dictionary → _baseInspector List 동기화.
+    /// 기존 항목은 값만 갱신하여 사용자 편집 중 항목 순서를 흔들지 않는다.
+    /// </summary>
+    private void SyncBaseInspector()
+    {
+        foreach (var kvp in _base)
+        {
+            bool found = false;
+            for (int i = 0; i < _baseInspector.Count; i++)
+            {
+                if (_baseInspector[i].Type == kvp.Key)
+                {
+                    _baseInspector[i] = new BaseEntry { Type = kvp.Key, Value = kvp.Value };
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+                _baseInspector.Add(new BaseEntry { Type = kvp.Key, Value = kvp.Value });
+        }
+    }
+
+    /// <summary>
+    /// _mods Dictionary → _modsInspector List 재구성. (Read-only 표시 전용)
+    /// </summary>
+    private void SyncModsInspector()
+    {
+        _modsInspector.Clear();
+
+        foreach (var kvp in _mods)
+        {
+            List<StatModifier> list = kvp.Value;
+            for (int i = 0; i < list.Count; i++)
+            {
+                StatModifier mod = list[i];
+                _modsInspector.Add(new ModifierEntry
+                {
+                    Target = mod.Target,
+                    Op = mod.Op,
+                    Value = mod.Value,
+                    Source = mod.Source,
+                    Key = mod.Key?.ToString() ?? "(null)"
+                });
+            }
+        }
+    }
+
+    /// <summary>
+    /// 인스펙터에서 _baseInspector 값을 변경하면 호출됨.
+    /// 플레이 중에만 동작하여 _base Dictionary 동기화 + NotifyChanged 발행.
+    /// _modsInspector 는 사용자 편집을 항상 덮어씀 (read-only 의도).
+    /// </summary>
+    private void OnValidate()
+    {
+        if (!Application.isPlaying)
+            return;
+
+        for (int i = 0; i < _baseInspector.Count; i++)
+        {
+            BaseEntry entry = _baseInspector[i];
+
+            if (!_base.TryGetValue(entry.Type, out float existing) || !Mathf.Approximately(existing, entry.Value))
+            {
+                _base[entry.Type] = entry.Value;
+                NotifyChanged(entry.Type);
+
+                if (_log)
+                    DebugTool.Log($"[StatHub] (Inspector) SetBase {entry.Type} = {entry.Value}", DebugType.Unit, this);
+            }
+        }
+
+        // 사용자가 ModifierEntry 를 만졌어도 다음 변경 시점에 어차피 덮어씀.
+        // 일관성을 위해 즉시 재구성.
+        SyncModsInspector();
     }
 }

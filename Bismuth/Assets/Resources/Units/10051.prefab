@@ -2449,6 +2449,7 @@ GameObject:
   - component: {fileID: 1221997304357611015}
   - component: {fileID: 3563195823711782822}
   - component: {fileID: -7712596976647668364}
+  - component: {fileID: -2833266304580550479}
   m_Layer: 10
   m_Name: 10051
   m_TagString: Untagged
@@ -9872,7 +9873,6 @@ MonoBehaviour:
   SummonTime: 0
   Name: 
   BaseAttackPower: 0
-  CurrentAttackPower: 0
   AttackSpeed: 0
   CritChance: 0
   Range: 0
@@ -9884,6 +9884,20 @@ MonoBehaviour:
   KillCount: 0
   DealtDamage: 0
   ElfWaveKillCount: 0
+--- !u!114 &-2833266304580550479
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4662263023091883543}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c4676e8746e63a48bfe75a9ddb28a3f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitSkillRunner
+  _skill: {fileID: 11400000, guid: 893fa951f2cf17f45927d03858714969, type: 2}
+  _log: 1
 --- !u!1 &4682050499923644574
 GameObject:
   m_ObjectHideFlags: 0

@@ -83,6 +83,27 @@ public class DamageCalculator : MonoBehaviour
         return (int)calculatedDamage;
     }
 
+    /// <summary>
+    /// 적 최대 체력 비례 데미지. 방어력/치명타/슬로우보너스 모두 무시.
+    /// 궁수 시너지의 CalculateArcherSkillDamage 와 동일 판정.
+    /// 30007 같은 "체력 비례 공격" 액티브 스킬에서 사용.
+    /// </summary>
+    public int CalculateMaxHpRatioDamage(MonsterController target, float ratioPercent)
+    {
+        if (target == null)
+            return 0;
+
+        if (ratioPercent <= 0f)
+            return 0;
+
+        float calculatedDamage = target.MaxHp * (ratioPercent * 0.01f);
+
+        if (Random.value < calculatedDamage - (int)calculatedDamage)
+            return (int)calculatedDamage + 1;
+
+        return (int)calculatedDamage;
+    }
+
     public int CalculateArcherSkillDamage(UnitStat attackerStat, MonsterController target, bool isArcherBonusAttack)
     {
         if (!isArcherBonusAttack)
