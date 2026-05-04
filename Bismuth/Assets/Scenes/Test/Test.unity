@@ -3864,7 +3864,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 4351018382781704222, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4138993132534094910}
   m_SourcePrefab: {fileID: 100100000, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
 --- !u!114 &4138993132534094892 stripped
 MonoBehaviour:
@@ -3888,6 +3891,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d1554fe8207fefb43811d519ea51eeef, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SynergyEnhanceLevelManager
+--- !u!114 &4138993132534094910
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 553961979}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e77fe0a94b2eeb4ca1e4ae0b85b0c47, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SynergyAuraBinder
+  _summonUnit: {fileID: 4138993132534094892}
+  _enhanceLevelManager: {fileID: 4138993132534094901}
+  _auraNormalPrefab: {fileID: 955899002318875484, guid: c0cb308d7efd65946918a151095bcfd3, type: 3}
+  _auraMaxPrefab: {fileID: 6972002210347296545, guid: 4637cf01e3708a74c9b5a53ac3802788, type: 3}
+  _log: 0
 --- !u!1001 &4260271875672331262
 PrefabInstance:
   m_ObjectHideFlags: 0

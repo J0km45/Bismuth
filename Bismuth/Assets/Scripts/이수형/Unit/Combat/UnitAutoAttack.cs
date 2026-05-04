@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -33,6 +34,9 @@ public class UnitAutoAttack : MonoBehaviour
     private const int FurryRequiredAttackCount = 3;
     private const float WizardBonusCooldownSeconds = 5f;
     private const float FurryTriggerAnimSpeedBoost = 1.3f;
+    // 30008 스킬 추가타의 모션 속도 배수. BuffValue 가 1 이라도 시각적으로 명확히 빨라지도록 최소 보정.
+    // BuffValue 가 더 커지면 그 배수만큼 더 빠르게 재생 (수인의 Mathf.Max(1f, extraCount) 패턴과 동일 의미).
+    private const float SkillExtraAttackMinAnimSpeedBoost = 2f;
 
     private TowerUnit towerUnit;
     private MonsterController currentTarget;
@@ -337,7 +341,7 @@ public class UnitAutoAttack : MonoBehaviour
         float effectiveAttackSpeed = unitStat.AttackSpeed * context.AnimSpeedMultiplier;
 
 
-        bool isSkillAttack = context.IsWarriorBonus || context.IsFurryBonus || context.IsWizardBonus || context.IsActiveSkill;
+        bool isSkillAttack = context.IsWarriorBonus || context.IsFurryBonus || context.IsWizardBonus || context.IsActiveSkill || context.IsSkillExtraAttackBonus;
         int animIndex = isSkillAttack ? 1 : attackAnimationIndex;
 
         AttackPlaybackData playback = anim.PlayAttackAnimation(animIndex, effectiveAttackSpeed);
@@ -491,6 +495,7 @@ public class UnitAutoAttack : MonoBehaviour
 
             UpdateArcherAttackProgressAfterSuccessfulHit();
             UpdateFurryAttackProgressAfterSuccessfulHit();
+            TryEnqueueSkillExtraAttackOnHit();
 
             // 4티어 공격 이펙트
             if (unitStat != null && unitStat.Tier >= 4 && towerUnit != null)
@@ -514,8 +519,51 @@ public class UnitAutoAttack : MonoBehaviour
     }
 
     /// <summary>
-    /// 30003(추가 투사체 패시브)을 보유한 경우, 일반공격 hit 시점에 추가 투사체를 발사한다.
+    /// 30008 추가 공격 버프가 활성 상태일 때, 일반공격 hit 직후 추가 공격을 큐에 등록한다.
+    /// 수인 추가타와 동일한 PendingExtraAttack 큐를 통해 애니메이션 사이클로 처리된다.
+    /// 추가 공격 컨텍스트 자체에서 또 큐잉되지 않도록 CountsForSynergyStacks 로 일반공격만 통과시킨다.
+    /// </summary>
+    private void TryEnqueueSkillExtraAttackOnHit()
+    {
+        if (skillRunner == null || !skillRunner.IsExtraAttackBuffActive)
+            return;
+
+        // 추가 공격이 다시 추가 공격을 부르지 않도록 가드. 수인과 동일 패턴.
+        if (!currentAttackContext.CountsForSynergyStacks)
+            return;
+
+        int extraCount = skillRunner.ExtraAttackBuffCount;
+        if (extraCount <= 0)
+            return;
+
+        // 수인 추가타의 Mathf.Max(1f, extraCount) 와 동일 의미. 단 30008 은 단발(1) 일 때도 시각적으로 빠르게.
+        float animSpeedMultiplier = Mathf.Max(SkillExtraAttackMinAnimSpeedBoost, extraCount);
+
+        EnqueueExtraAttack(new PendingExtraAttack
+        {
+            Type = ExtraAttackType.Skill,
+            RemainingCount = extraCount,
+            ForcedTarget = lockedTarget,
+            AnimSpeedMultiplier = animSpeedMultiplier
+        });
+
+        if (attackLog)
+        {
+            DebugTool.Log(
+                $"[Skill 추가 공격 버프] 큐 등록 | skillId={skillRunner.Skill.Id}, extraCount={extraCount}, target={(lockedTarget != null ? lockedTarget.name : "None")}",
+                DebugType.Unit,
+                this
+            );
+        }
+    }
+
+    // 30003 추가 투사체 발사 지연 시간. 일반공격 투사체가 나간 직후, 약간 늦게 따라붙는 느낌을 위해 사용.
+    private const float ExtraProjectileFireDelay = 0.1f;
+
+    /// <summary>
+    /// 30003(추가 투사체 패시브)을 보유한 경우, 일반공격 hit 시점 + 0.1초 후에 추가 투사체를 발사한다.
     /// CombatManager.DamageOccured 를 한 번 더 호출하되 ForceProjectile 컨텍스트로 분기.
+    /// 멜리/원거리 모두 동일 흐름. 멜리는 SO 의 _extraProjectilePrefab 으로 fallback, 원거리는 자체 프리팹 사용.
     /// </summary>
     private void TryFireExtraProjectiles()
     {
@@ -525,13 +573,29 @@ public class UnitAutoAttack : MonoBehaviour
         if (CombatManager.Instance == null)
             return;
 
+        // 발사 시점의 타겟을 캡처 → 0.1초 사이 lockedTarget 이 바뀌어도 원래 타겟을 우선 시도.
+        // (타겟이 죽었으면 CombatManager.SelectTargets 가 attackSensor 기반으로 대체 타겟 선택)
+        MonsterController capturedTarget = lockedTarget;
+
+        StartCoroutine(FireExtraProjectilesAfterDelay(capturedTarget));
+    }
+
+    private IEnumerator FireExtraProjectilesAfterDelay(MonsterController capturedTarget)
+    {
+        yield return new WaitForSeconds(ExtraProjectileFireDelay);
+
+        // 지연 중 컴포넌트/매니저가 사라진 케이스 방어 (씬 전환, 유닛 판매 등).
+        if (this == null || skillRunner == null || CombatManager.Instance == null)
+            yield break;
+
         AttackContext extraCtx = skillRunner.BuildExtraProjectileContext();
-        CombatManager.Instance.DamageOccured(this.gameObject, lockedTarget, attackSensor, extraCtx);
+        CombatManager.Instance.DamageOccured(this.gameObject, capturedTarget, attackSensor, extraCtx);
 
         if (attackLog)
         {
+            string targetName = capturedTarget != null ? capturedTarget.name : "(null)";
             DebugTool.Log(
-                $"[Skill 추가 투사체] 발사 | skillId={skillRunner.Skill.Id}, target={lockedTarget.name}, context=[{extraCtx}]",
+                $"[Skill 추가 투사체] 발사 (지연 {ExtraProjectileFireDelay}s) | skillId={skillRunner.Skill.Id}, target={targetName}, context=[{extraCtx}]",
                 DebugType.Unit, this);
         }
     }
@@ -753,6 +817,10 @@ public class UnitAutoAttack : MonoBehaviour
 
             case ExtraAttackType.Furry:
                 return new AttackContext { IsFurryBonus = true, AnimSpeedMultiplier = animSpeedMultiplier };
+
+            case ExtraAttackType.Skill:
+                // 30008 같은 추가 공격 버프 — 일반 공격 형태 그대로 한 발 더, 컨텍스트 플래그만 다름.
+                return new AttackContext { IsSkillExtraAttackBonus = true, AnimSpeedMultiplier = animSpeedMultiplier };
 
             default:
                 return new AttackContext { AnimSpeedMultiplier = animSpeedMultiplier };
