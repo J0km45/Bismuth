@@ -216,11 +216,12 @@ public class SummonUnit : MonoBehaviour
             return -1;
         }
 
-        SummonChanceData data = GetByEnhancementLevel(playerDataManager.Level);
+        int chanceLevel = playerDataManager.PlacementUpgradeLevel;
+        SummonChanceData data = GetByEnhancementLevel(chanceLevel);
         if (data == null)
         {
             DebugTool.Warnning(
-                $"강화 단계 {playerDataManager.Level} 데이터가 없습니다.",
+                $"강화 단계 {chanceLevel} 데이터가 없습니다.",
                 DebugType.Data,
                 this
             );
@@ -246,6 +247,8 @@ public class SummonUnit : MonoBehaviour
         if (summonSO == null || summonSO.Rows == null)
             return null;
 
+        SummonChanceData fallbackData = null;
+
         for (int i = 0; i < summonSO.Rows.Count; i++)
         {
             SummonChanceData row = summonSO.Rows[i];
@@ -255,9 +258,15 @@ public class SummonUnit : MonoBehaviour
 
             if (row.EnhancementLevel == enhancementLevel)
                 return row;
+
+            if (row.EnhancementLevel <= enhancementLevel)
+            {
+                if (fallbackData == null || row.EnhancementLevel > fallbackData.EnhancementLevel)
+                    fallbackData = row;
+            }
         }
 
-        return null;
+        return fallbackData;
     }
 
     private UnitData GetRandomUnit(int tierIndex)
