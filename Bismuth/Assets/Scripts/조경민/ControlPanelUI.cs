@@ -75,7 +75,10 @@ public class ControlPanelUI : MonoBehaviour
         }
 
         if (_boardSystem != null)
+        {
             _boardSystem.OnPlacedTileCountChanged += RefreshPlacementTileCount;
+            _boardSystem.OnNoPlaceableSpace += ShowNoSpaceWarning;
+        }
     }
 
     private void Start()
@@ -104,7 +107,10 @@ public class ControlPanelUI : MonoBehaviour
         }
 
         if (_boardSystem != null)
+        {
             _boardSystem.OnPlacedTileCountChanged -= RefreshPlacementTileCount;
+            _boardSystem.OnNoPlaceableSpace -= ShowNoSpaceWarning;
+        }
     }
 
     private void RefreshText()
@@ -112,7 +118,7 @@ public class ControlPanelUI : MonoBehaviour
         _combinationText.text = LocalizationManager.Instance.Get("MERGE");
         _synergyText.text = LocalizationManager.Instance.Get("SYNERGY");
         _drawText.text = LocalizationManager.Instance.Get("SUMMON");
-        _upgradeText.text = LocalizationManager.Instance.Get("LEVEL_UP");
+        _upgradeText.text = LocalizationManager.Instance.Get("UPGRADE");
 
         RefreshGold();
     }
@@ -175,6 +181,16 @@ public class ControlPanelUI : MonoBehaviour
         {
             _upgradeGoldText.text = $"{gold}";
         }
+    }
+
+    private void ShowNoSpaceWarning()
+    {
+        string message = "NO_SPACE";
+
+        if (LocalizationManager.Instance != null)
+            message = LocalizationManager.Instance.Get("NO_SPACE");
+
+        ShowWarningText(message);
     }
 
     public void ShowWarningText(string text)

@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using Random = UnityEngine.Random;
 
 public class BoardSystem : MonoBehaviour
 {
     public static BoardSystem Instance { get; private set; }
 
     public event Action<int> OnPlacedTileCountChanged;
+    public event Action OnNoPlaceableSpace;
 
     public enum RelocateResult
     {
@@ -86,6 +86,11 @@ public class BoardSystem : MonoBehaviour
     private void NotifyPlacedTileCountChanged()
     {
         OnPlacedTileCountChanged?.Invoke(CurrentPlacedTileCount);
+    }
+
+    private void NotifyNoPlaceableSpace()
+    {
+        OnNoPlaceableSpace?.Invoke();
     }
     
 
@@ -420,11 +425,11 @@ public class BoardSystem : MonoBehaviour
         if (emptySlots.Count <= 0)
         {
             DebugTool.Warnning($"배치 가능한 타일 안에 빈 슬롯이 없습니다. 현재 제한: {placeableSlotCount}", DebugType.Board, this);
+            NotifyNoPlaceableSpace();
             return false;
         }
 
-        int randomIndex = Random.Range(0, emptySlots.Count);
-        
+        int randomIndex = UnityEngine.Random.Range(0, emptySlots.Count);
         emptySlot = emptySlots[randomIndex];
 
         DebugTool.Log($"배치 슬롯 선택 - {emptySlot.slot.name} / 위치 {emptySlot.worldCenter}", DebugType.Board, this);
