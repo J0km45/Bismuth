@@ -8,7 +8,7 @@ public class ControlPanelUI : MonoBehaviour
     [Header("━━━━ 텍스트 ━━━━")]
     [Tooltip("레벨")]
     [SerializeField] private TMP_Text _levelText;
-    [Tooltip("시간")]
+    [Tooltip("배치한 타일 수 / 현재 최대 배치 가능 수")]
     [SerializeField] private TMP_Text _timeText;
     [Tooltip("재화")]
     [SerializeField] private TMP_Text _goldText;
@@ -35,8 +35,8 @@ public class ControlPanelUI : MonoBehaviour
     private Coroutine _coroutine;
 
     private bool _isCombinationSVOpened => _combinationScrollView.activeSelf;
-    private float _elapsedTime = 0f; // 누적 시간 저장용
-    
+
+    private BoardSystem _boardSystem;
     private PlayerAction _playerAction;
 
     private void Awake()
@@ -50,6 +50,11 @@ public class ControlPanelUI : MonoBehaviour
             _playerUIController = FindAnyObjectByType<PlayerUIController>();
         }
 
+        if (_boardSystem == null)
+        {
+            _boardSystem = FindAnyObjectByType<BoardSystem>();
+        }
+
         if (_playerAction == null)
         {
             _playerAction = new PlayerAction();
@@ -61,8 +66,16 @@ public class ControlPanelUI : MonoBehaviour
         _playerAction.Enable();
 
         _playerAction.UI.Combination.performed += OnClickCombination;
-        _playerData.OnPlacementUpgradeLevelChanged += RefreshLevel;
-        _playerData.OnPlacementUpgradeLevelChanged += RefreshUpgradeGold;
+
+        if (_playerData != null)
+        {
+            _playerData.OnPlacementUpgradeLevelChanged += RefreshLevel;
+            _playerData.OnPlacementUpgradeLevelChanged += RefreshUpgradeGold;
+            _playerData.OnPlaceableTileCountChanged += RefreshPlacementTileCount;
+        }
+
+        if (_boardSystem != null)
+            _boardSystem.OnPlacedTileCountChanged += RefreshPlacementTileCount;
     }
 
     private void Start()
@@ -71,6 +84,7 @@ public class ControlPanelUI : MonoBehaviour
         RefreshText();
         RefreshLevel();
         RefreshUpgradeGold();
+        RefreshPlacementTileCount();
     }
 
     private void OnDisable()
@@ -78,10 +92,19 @@ public class ControlPanelUI : MonoBehaviour
         _playerAction.UI.Combination.performed -= OnClickCombination;
         
         _playerAction.Disable();
-        
-        LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
-        _playerData.OnPlacementUpgradeLevelChanged -= RefreshLevel;
-        _playerData.OnPlacementUpgradeLevelChanged -= RefreshUpgradeGold;
+
+        if (LocalizationManager.Instance != null)
+            LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
+
+        if (_playerData != null)
+        {
+            _playerData.OnPlacementUpgradeLevelChanged -= RefreshLevel;
+            _playerData.OnPlacementUpgradeLevelChanged -= RefreshUpgradeGold;
+            _playerData.OnPlaceableTileCountChanged -= RefreshPlacementTileCount;
+        }
+
+        if (_boardSystem != null)
+            _boardSystem.OnPlacedTileCountChanged -= RefreshPlacementTileCount;
     }
 
     private void RefreshText()
@@ -96,18 +119,28 @@ public class ControlPanelUI : MonoBehaviour
 
     private void Update()
     {
-        UpdateElapsedTime();
+        RefreshPlacementTileCount();
     }
 
-    private void UpdateElapsedTime()
+    private void RefreshPlacementTileCount(int _ = 0)
     {
-        if (Time.timeScale > 0f)
-        {
-            _elapsedTime += Time.unscaledDeltaTime;
-        }
-        int minutes = (int)(_elapsedTime / 60);
-        int seconds = (int)(_elapsedTime % 60);
-        _timeText.text = $"{minutes:D2} : {seconds:D2}";
+        RefreshPlacementTileCount();
+    }
+
+    private void RefreshPlacementTileCount()
+    {
+        if (_timeText == null || _playerData == null)
+            return;
+
+        if (_boardSystem == null)
+            _boardSystem = BoardSystem.Instance != null ? BoardSystem.Instance : FindAnyObjectByType<BoardSystem>();
+
+        int placedTileCount = 0;
+
+        if (_boardSystem != null)
+            placedTileCount = _boardSystem.CurrentPlacedTileCount;
+
+        _timeText.text = $"{placedTileCount} / {_playerData.PlaceableTileCount}";
     }
 
     public void RefreshLevel()
