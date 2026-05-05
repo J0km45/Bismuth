@@ -8,8 +8,10 @@ public class ControlPanelUI : MonoBehaviour
     [Header("━━━━ 텍스트 ━━━━")]
     [Tooltip("레벨")]
     [SerializeField] private TMP_Text _levelText;
-    [Tooltip("시간")]
-    [SerializeField] private TMP_Text _timeText;
+    //[Tooltip("시간")]
+    //[SerializeField] private TMP_Text _timeText;
+    [Tooltip("유닛 수(현재 배치 수/현재 배치 가능한 최대 수)")]
+    [SerializeField] private TMP_Text _unitCountText;
     [Tooltip("재화")]
     [SerializeField] private TMP_Text _goldText;
     [Tooltip("합성소")]
@@ -32,11 +34,12 @@ public class ControlPanelUI : MonoBehaviour
 
     private PlayerDataManager _playerData;
     private PlayerUIController _playerUIController;
+    private SummonUnit _summonUnit;
     private Coroutine _coroutine;
 
     private bool _isCombinationSVOpened => _combinationScrollView.activeSelf;
-    private float _elapsedTime = 0f; // 누적 시간 저장용
-    
+    //private float _elapsedTime = 0f; // 누적 시간 저장용
+
     private PlayerAction _playerAction;
 
     private void Awake()
@@ -47,7 +50,11 @@ public class ControlPanelUI : MonoBehaviour
         }
         if (_playerUIController == null)
         {
-            _playerUIController = FindAnyObjectByType<PlayerUIController>();
+            _playerUIController = _playerData.GetComponent<PlayerUIController>();
+        }
+        if (_summonUnit == null)
+        {
+            _summonUnit = _playerData.GetComponent<SummonUnit>();
         }
 
         if (_playerAction == null)
@@ -61,8 +68,12 @@ public class ControlPanelUI : MonoBehaviour
         _playerAction.Enable();
 
         _playerAction.UI.Combination.performed += OnClickCombination;
+
         _playerData.OnPlacementUpgradeLevelChanged += RefreshLevel;
         _playerData.OnPlacementUpgradeLevelChanged += RefreshUpgradeGold;
+        _playerData.OnPlacementUpgradeLevelChanged += RefreshUnitCount;
+
+        _summonUnit.OnOwnedTowersChanged += RefreshUnitCount;
     }
 
     private void Start()
@@ -71,17 +82,21 @@ public class ControlPanelUI : MonoBehaviour
         RefreshText();
         RefreshLevel();
         RefreshUpgradeGold();
+        RefreshUnitCount();
     }
 
     private void OnDisable()
     {
         _playerAction.UI.Combination.performed -= OnClickCombination;
-        
+
         _playerAction.Disable();
-        
+
         LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
         _playerData.OnPlacementUpgradeLevelChanged -= RefreshLevel;
         _playerData.OnPlacementUpgradeLevelChanged -= RefreshUpgradeGold;
+        _playerData.OnPlacementUpgradeLevelChanged -= RefreshUnitCount;
+
+        _summonUnit.OnOwnedTowersChanged -= RefreshUnitCount;
     }
 
     private void RefreshText()
@@ -89,26 +104,26 @@ public class ControlPanelUI : MonoBehaviour
         _combinationText.text = LocalizationManager.Instance.Get("MERGE");
         _synergyText.text = LocalizationManager.Instance.Get("SYNERGY");
         _drawText.text = LocalizationManager.Instance.Get("SUMMON");
-        _upgradeText.text = LocalizationManager.Instance.Get("UPGRADE");
+        _upgradeText.text = LocalizationManager.Instance.Get("LEVEL_UP");
 
         RefreshGold();
     }
 
-    private void Update()
-    {
-        UpdateElapsedTime();
-    }
+    //private void Update()
+    //{
+    //    UpdateElapsedTime();
+    //}
 
-    private void UpdateElapsedTime()
-    {
-        if (Time.timeScale > 0f)
-        {
-            _elapsedTime += Time.unscaledDeltaTime;
-        }
-        int minutes = (int)(_elapsedTime / 60);
-        int seconds = (int)(_elapsedTime % 60);
-        _timeText.text = $"{minutes:D2} : {seconds:D2}";
-    }
+    //private void UpdateElapsedTime()
+    //{
+    //    if (Time.timeScale > 0f)
+    //    {
+    //        _elapsedTime += Time.unscaledDeltaTime;
+    //    }
+    //    int minutes = (int)(_elapsedTime / 60);
+    //    int seconds = (int)(_elapsedTime % 60);
+    //    _timeText.text = $"{minutes:D2} : {seconds:D2}";
+    //}
 
     public void RefreshLevel()
     {
@@ -134,14 +149,18 @@ public class ControlPanelUI : MonoBehaviour
         int level = _playerData.PlacementUpgradeLevel;
         int gold = _playerUIController.GetUpgradeGold(level);
 
-        if(gold < 0)
-        {
-            _upgradeGoldText.text = "MAX";
-        }
-        else
-        {
-            _upgradeGoldText.text = $"{gold}";
-        }
+        _upgradeGoldText.text = gold < 0 ? "MAX" : $"{gold}";
+    }
+
+    public void RefreshUnitCount()
+    {
+        if (_playerData == null || _summonUnit == null)
+            return;
+
+        int current = _summonUnit.OwnedTowers.Count;
+        int max = _playerData.PlaceableTileCount;
+
+        _unitCountText.text = $"{current} / {max}";
     }
 
     public void ShowWarningText(string text)
@@ -161,7 +180,7 @@ public class ControlPanelUI : MonoBehaviour
         Color color = _warningText.color;
         float time = 0f;
 
-        while(time < _duration)
+        while (time < _duration)
         {
             time += Time.unscaledDeltaTime;
             float t = time / _duration;
@@ -175,7 +194,7 @@ public class ControlPanelUI : MonoBehaviour
 
     public void OnClickCombination(InputAction.CallbackContext ctx)
     {
-        if(ctx.performed)
+        if (ctx.performed)
             OnClickCombination();
     }
 

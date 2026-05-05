@@ -274,11 +274,15 @@ public class PlayerUIController : MonoBehaviour
             return;
         }
 
-        if (_summonManger.SummonRandomUnit())
+        if (!_summonManger.SummonRandomUnit())
         {
-            _player.Gold -= SUMMON_GOLD;
-            SFXController.Instance.OnDrawSuccess();
+            SFXController.Instance.OnUIFailure();
+            _controlPanelUI.ShowWarningText(LocalizationManager.Instance.Get("NO_SPACE"));
+            return;
         }
+
+        _player.Gold -= SUMMON_GOLD;
+        SFXController.Instance.OnDrawSuccess();
     }
 
     private void NotEnoughGold()
