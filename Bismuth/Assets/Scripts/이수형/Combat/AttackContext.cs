@@ -100,6 +100,15 @@ public struct AttackContext
 
 
     /// <summary>
+    /// 액티브 스킬 피격 시 적에게 1회 스폰되는 이펙트 프리팹 (대상 추적).
+    /// SkillDataSO.HitEffectPrefab 을 BuildSkillContext 에서 채워 넘긴다.
+    /// 예: 30001 / 30007. 비어있으면 미스폰.
+    /// 광역 디버프(30006)는 ApplyDamageToTarget 을 거치지 않으므로 별도 경로에서 처리.
+    /// </summary>
+    public UnityEngine.GameObject SkillHitEffectPrefab;
+
+
+    /// <summary>
     /// 0/음수면 1f 로 보정한 투사체 크기 배율.
     /// </summary>
     public float EffectiveProjectileScale => ProjectileScaleMultiplier > 0f ? ProjectileScaleMultiplier : 1f;
