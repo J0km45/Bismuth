@@ -19,7 +19,7 @@ public class UnitCatalogManager : MonoBehaviour
 
     private void Start()
     {
-        if (UnitDataController.IsLoaded)
+        if (HasUnitData())
             InitializeCatalogAfterUnitDataLoaded();
         else
             DebugTool.Log("유닛 데이터 로드 대기 중입니다. 도감 초기화를 보류합니다.", DebugType.Catalog, this);
@@ -45,9 +45,23 @@ public class UnitCatalogManager : MonoBehaviour
 
     private void InitializeCatalogAfterUnitDataLoaded()
     {
+        if (_isCatalogInitialized)
+            return;
+
+        if (!HasUnitData())
+        {
+            DebugTool.Warnning("유닛 데이터가 비어 있어 도감 초기화를 보류합니다.", DebugType.Catalog, this);
+            return;
+        }
+
         InitCatalog();
         LoadUnitCatalog();
         _isCatalogInitialized = true;
+    }
+
+    private bool HasUnitData()
+    {
+        return unitSO != null && unitSO.Units != null && unitSO.Units.Count > 0;
     }
 
     // 도감에 유닛 추가

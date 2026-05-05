@@ -217,12 +217,20 @@ public class SummonUnit : MonoBehaviour
 
     private bool IsUnitDataReady()
     {
-        if (!UnitDataController.IsLoaded)
+        if (!HasValidUnitData())
+            return false;
+
+        if (unitDataController != null && !UnitDataController.IsLoaded)
         {
             DebugTool.Warnning("유닛 데이터 로드가 끝나지 않아 소환을 중단합니다.", DebugType.Data, this);
             return false;
         }
 
+        return true;
+    }
+
+    private bool HasValidUnitData()
+    {
         if (units == null || units.Count == 0)
         {
             DebugTool.Warnning("SummonUnit의 티어별 UnitSO 목록이 비어 있습니다.", DebugType.Data, this);
@@ -234,6 +242,12 @@ public class SummonUnit : MonoBehaviour
             if (units[i] == null)
             {
                 DebugTool.Warnning($"SummonUnit의 Tier {i + 1} UnitSO가 비어 있습니다.", DebugType.Data, this);
+                return false;
+            }
+
+            if (units[i].Units == null || units[i].Units.Count == 0)
+            {
+                DebugTool.Warnning($"SummonUnit의 Tier {i + 1} UnitSO 데이터가 비어 있습니다.", DebugType.Data, this);
                 return false;
             }
         }

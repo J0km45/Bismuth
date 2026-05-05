@@ -91,7 +91,7 @@ public class CatalogUIController : MonoBehaviour
         // 시작 시 첫 번째 양면 페이지 표시
         _currentSpread = 0;
 
-        if (UnitDataController.IsLoaded)
+        if (HasUnitData())
             ShowSpread(_currentSpread);
         else
             DebugTool.Log("유닛 데이터 로드 대기 중입니다. 도감 UI 생성을 보류합니다.", DebugType.Catalog, this);
@@ -99,7 +99,15 @@ public class CatalogUIController : MonoBehaviour
 
     private void RefreshCatalogAfterUnitDataLoaded()
     {
+        if (!HasUnitData())
+            return;
+
         ShowSpread(_currentSpread);
+    }
+
+    private bool HasUnitData()
+    {
+        return _unitSO != null && _unitSO.Units != null && _unitSO.Units.Count > 0;
     }
 
     // 도감 버튼 클릭(토글)
