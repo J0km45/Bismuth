@@ -8,8 +8,11 @@ using UnityEngine;
 ///   - 액티브 스킬   = DamageFormula > 0  (일반공격 대신 발동, UnitAutoAttack 이 분기)
 ///   - 비액티브 스킬 = DamageFormula == 0 (자체 타이머로 발동, 이 컴포넌트 Update 가 직접 처리)
 ///
-/// 비액티브 스킬은 현재 자가 버프(30004/30005)만 처리. 30006(광역 디버프)은 추후.
-/// 모든 비액티브 자가 버프는 웨이브 종료 시 즉시 해제 + 쿨다운 초기화 (시트 30004 비고 룰을 일관 적용).
+/// 비액티브 스킬 :
+///   - 자가 버프 - StatModifier (30004/30005) : ExecuteBuffSkill (Hub 모디파이어)
+///   - 자가 버프 - ExtraAttack  (30008)        : ExecuteExtraAttackBuffSkill (활성 동안 매 공격 추가 시전)
+///   - 광역 디버프 (30006, 전 범위 슬로우)         : ExecuteAreaDebuffSkill
+/// 모든 비액티브 스킬은 웨이브 종료 시 쿨다운 초기화 (자가 버프 모디파이어 / 추가 공격 플래그도 즉시 해제).
 /// </summary>
 [DisallowMultipleComponent]
 public class UnitSkillRunner : MonoBehaviour
@@ -47,9 +50,41 @@ public class UnitSkillRunner : MonoBehaviour
 
     /// <summary>
     /// 자가 버프 스킬인지 (BuffValue/Duration 둘 다 > 0).
-    /// 30004(공속), 30005(공격력) 같은 비액티브 자가 버프.
+    /// 30004(공속), 30005(공격력), 30008(추가 공격) 모두 매칭.
+    /// 세부 분기는 BuffKind 로 — IsStatModifierBuffSkill / IsExtraAttackBuffSkill 참고.
     /// </summary>
     public bool IsBuffSkill => HasSkill && _skill.BuffValue > 0f && _skill.BuffDuration > 0f;
+
+    /// <summary> 30004/30005 케이스. Hub 모디파이어로 스탯 증가. </summary>
+    public bool IsStatModifierBuffSkill => IsBuffSkill && _skill.BuffKind == BuffKind.StatModifier;
+
+    /// <summary> 30008 케이스. 활성 동안 매 공격마다 추가 공격. </summary>
+    public bool IsExtraAttackBuffSkill => IsBuffSkill && _skill.BuffKind == BuffKind.ExtraAttack;
+
+    /// <summary>
+    /// 30008 추가 공격 버프가 현재 활성 상태인지.
+    /// UnitAutoAttack 이 hit 직후 이 값을 보고 추가 공격 큐잉을 결정.
+    /// </summary>
+    public bool IsExtraAttackBuffActive => _extraAttackBuffActive;
+
+    /// <summary> 30008 활성 동안 매 공격마다 발사할 추가 공격 횟수. BuffValue 그대로 (raw int). </summary>
+    public int ExtraAttackBuffCount => _skill != null ? Mathf.Max(1, Mathf.RoundToInt(_skill.BuffValue)) : 0;
+
+    private bool _extraAttackBuffActive;
+    private Coroutine _extraAttackExpireRoutine;
+
+    /// <summary>
+    /// 비액티브 광역 디버프(전 범위 슬로우) 스킬인지.
+    /// 30006 케이스. DamageFormula 0 + DebuffValue/Duration > 0 + CoolDown > 0 으로 판정.
+    /// IsBuffSkill 과는 BuffValue/Duration 이 0 이라 자동 분리.
+    /// </summary>
+    public bool IsAreaDebuffSkill =>
+        HasSkill
+        && !IsActiveSkill
+        && _skill.DebuffValue > 0f
+        && _skill.DebuffDuration > 0f
+        && _skill.CoolDown > 0f;
+
 
     /// <summary>
     /// 쿨다운이 다 차서 지금 발동 가능한 상태인가.
@@ -96,10 +131,23 @@ public class UnitSkillRunner : MonoBehaviour
         if (!IsCooldownReady)
             return;
 
-        // 현재 비액티브 중 자가 버프(30004/30005)만 발동. 30006(광역 디버프)은 추후.
-        if (IsBuffSkill)
+        // 비액티브 분기 :
+        //   - IsStatModifierBuffSkill (30004/30005) : Hub 모디파이어로 스탯 증가
+        //   - IsExtraAttackBuffSkill  (30008)       : 활성 플래그 ON → 매 공격 시 추가 공격 큐잉
+        //   - IsAreaDebuffSkill       (30006)       : 전 범위 슬로우
+        if (IsStatModifierBuffSkill)
         {
             ExecuteBuffSkill();
+            StartCooldown();
+        }
+        else if (IsExtraAttackBuffSkill)
+        {
+            ExecuteExtraAttackBuffSkill();
+            StartCooldown();
+        }
+        else if (IsAreaDebuffSkill)
+        {
+            ExecuteAreaDebuffSkill();
             StartCooldown();
         }
     }
@@ -274,8 +322,83 @@ public class UnitSkillRunner : MonoBehaviour
     }
 
     /// <summary>
+    /// 30008 추가 공격 버프 발동. BuffDuration 동안 활성 플래그 ON.
+    /// 활성 동안 UnitAutoAttack 의 ApplyLockedHit 가 hit 마다 PendingExtraAttack 을 큐잉 (수인 패턴 차용).
+    /// 같은 유닛이 쿨다운 도중 다시 발동할 일은 없지만, 멱등을 위해 기존 코루틴 정지 후 재시작.
+    /// </summary>
+    private void ExecuteExtraAttackBuffSkill()
+    {
+        _extraAttackBuffActive = true;
+
+        if (_extraAttackExpireRoutine != null)
+            StopCoroutine(_extraAttackExpireRoutine);
+
+        _extraAttackExpireRoutine = StartCoroutine(ExtraAttackBuffExpireRoutine(_skill.BuffDuration));
+
+        if (_log)
+        {
+            DebugTool.Log(
+                $"[SkillRunner] 추가 공격 버프 발동 | skillId={_skill.Id}, count={ExtraAttackBuffCount}, duration={_skill.BuffDuration:F1}s",
+                DebugType.Unit, this);
+        }
+    }
+
+    private IEnumerator ExtraAttackBuffExpireRoutine(float duration)
+    {
+        yield return new WaitForSeconds(duration);
+
+        _extraAttackBuffActive = false;
+        _extraAttackExpireRoutine = null;
+
+        if (_log)
+        {
+            DebugTool.Log(
+                $"[SkillRunner] 추가 공격 버프 만료 | skillId={(_skill != null ? _skill.Id : -1)}",
+                DebugType.Unit, this);
+        }
+    }
+
+    /// <summary>
+    /// 전 범위 광역 슬로우 발동. 30006 케이스.
+    /// 정령 시너지의 ApplySlowToAllMonsters 패턴 차용. 차이점:
+    ///   - 글로벌 적 검색 동일 (FindObjectsByType<MonsterMover>)
+    ///   - finite duration 사용 → MonsterMover 가 자동 만료, 명시적 RemoveSlow 불필요
+    ///   - source key 는 GetSlowSourceKey() = "Skill_30006" → 다른 슬로우(30001/정령) 와 max(percent) 공존
+    /// </summary>
+    private void ExecuteAreaDebuffSkill()
+    {
+        object slowKey = GetSlowSourceKey();
+        if (slowKey == null)
+            return;
+
+        float slowPercent = _skill.DebuffValue;       // 시트 raw % (100 = 100%)
+        float duration    = _skill.DebuffDuration;    // 초 단위
+
+        MonsterMover[] all = FindObjectsByType<MonsterMover>(FindObjectsSortMode.None);
+        int appliedCount = 0;
+
+        for (int i = 0; i < all.Length; i++)
+        {
+            MonsterMover mover = all[i];
+            if (mover == null || !mover.gameObject.activeInHierarchy)
+                continue;
+
+            mover.ApplySlow(slowKey, slowPercent, duration);
+            appliedCount++;
+        }
+
+        if (_log)
+        {
+            DebugTool.Log(
+                $"[SkillRunner] 광역 슬로우 발동 | skillId={_skill.Id}, slow={slowPercent:F0}%, duration={duration:F1}s, targets={appliedCount}",
+                DebugType.Unit, this);
+        }
+    }
+
+    /// <summary>
     /// 웨이브 종료 시 자가 버프 즉시 해제 + 쿨다운 초기화.
     /// 시트 30004 비고 룰을 모든 비액티브 자가 버프에 일관 적용.
+    /// 광역 디버프(30006)도 같은 흐름으로 쿨다운만 초기화 (슬로우는 finite duration 이라 별도 정리 불필요).
     /// </summary>
     private void OnWaveCleared(WaveDataSO _)
     {
@@ -294,10 +417,18 @@ public class UnitSkillRunner : MonoBehaviour
             _buffExpireRoutine = null;
         }
 
-        if (_statHub != null && IsBuffSkill)
+        if (_statHub != null && IsStatModifierBuffSkill)
         {
             removedBuff = _statHub.Remove(GetBuffKey());
         }
+
+        // 30008 추가 공격 버프 정리 (활성 플래그 OFF + 만료 코루틴 정지).
+        if (_extraAttackExpireRoutine != null)
+        {
+            StopCoroutine(_extraAttackExpireRoutine);
+            _extraAttackExpireRoutine = null;
+        }
+        _extraAttackBuffActive = false;
 
         ResetCooldown();
 

@@ -18,6 +18,13 @@ public struct AttackContext
     public bool IsFurryBonus;
 
 
+    /// <summary>
+    /// 30008 같은 "버프 활성 동안 매 공격마다 1회 추가 시전" 스킬의 추가 공격 컨텍스트인지.
+    /// 수인 추가타와 동일하게 PendingExtraAttack 큐를 거쳐서 발사되며, CountsForSynergyStacks 에서 제외.
+    /// </summary>
+    public bool IsSkillExtraAttackBonus;
+
+
     public bool IsActiveSkill;
 
 
@@ -124,7 +131,7 @@ public struct AttackContext
     }
 
 
-    public bool CountsForSynergyStacks => IsNormalAttack && !IsWarriorBonus && !IsFurryBonus;
+    public bool CountsForSynergyStacks => IsNormalAttack && !IsWarriorBonus && !IsFurryBonus && !IsSkillExtraAttackBonus;
 
     /// <summary>
     /// 0 또는 음수일 때는 1f 로 보정한 안전 배수.
@@ -134,7 +141,7 @@ public struct AttackContext
 
     public override string ToString()
     {
-        return $"normal={IsNormalAttack}, warrior={IsWarriorBonus}, wizard={IsWizardBonus}, archer={IsArcherBonus}, furry={IsFurryBonus}, skill={IsActiveSkill}, dmgBase={DamageBase}, dmgMul={EffectiveDamageMultiplier:F2}, maxHpRatio={MaxHpRatio:F0}%, targetOverride={SkillTargetCountOverride}, slow={DebuffSlowPercent:F0}%/{DebuffDuration:F1}s, animSpeed={AnimSpeedMultiplier:F1}";
+        return $"normal={IsNormalAttack}, warrior={IsWarriorBonus}, wizard={IsWizardBonus}, archer={IsArcherBonus}, furry={IsFurryBonus}, skillExtra={IsSkillExtraAttackBonus}, skill={IsActiveSkill}, dmgBase={DamageBase}, dmgMul={EffectiveDamageMultiplier:F2}, maxHpRatio={MaxHpRatio:F0}%, targetOverride={SkillTargetCountOverride}, slow={DebuffSlowPercent:F0}%/{DebuffDuration:F1}s, animSpeed={AnimSpeedMultiplier:F1}";
     }
 }
 
@@ -144,7 +151,10 @@ public struct AttackContext
 public enum ExtraAttackType
 {
     Warrior,
-    Furry
+    Furry,
+    // 30008 같은 "버프 활성 동안 매 공격마다 추가 공격 1회" 스킬의 추가 공격.
+    // 수인 추가타와 동일 큐/처리 흐름을 사용하되 컨텍스트 플래그가 다름 (IsSkillExtraAttackBonus).
+    Skill
 }
 
 
