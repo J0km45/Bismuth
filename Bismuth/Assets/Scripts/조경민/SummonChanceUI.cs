@@ -21,30 +21,43 @@ public class SummonChanceUI : MonoBehaviour, IPointerEnterHandler, IPointerExitH
         }
     }
 
-    private void Start()
+    private void OnEnable()
     {
         if (LocalizationManager.Instance != null)
-            LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
-
-        RefreshText();
+            LocalizationManager.Instance.OnLocalizationLoaded += OnLocalizationLoaded;
 
         if (_playerData != null)
-            _playerData.OnLevelChanged += RefreshChanceText;
+            _playerData.OnPlacementUpgradeLevelChanged += RefreshChanceText;
+    }
+
+    private void Start()
+    {
+        RefreshText();
+        RefreshChanceText();
     }
 
     private void OnDisable()
     {
         if (LocalizationManager.Instance != null)
-            LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
+            LocalizationManager.Instance.OnLocalizationLoaded -= OnLocalizationLoaded;
 
         if (_playerData != null)
-            _playerData.OnLevelChanged -= RefreshChanceText;
+            _playerData.OnPlacementUpgradeLevelChanged -= RefreshChanceText;
+    }
+
+    private void OnLocalizationLoaded()
+    {
+        RefreshText();
+        RefreshChanceText();
     }
 
     private void RefreshText()
     {
         if (LocalizationManager.Instance == null)
+        {
+            _tierText = "Tier";
             return;
+        }
 
         _tierText = LocalizationManager.Instance.Get("TIER");
     }
@@ -79,11 +92,12 @@ public class SummonChanceUI : MonoBehaviour, IPointerEnterHandler, IPointerExitH
         if (_playerData == null || _summonChanceText == null)
             return;
 
-        SummonChanceData data = GetChanceData(_playerData.Level);
+        int chanceLevel = _playerData.PlacementUpgradeLevel;
+        SummonChanceData data = GetChanceData(chanceLevel);
 
         if (data == null)
         {
-            Debug.LogWarning($"소환 확률 데이터를 찾을 수 없습니다. level={_playerData.Level}", this);
+            Debug.LogWarning($"소환 확률 데이터를 찾을 수 없습니다. level={chanceLevel}", this);
             return;
         }
 
