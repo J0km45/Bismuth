@@ -112,7 +112,7 @@ public class ControlPanelUI : MonoBehaviour
         _combinationText.text = LocalizationManager.Instance.Get("MERGE");
         _synergyText.text = LocalizationManager.Instance.Get("SYNERGY");
         _drawText.text = LocalizationManager.Instance.Get("SUMMON");
-        _upgradeText.text = LocalizationManager.Instance.Get("UPGRADE");
+        _upgradeText.text = LocalizationManager.Instance.Get("LEVEL_UP");
 
         RefreshGold();
     }

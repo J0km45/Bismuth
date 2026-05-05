@@ -46,6 +46,7 @@ public class SummonUnit : MonoBehaviour
     [SerializeField] private Camera worldCamera;
     [SerializeField] private UnitCatalogManager unitCatalogManager;
     [SerializeField] private CombineManager combineManager;
+    [SerializeField] private UnitDataController unitDataController;
 
     [Header("Data")]
     [SerializeField] private List<UnitSO> units = new List<UnitSO>(4);
@@ -85,6 +86,9 @@ public class SummonUnit : MonoBehaviour
 
         if (combineManager == null)
             combineManager = GetComponent<CombineManager>();
+
+        if (unitDataController == null)
+            unitDataController = FindAnyObjectByType<UnitDataController>();
     }
 
     private void Start()
@@ -94,6 +98,9 @@ public class SummonUnit : MonoBehaviour
 
     public bool TrySummonAndPlace()
     {
+        if (!IsUnitDataReady())
+            return false;
+
         int tierIndex = GetRandomTierIndex();
         if (tierIndex < 0)
             return false;
@@ -159,14 +166,14 @@ public class SummonUnit : MonoBehaviour
         EnsureAutoAttack(createdTower.gameObject);
         DebugTool.Log("EnsureAttack까지 실행완료", DebugType.Summon, this);
         synergyManager?.OnUnitCreated?.Invoke(stat);
-        unitCatalogManager.OnSummonUnit?.Invoke(stat);
+        unitCatalogManager?.OnSummonUnit?.Invoke(stat);
 
         PrintStat(stat);
         DebugTool.Log("PrintStat까지 실행완료", DebugType.Summon, this);
 
         RegisterOwnedTower(data, createdTower, stat);
         OnOwnedTowersChanged?.Invoke();
-        combineManager.OnAddUnit?.Invoke(stat.Id);
+        combineManager?.OnAddUnit?.Invoke(stat.Id);
 
         DebugTool.Log(
             $"소환 성공 - {data.UnitName} / 티어 {data.Tier} / 슬롯 {emptySlot.slot.name}",
@@ -186,7 +193,7 @@ public class SummonUnit : MonoBehaviour
         if (index < 0)
             return false;
 
-        combineManager.OnRemoveUnit?.Invoke(ownedTowers[index].Id);
+        combineManager?.OnRemoveUnit?.Invoke(ownedTowers[index].Id);
         ownedTowers.RemoveAt(index);
         return true;
     }
@@ -206,6 +213,32 @@ public class SummonUnit : MonoBehaviour
         }
 
         return result;
+    }
+
+    private bool IsUnitDataReady()
+    {
+        if (!UnitDataController.IsLoaded)
+        {
+            DebugTool.Warnning("유닛 데이터 로드가 끝나지 않아 소환을 중단합니다.", DebugType.Data, this);
+            return false;
+        }
+
+        if (units == null || units.Count == 0)
+        {
+            DebugTool.Warnning("SummonUnit의 티어별 UnitSO 목록이 비어 있습니다.", DebugType.Data, this);
+            return false;
+        }
+
+        for (int i = 0; i < units.Count; i++)
+        {
+            if (units[i] == null)
+            {
+                DebugTool.Warnning($"SummonUnit의 Tier {i + 1} UnitSO가 비어 있습니다.", DebugType.Data, this);
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private int GetRandomTierIndex()
@@ -305,19 +338,25 @@ public class SummonUnit : MonoBehaviour
             return null;
         }
 
-        if (unitPrefabTable.Count == 0)
+        if (unitPrefabTable == null || unitPrefabTable.Count == 0)
         {
             DebugTool.Warnning("프리팹 등록 필요", DebugType.Unit, this);
             return null;
         }
 
-        if (unitPrefabTable.Count < (data.Id - 10001))
+        int prefabIndex = data.Id - 10001;
+        if (prefabIndex < 0 || prefabIndex >= unitPrefabTable.Count)
         {
-            DebugTool.Warnning($"{data.Id} : 해당 프리펩을 찾을 수 없습니다.", DebugType.Unit, this);
+            DebugTool.Warnning($"{data.Id} : 해당 프리팹을 찾을 수 없습니다. prefabIndex={prefabIndex}, prefabCount={unitPrefabTable.Count}", DebugType.Unit, this);
             return null;
         }
 
-        GameObject prefab = unitPrefabTable[data.Id - 10001];
+        GameObject prefab = unitPrefabTable[prefabIndex];
+        if (prefab == null)
+        {
+            DebugTool.Warnning($"{data.Id} : 프리팹 테이블에 빈 값이 있습니다. prefabIndex={prefabIndex}", DebugType.Unit, this);
+            return null;
+        }
 
         return prefab;
     }
