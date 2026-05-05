@@ -24,7 +24,7 @@ public class PlayerUIController : MonoBehaviour
     private readonly int COMBINE_GOLD = 50;
     private readonly int SUMMON_GOLD = 50;
     private readonly int[] SELL_GOLD_BY_TIER = { 10, 20, 30, 50 };
-    private readonly int[] PLACEMENT_UPGRADE_GOLD = { 25, 30, 35, 40, 80, 120, 180, 260 };
+    private readonly int[] PLACEMENT_UPGRADE_GOLD = { 30, 60, 100, 190, 330, 480, 1200};
 
     public int MaxUnitLevel => MAX_UNIT_LEVEL;
 

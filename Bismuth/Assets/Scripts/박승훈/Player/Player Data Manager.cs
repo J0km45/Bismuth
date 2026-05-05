@@ -27,10 +27,10 @@ public class PlayerDataManager : MonoBehaviour
     [SerializeField] private int _placementUpgradeLevel;
 
     [Tooltip("업그레이드 0단계에서 사용할 수 있는 최초 배치 가능 슬롯 수")]
-    [SerializeField] private int _basePlaceableTileCount = 12;
+    [SerializeField] private int _basePlaceableTileCount = 13;
 
     [Tooltip("배치 수 업그레이드 최대 단계")]
-    [SerializeField] private int _maxPlacementUpgradeLevel = 8;
+    [SerializeField] private int _maxPlacementUpgradeLevel = 7;
 
     [Tooltip("업그레이드 1단계마다 증가하는 배치 가능 슬롯 수")]
     [SerializeField] private int _placeableTileIncreasePerLevel = 1;

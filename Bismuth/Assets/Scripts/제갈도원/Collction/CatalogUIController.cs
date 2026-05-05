@@ -37,7 +37,7 @@ public class CatalogUIController : MonoBehaviour
     private const int _SlotsPerSpread = _SlotsPerPage * 2; // 양면(왼쪽+오른쪽) 전체 슬롯 수
 
     // 전체 유닛 수
-    private int TotalUnits => _unitSO.Units.Count;
+    private int TotalUnits => _unitSO != null && _unitSO.Units != null ? _unitSO.Units.Count : 0;
 
     // 전체 양면 페이지 수
     private int MaxSpread => Mathf.Max(1, Mathf.CeilToInt((float)TotalUnits / _SlotsPerSpread));
@@ -47,18 +47,29 @@ public class CatalogUIController : MonoBehaviour
 
     private void OnEnable()
     {
-        LocalizationManager.Instance.OnLocalizationLoaded += UpdatePageTitles;
-        LocalizationManager.Instance.OnLocalizationLoaded += RefreshDetail;
-        LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
+        if (LocalizationManager.Instance != null)
+        {
+            LocalizationManager.Instance.OnLocalizationLoaded += UpdatePageTitles;
+            LocalizationManager.Instance.OnLocalizationLoaded += RefreshDetail;
+            LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
+        }
+
+        UnitDataController.OnUnitDataLoaded += RefreshCatalogAfterUnitDataLoaded;
+
         UpdatePageTitles();
         RefreshText();
     }
 
     private void OnDisable()
     {
-        LocalizationManager.Instance.OnLocalizationLoaded -= UpdatePageTitles;
-        LocalizationManager.Instance.OnLocalizationLoaded -= RefreshDetail;
-        LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
+        if (LocalizationManager.Instance != null)
+        {
+            LocalizationManager.Instance.OnLocalizationLoaded -= UpdatePageTitles;
+            LocalizationManager.Instance.OnLocalizationLoaded -= RefreshDetail;
+            LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
+        }
+
+        UnitDataController.OnUnitDataLoaded -= RefreshCatalogAfterUnitDataLoaded;
     }
 
     private void RefreshDetail()
@@ -69,6 +80,9 @@ public class CatalogUIController : MonoBehaviour
 
     private void RefreshText()
     {
+        if (_backText == null || LocalizationManager.Instance == null)
+            return;
+
         _backText.text = LocalizationManager.Instance.Get("BACK");
     }
 
@@ -76,7 +90,24 @@ public class CatalogUIController : MonoBehaviour
     {
         // 시작 시 첫 번째 양면 페이지 표시
         _currentSpread = 0;
+
+        if (HasUnitData())
+            ShowSpread(_currentSpread);
+        else
+            DebugTool.Log("유닛 데이터 로드 대기 중입니다. 도감 UI 생성을 보류합니다.", DebugType.Catalog, this);
+    }
+
+    private void RefreshCatalogAfterUnitDataLoaded()
+    {
+        if (!HasUnitData())
+            return;
+
         ShowSpread(_currentSpread);
+    }
+
+    private bool HasUnitData()
+    {
+        return _unitSO != null && _unitSO.Units != null && _unitSO.Units.Count > 0;
     }
 
     // 도감 버튼 클릭(토글)
@@ -169,7 +200,6 @@ public class CatalogUIController : MonoBehaviour
         _spreadRoutine = null;
     }
 
-
     // 페이지
     private void UpdatePageTitles()
     {
@@ -189,7 +219,7 @@ public class CatalogUIController : MonoBehaviour
         // 페이지가 존재하면 번호 표시, 없으면 빈 문자열
         if (pageNumber > 0)
         {
-            string pageText = LocalizationManager.Instance.Get("PAGE");
+            string pageText = LocalizationManager.Instance != null ? LocalizationManager.Instance.Get("PAGE") : "Page";
             label.text = $"{pageText} {pageNumber}";
         }
         else
@@ -200,7 +230,10 @@ public class CatalogUIController : MonoBehaviour
 
     private void FillGrid(Transform grid, int startIndex)
     {
-        List<UnitData> units = _unitSO.Units;
+        if (grid == null || _slotPrefab == null)
+            return;
+
+        List<UnitData> units = _unitSO != null ? _unitSO.Units : null;
 
         // 페이지 슬롯 수만큼 반복 생성
         for (int i = 0; i < _SlotsPerPage; i++)
@@ -218,7 +251,7 @@ public class CatalogUIController : MonoBehaviour
             }
 
             // 해당 인덱스에 유닛 데이터가 없으면 빈 슬롯 처리
-            if (unitIndex >= units.Count)
+            if (units == null || unitIndex >= units.Count)
             {
                 slotUI.SetEmpty();
                 continue;
@@ -232,6 +265,9 @@ public class CatalogUIController : MonoBehaviour
 
     private static void ClearGridChildren(Transform grid)
     {
+        if (grid == null)
+            return;
+
         // 기존 슬롯 전부 삭제
         for (int i = grid.childCount - 1; i >= 0; i--)
         {
@@ -257,6 +293,9 @@ public class CatalogUIController : MonoBehaviour
 
     public void ShowUnitDetail(UnitData unitData)
     {
+        if (unitData == null)
+            return;
+
         _currentUnitData = unitData;
 
         _prevButton.SetActive(false);
@@ -268,6 +307,9 @@ public class CatalogUIController : MonoBehaviour
 
     private void RefreshUnitDetailText(UnitData unitData)
     {
+        if (unitData == null || LocalizationManager.Instance == null)
+            return;
+
         _unitNameText.text = LocalizationManager.Instance.Get($"{unitData.UnitName}");
         _descriptionText.text = LocalizationManager.Instance.Get($"{unitData.UnitName}_DESC");
     }
