@@ -47,7 +47,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BGMController
   _audioSource: {fileID: 0}
   _sfxso: {fileID: 11400000, guid: 006fe0361b28d764c83beef2cc64eb20, type: 2}
-  currentScene: -1
+  _currentScene: -1
+  _isPlayingNormalBGM: 0
 --- !u!82 &8478938386743909236
 AudioSource:
   m_ObjectHideFlags: 0
