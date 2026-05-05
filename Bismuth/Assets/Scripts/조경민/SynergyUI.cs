@@ -5,9 +5,8 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 // 시너지 프리팹에 들어갈 스크립트
-public class SynergyUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+public class SynergyUI : MonoBehaviour, IPointerClickHandler
 {
-    [Header("━━━━ 헤더 ━━━━")]
     [SerializeField] private Image _icon; // 시너지 이름 앞 네모칸
     [SerializeField] private Sprite activeSprite; // 네모칸에 들어갈 이미지(활성화)
     [SerializeField] private Sprite inactiveSprite; // 네모칸에 들어갈 이미지(비활성화)
@@ -17,6 +16,9 @@ public class SynergyUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
     private SynergyData _data;
     private int _count;
     private SynergyScrollViewUI _scrollView;
+
+    public int SynergyId => _data != null ? _data.ID : 0;
+    public string SynergyNameKey => _data != null ? _data.SynergyName : "";
 
     private void OnEnable()
     {
@@ -72,12 +74,9 @@ public class SynergyUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
         return null;
     }
 
-    public string GetDescriptionText()
+    private SynergyLevelData GetCurrentLevel()
     {
-        if (_data.Levels == null || _data.Levels.Count == 0)
-        {
-            return "";
-        }
+        if (_data.Levels == null || _data.Levels.Count == 0) return null;
 
         SynergyLevelData currentLevel = null;
 
@@ -89,15 +88,21 @@ public class SynergyUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
             }
         }
 
+        return currentLevel;
+    }
+
+    public string GetDescriptionText()
+    {
+        SynergyLevelData currentLevel = GetCurrentLevel();
+
         // 1단계도 못 채운 경우
         if (currentLevel == null)
         {
-            return $"({GetSynergyCount(null)})\n---";
+            return $"[{GetSynergyName()}]";
         }
 
         string key = $"{_data.SynergyName}_DESC";
-        string desc = LocalizationManager.Instance.Get(key, currentLevel.EffectValues.Cast<object>().ToArray());
-        return $"({GetSynergyCount(currentLevel)})\n{desc}";
+        return LocalizationManager.Instance.Get(key, currentLevel.EffectValues.Cast<object>().ToArray());
     }
 
     public string GetSynergyName()
@@ -107,14 +112,15 @@ public class SynergyUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
         return LocalizationManager.Instance.Get(_data.SynergyName);
     }
 
-    private string GetSynergyCount(SynergyLevelData currentLevel)
+    public string GetSynergyCountText()
     {
+        SynergyLevelData currentLevel = GetCurrentLevel();
         string synergyCount = "";
 
         for (int i = 0; i < _data.Levels.Count; i++)
         {
             SynergyLevelData level = _data.Levels[i];
-            if(level == currentLevel)
+            if (level == currentLevel)
             {
                 synergyCount += $"<color=red>{level.ActiveCount}</color>";
             }
@@ -122,7 +128,7 @@ public class SynergyUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
             {
                 synergyCount += $"<color=grey>{level.ActiveCount}</color>";
             }
-            
+
             if (i < _data.Levels.Count - 1)
             {
                 synergyCount += " > ";
@@ -132,13 +138,8 @@ public class SynergyUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandle
         return synergyCount;
     }
 
-    public void OnPointerEnter(PointerEventData eventData)
+    public void OnPointerClick(PointerEventData eventData)
     {
         _scrollView.ShowDescription(this);
-    }
-
-    public void OnPointerExit(PointerEventData eventData)
-    {
-        _scrollView.CloseDescription();
     }
 }

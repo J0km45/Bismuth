@@ -23,35 +23,70 @@ public class SummonChanceUI : MonoBehaviour, IPointerEnterHandler, IPointerExitH
 
     private void Start()
     {
+        if (LocalizationManager.Instance != null)
             LocalizationManager.Instance.OnLocalizationLoaded += RefreshText;
+
         RefreshText();
-        _playerData.OnLevelChanged += RefreshChanceText;
+
+        if (_playerData != null)
+            _playerData.OnLevelChanged += RefreshChanceText;
     }
 
     private void OnDisable()
     {
-        LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
-        _playerData.OnLevelChanged -= RefreshChanceText;
+        if (LocalizationManager.Instance != null)
+            LocalizationManager.Instance.OnLocalizationLoaded -= RefreshText;
+
+        if (_playerData != null)
+            _playerData.OnLevelChanged -= RefreshChanceText;
     }
 
     private void RefreshText()
     {
+        if (LocalizationManager.Instance == null)
+            return;
+
         _tierText = LocalizationManager.Instance.Get("TIER");
     }
 
     private SummonChanceData GetChanceData(int level)
     {
+        if (_summonChanceSO == null || _summonChanceSO.Rows == null)
+            return null;
+
+        SummonChanceData fallbackData = null;
+
         foreach (SummonChanceData data in _summonChanceSO.Rows)
         {
-            if (data != null && data.EnhancementLevel == level) return data;
+            if (data == null)
+                continue;
+
+            if (data.EnhancementLevel == level)
+                return data;
+
+            if (data.EnhancementLevel <= level)
+            {
+                if (fallbackData == null || data.EnhancementLevel > fallbackData.EnhancementLevel)
+                    fallbackData = data;
+            }
         }
 
-        return null;
+        return fallbackData;
     }
 
     public void RefreshChanceText()
     {
+        if (_playerData == null || _summonChanceText == null)
+            return;
+
         SummonChanceData data = GetChanceData(_playerData.Level);
+
+        if (data == null)
+        {
+            Debug.LogWarning($"소환 확률 데이터를 찾을 수 없습니다. level={_playerData.Level}", this);
+            return;
+        }
+
         _summonChanceText.text = $"1{_tierText} {data.Tier1}%\n" +
                                  $"2{_tierText} {data.Tier2}%\n" +
                                  $"3{_tierText} {data.Tier3}%\n" +
@@ -61,11 +96,14 @@ public class SummonChanceUI : MonoBehaviour, IPointerEnterHandler, IPointerExitH
     public void OnPointerEnter(PointerEventData eventData)
     {
         RefreshChanceText();
-        _summonChanceTooltip.SetActive(true);
+
+        if (_summonChanceTooltip != null)
+            _summonChanceTooltip.SetActive(true);
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        _summonChanceTooltip.SetActive(false);
+        if (_summonChanceTooltip != null)
+            _summonChanceTooltip.SetActive(false);
     }
 }
