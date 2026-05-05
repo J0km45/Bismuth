@@ -120,6 +120,12 @@ public class UnitAutoAttack : MonoBehaviour
         if (skillRunner != null && skillRunner.ShouldCastInsteadOfNormalAttack())
         {
             AttackContext skillContext = skillRunner.BuildSkillContext();
+
+            // 패턴 B — 시전 시 시전 유닛 위치에 1회 표시 (30002).
+            // SO.CastEffectPrefab 이 채워져 있을 때만 스폰. CombatManager 가 풀 + follow 처리.
+            if (skillRunner.Skill != null && skillRunner.Skill.CastEffectPrefab != null)
+                CombatManager.Instance.SpawnSkillCastEffect(transform, skillRunner.Skill.CastEffectPrefab);
+
             StartAttack(currentTarget, skillContext);
             return;
         }

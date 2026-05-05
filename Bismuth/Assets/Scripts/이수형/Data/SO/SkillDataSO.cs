@@ -68,6 +68,17 @@ public class SkillDataSO : ScriptableObject
     [Tooltip("스킬 발동 시 사용할 투사체 프리팹.\n근접 유닛이 30003 같은 추가 투사체 스킬을 가질 때 등 자체 프리팹이 필요한 경우 등록.\n비워두면 유닛 본래 투사체 프리팹 사용.\n시트엔 없는 정보라 인스펙터에서 직접 설정. SO Generator가 덮어쓰지 않음.")]
     [SerializeField] private GameObject _extraProjectilePrefab;
 
+    [Space(5)]
+    [Header("====이펙트====")]
+    [Tooltip("패턴 A — 스킬에 피격된 적에게 1회 스폰되는 이펙트 (대상 추적).\n예: 30001 / 30006 / 30007.\n광역 스킬은 영향 받은 적마다 1회씩 스폰.\n비워두면 미동작.\n시트엔 없는 정보라 인스펙터에서 직접 설정. SO Generator가 덮어쓰지 않음.")]
+    [SerializeField] private GameObject _hitEffectPrefab;
+
+    [Tooltip("패턴 B — 스킬을 시전한 타이밍에 시전 유닛 위치에 1회 스폰되는 이펙트.\n예: 30002.\n비워두면 미동작.\n시트엔 없는 정보라 인스펙터에서 직접 설정. SO Generator가 덮어쓰지 않음.")]
+    [SerializeField] private GameObject _castEffectPrefab;
+
+    [Tooltip("패턴 D — 자가 버프 지속 시간 동안 시전 유닛에 부착되는 이펙트 (자식으로 Instantiate, 만료/웨이브 종료 시 Destroy).\n예: 30004 / 30005 / 30008.\n비워두면 미동작.\n시트엔 없는 정보라 인스펙터에서 직접 설정. SO Generator가 덮어쓰지 않음.")]
+    [SerializeField] private GameObject _buffAuraEffectPrefab;
+
 
     public int Id => _id;
     public SkillDamageBaseType DamageBase => _damageBase;
@@ -81,6 +92,9 @@ public class SkillDataSO : ScriptableObject
     public BuffKind BuffKind => _buffKind;
     public int TargetCount => _targetCount;
     public GameObject ExtraProjectilePrefab => _extraProjectilePrefab;
+    public GameObject HitEffectPrefab => _hitEffectPrefab;
+    public GameObject CastEffectPrefab => _castEffectPrefab;
+    public GameObject BuffAuraEffectPrefab => _buffAuraEffectPrefab;
 
     /// <summary>
     /// Tools 계층에서 변환한 스킬 데이터를 현재 SO에 덮어씀.

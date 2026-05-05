@@ -271,6 +271,56 @@ public class CombatManager : MonoBehaviour
         }
     }
 
+    // 패턴 A — 액티브 스킬 피격 시 타겟 위치에 1회 스폰되는 이펙트 (대상 추적).
+    // 컨텍스트의 SkillHitEffectPrefab 이 채워져 있을 때만 동작. 풀 시스템 + 정령 보너스 hit 와 동일 흐름.
+    // 30001 / 30007 케이스 (광역 30006 은 ExecuteAreaDebuffSkill 에서 별도 호출).
+    public void SpawnSkillHitEffect(MonsterController target, GameObject prefab)
+    {
+        if (prefab == null || target == null)
+            return;
+
+        Vector3 spawnPos = target.transform.position;
+        GameObject effect = HitEffectPool.SpawnPooled(prefab, spawnPos, Quaternion.identity);
+
+        if (effect != null && target.gameObject.activeInHierarchy)
+        {
+            HitEffectSpawner spawner = effect.GetComponent<HitEffectSpawner>();
+            if (spawner != null)
+                spawner.ConfigureFollowTarget(target.transform);
+        }
+
+        DebugTool.Log(
+            $"스킬 피격 이펙트 생성 | target={target.name}, prefab={prefab.name}",
+            DebugType.Unit,
+            this
+        );
+    }
+
+    // 패턴 B — 액티브 스킬 시전 시 시전 유닛 위치에 1회 스폰되는 이펙트 (시전 유닛 추적).
+    // 30002 케이스. UnitAutoAttack 이 BuildSkillContext 직후 / StartAttack 직전에 호출.
+    // prefab 은 SkillDataSO.CastEffectPrefab. 비어있으면 미스폰.
+    public void SpawnSkillCastEffect(Transform caster, GameObject prefab)
+    {
+        if (prefab == null || caster == null)
+            return;
+
+        Vector3 spawnPos = caster.position;
+        GameObject effect = HitEffectPool.SpawnPooled(prefab, spawnPos, Quaternion.identity);
+
+        if (effect != null && caster.gameObject.activeInHierarchy)
+        {
+            HitEffectSpawner spawner = effect.GetComponent<HitEffectSpawner>();
+            if (spawner != null)
+                spawner.ConfigureFollowTarget(caster);
+        }
+
+        DebugTool.Log(
+            $"스킬 시전 이펙트 생성 | caster={caster.name}, prefab={prefab.name}",
+            DebugType.Unit,
+            this
+        );
+    }
+
     private void SpawnExplosionEffect(GameObject hitEffect, Vector3 impactPosition, float radius)
     {
         if (hitEffect == null)
@@ -905,6 +955,12 @@ public class CombatManager : MonoBehaviour
         // transform.position 이 무효화되는 케이스를 피하기 위함.
         if (effectiveBonusVsSlowed > 0f)
             SpawnSpiritBonusHitEffect(target);
+
+        // 패턴 A — 액티브 스킬 피격 이펙트 (30001 / 30007).
+        // SkillHitEffectPrefab 이 컨텍스트에 채워져 있고 액티브 스킬일 때만 1회 스폰.
+        // 정령 보너스 hit 과 마찬가지로 TakeDamage 호출 전에 두어 처치 직후 transform 이 풀 회수되는 케이스 회피.
+        if (context.IsActiveSkill && context.SkillHitEffectPrefab != null)
+            SpawnSkillHitEffect(target, context.SkillHitEffectPrefab);
 
         if (target.TakeDamage(finalDamage, hitEffect))
         {

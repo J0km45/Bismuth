@@ -73,6 +73,10 @@ public class UnitSkillRunner : MonoBehaviour
     private bool _extraAttackBuffActive;
     private Coroutine _extraAttackExpireRoutine;
 
+    // 패턴 D — 자가 버프 동안 시전 유닛에 부착되는 이펙트 인스턴스 (30004/30005/30008).
+    // 한 SkillRunner 는 한 스킬만 가지므로 인스턴스도 하나만 추적. 만료/웨이브 종료/멱등 갱신 시 정리.
+    private GameObject _buffAuraEffectInstance;
+
     /// <summary>
     /// 비액티브 광역 디버프(전 범위 슬로우) 스킬인지.
     /// 30006 케이스. DamageFormula 0 + DebuffValue/Duration > 0 + CoolDown > 0 으로 판정.
@@ -119,6 +123,9 @@ public class UnitSkillRunner : MonoBehaviour
     {
         if (_battleWaveRunner != null)
             _battleWaveRunner.WaveCleared -= OnWaveCleared;
+
+        // 유닛 제거 시 자식 이펙트는 자연 소멸하지만, 레퍼런스 누수 방지를 위해 명시 정리.
+        ClearBuffAuraEffect();
     }
 
     private void Update()
@@ -258,6 +265,12 @@ public class UnitSkillRunner : MonoBehaviour
             ctx.DebuffSourceKey = GetSlowSourceKey();
         }
 
+        // 패턴 A — 피격 적에 스폰되는 이펙트 프리팹.
+        // CombatManager.ApplyDamageToTarget 에서 살아있는 타겟 추적 + SpawnPooled 로 1회 스폰.
+        // 광역(30006)은 ExecuteAreaDebuffSkill 에서 별도 처리.
+        if (_skill.HitEffectPrefab != null)
+            ctx.SkillHitEffectPrefab = _skill.HitEffectPrefab;
+
         return ctx;
     }
 
@@ -296,6 +309,9 @@ public class UnitSkillRunner : MonoBehaviour
 
         _buffExpireRoutine = StartCoroutine(BuffExpireRoutine(_skill.BuffDuration, key));
 
+        // 패턴 D — 버프 지속 동안 시전 유닛에 부착되는 이펙트 (30004/30005).
+        SpawnBuffAuraEffect();
+
         if (_log)
         {
             DebugTool.Log(
@@ -312,6 +328,9 @@ public class UnitSkillRunner : MonoBehaviour
             _statHub.Remove(key);
 
         _buffExpireRoutine = null;
+
+        // 패턴 D — 모디파이어 제거와 동시에 부착 이펙트도 정리 (시각/스탯 동기화).
+        ClearBuffAuraEffect();
 
         if (_log)
         {
@@ -335,6 +354,9 @@ public class UnitSkillRunner : MonoBehaviour
 
         _extraAttackExpireRoutine = StartCoroutine(ExtraAttackBuffExpireRoutine(_skill.BuffDuration));
 
+        // 패턴 D — 추가 공격 버프 활성 동안 시전 유닛에 부착되는 이펙트 (30008).
+        SpawnBuffAuraEffect();
+
         if (_log)
         {
             DebugTool.Log(
@@ -350,6 +372,9 @@ public class UnitSkillRunner : MonoBehaviour
         _extraAttackBuffActive = false;
         _extraAttackExpireRoutine = null;
 
+        // 패턴 D — 활성 플래그 OFF 와 동시에 부착 이펙트도 정리.
+        ClearBuffAuraEffect();
+
         if (_log)
         {
             DebugTool.Log(
@@ -364,6 +389,8 @@ public class UnitSkillRunner : MonoBehaviour
     ///   - 글로벌 적 검색 동일 (FindObjectsByType<MonsterMover>)
     ///   - finite duration 사용 → MonsterMover 가 자동 만료, 명시적 RemoveSlow 불필요
     ///   - source key 는 GetSlowSourceKey() = "Skill_30006" → 다른 슬로우(30001/정령) 와 max(percent) 공존
+    /// 패턴 A 이펙트: SO.HitEffectPrefab 이 채워져 있으면 영향 받은 적마다 1회 스폰 (대상 추적).
+    /// ApplyDamageToTarget 경로를 거치지 않으므로 여기서 직접 호출.
     /// </summary>
     private void ExecuteAreaDebuffSkill()
     {
@@ -377,6 +404,9 @@ public class UnitSkillRunner : MonoBehaviour
         MonsterMover[] all = FindObjectsByType<MonsterMover>(FindObjectsSortMode.None);
         int appliedCount = 0;
 
+        GameObject hitEffectPrefab = _skill.HitEffectPrefab;
+        CombatManager combat = hitEffectPrefab != null ? CombatManager.Instance : null;
+
         for (int i = 0; i < all.Length; i++)
         {
             MonsterMover mover = all[i];
@@ -385,6 +415,14 @@ public class UnitSkillRunner : MonoBehaviour
 
             mover.ApplySlow(slowKey, slowPercent, duration);
             appliedCount++;
+
+            // 패턴 A 광역 — 영향 받은 적마다 hit 이펙트 1회 스폰. MonsterController 가 같은 오브젝트에 있다고 가정.
+            if (combat != null)
+            {
+                MonsterController target = mover.GetComponent<MonsterController>();
+                if (target != null)
+                    combat.SpawnSkillHitEffect(target, hitEffectPrefab);
+            }
         }
 
         if (_log)
@@ -430,6 +468,9 @@ public class UnitSkillRunner : MonoBehaviour
         }
         _extraAttackBuffActive = false;
 
+        // 패턴 D — 자가 버프 즉시 해제와 동시에 부착 이펙트도 정리 (모든 자가 버프에 일관 적용).
+        ClearBuffAuraEffect();
+
         ResetCooldown();
 
         if (_log)
@@ -471,6 +512,56 @@ public class UnitSkillRunner : MonoBehaviour
         {
             DebugTool.Log(
                 $"[SkillRunner] 쿨다운 초기화 | skillId={_skill.Id}",
+                DebugType.Unit, this);
+        }
+    }
+
+    /// <summary>
+    /// 패턴 D — 자가 버프 시작 시 시전 유닛 자식으로 부착 이펙트를 Instantiate.
+    /// 30004/30005/30008 공통. SO.BuffAuraEffectPrefab 이 비어있으면 무동작.
+    /// 멱등 — 기존 인스턴스가 남아있으면 먼저 정리 후 재스폰 (드물지만 빠른 재발동 안전망).
+    /// 거너 5레벨 보너스(SpawnGunnerBuffEffect) 패턴 차용.
+    /// </summary>
+    private void SpawnBuffAuraEffect()
+    {
+        if (!HasSkill)
+            return;
+
+        GameObject prefab = _skill.BuffAuraEffectPrefab;
+        if (prefab == null)
+            return;
+
+        // 멱등 갱신
+        ClearBuffAuraEffect();
+
+        _buffAuraEffectInstance = Instantiate(prefab, transform);
+        _buffAuraEffectInstance.transform.localPosition = Vector3.zero;
+        _buffAuraEffectInstance.transform.localRotation = Quaternion.identity;
+
+        if (_log)
+        {
+            DebugTool.Log(
+                $"[SkillRunner] 자가 버프 이펙트 부착 | skillId={_skill.Id}, prefab={prefab.name}",
+                DebugType.Unit, this);
+        }
+    }
+
+    /// <summary>
+    /// 패턴 D — 부착 이펙트 인스턴스 정리. 만료/웨이브 종료/유닛 제거/멱등 갱신 시 호출.
+    /// 인스턴스가 없으면 no-op.
+    /// </summary>
+    private void ClearBuffAuraEffect()
+    {
+        if (_buffAuraEffectInstance == null)
+            return;
+
+        Destroy(_buffAuraEffectInstance);
+        _buffAuraEffectInstance = null;
+
+        if (_log && HasSkill)
+        {
+            DebugTool.Log(
+                $"[SkillRunner] 자가 버프 이펙트 제거 | skillId={_skill.Id}",
                 DebugType.Unit, this);
         }
     }

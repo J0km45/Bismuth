@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8726552479243750965}
-  m_Layer: 0
+  m_Layer: 16
   m_Name: Effect_30003
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -93,9 +93,21 @@ PrefabInstance:
       propertyPath: InitialModule.startLifetime.scalar
       value: 0.3
       objectReference: {fileID: 0}
+    - target: {fileID: 1234496799762928403, guid: 5660b063f6b1891428cd79fda57bcbe8, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 1234496799762928403, guid: 5660b063f6b1891428cd79fda57bcbe8, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -493074105
+      objectReference: {fileID: 0}
     - target: {fileID: 1234496799762928404, guid: 5660b063f6b1891428cd79fda57bcbe8, type: 3}
       propertyPath: m_Name
       value: Electricity_ef_11
+      objectReference: {fileID: 0}
+    - target: {fileID: 1234496799762928404, guid: 5660b063f6b1891428cd79fda57bcbe8, type: 3}
+      propertyPath: m_Layer
+      value: 16
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -167,9 +179,21 @@ PrefabInstance:
       propertyPath: m_Name
       value: Electricity_ef_08
       objectReference: {fileID: 0}
+    - target: {fileID: 9047905357450269484, guid: 24e0be9be0c9cc948a2a6170b7c40dc0, type: 3}
+      propertyPath: m_Layer
+      value: 16
+      objectReference: {fileID: 0}
     - target: {fileID: 9047905357450269486, guid: 24e0be9be0c9cc948a2a6170b7c40dc0, type: 3}
       propertyPath: InitialModule.startLifetime.scalar
       value: 0.4
+      objectReference: {fileID: 0}
+    - target: {fileID: 9047905357450269487, guid: 24e0be9be0c9cc948a2a6170b7c40dc0, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 9047905357450269487, guid: 24e0be9be0c9cc948a2a6170b7c40dc0, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -493074105
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
