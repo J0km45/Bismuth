@@ -168,13 +168,27 @@ public class HitEffectSpawner : MonoBehaviour
             animators[i].Update(0f);
         }
 
+        // ParticleSystem 풀 재활용 시 lifecycle 리셋.
+        // 핵심 :
+        //   1) cullingMode 를 AlwaysSimulate 로 강제 — prefab 의 Automatic 모드 + looping=false 가
+        //      풀 prewarm 시 off-screen 에서 paused 상태로 묶이는 문제를 차단. main module 은 struct 라
+        //      ps.main 으로 가져와서 main.cullingMode = ... 식으로 설정해야 반영됨.
+        //   2) Stop(StopEmittingAndClear) + Clear + time=0 + Play 시퀀스로 내부 재생 헤드 강제 리셋.
+        //      Simulate 는 호출하지 않음 — paused 상태로 묶어서 Play 가 burst emission 을 누락시키는
+        //      Unity quirk 가 있어 오히려 역효과.
         for (int i = 0; i < particleSystems.Length; i++)
         {
-            if (particleSystems[i] == null)
+            ParticleSystem ps = particleSystems[i];
+            if (ps == null)
                 continue;
 
-            particleSystems[i].Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            particleSystems[i].Play(true);
+            ParticleSystem.MainModule main = ps.main;
+            main.cullingMode = ParticleSystemCullingMode.AlwaysSimulate;
+
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            ps.Clear(true);
+            ps.time = 0f;
+            ps.Play(true);
         }
     }
 

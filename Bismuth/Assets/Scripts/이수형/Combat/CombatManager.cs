@@ -959,10 +959,15 @@ public class CombatManager : MonoBehaviour
         // 패턴 A — 액티브 스킬 피격 이펙트 (30001 / 30007).
         // SkillHitEffectPrefab 이 컨텍스트에 채워져 있고 액티브 스킬일 때만 1회 스폰.
         // 정령 보너스 hit 과 마찬가지로 TakeDamage 호출 전에 두어 처치 직후 transform 이 풀 회수되는 케이스 회피.
-        if (context.IsActiveSkill && context.SkillHitEffectPrefab != null)
+        bool hasSkillHitEffect = context.IsActiveSkill && context.SkillHitEffectPrefab != null;
+        if (hasSkillHitEffect)
             SpawnSkillHitEffect(target, context.SkillHitEffectPrefab);
 
-        if (target.TakeDamage(finalDamage, hitEffect))
+        // 스킬에 자체 hit effect 가 있으면 같은 위치에 일반 hit effect 도 같이 떠 시각적으로 가리는 문제가 있어서
+        // 스킬 이펙트가 "대체" 역할을 하도록 일반 hit effect 를 suppress. (정령 보너스 hit 같은 의도적 중첩과는 별개)
+        GameObject hitEffectForTakeDamage = hasSkillHitEffect ? null : hitEffect;
+
+        if (target.TakeDamage(finalDamage, hitEffectForTakeDamage))
         {
             unitStat.KillCount++;
             DebugTool.Log(

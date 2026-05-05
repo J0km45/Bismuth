@@ -31,6 +31,10 @@ public class SynergyEnhanceLevelManager : MonoBehaviour
     // 시너지 ID → 현재 레벨 (없으면 0)
     private readonly Dictionary<int, int> _levels = new();
 
+    // 강화 비용 테이블. 인덱스 = 출발 레벨 (0→1, 1→2, 2→3, 3→4, 4→5).
+    // 모든 시너지에 동일 적용. 향후 시너지별 차등 필요 시 SO/시트로 이전.
+    private static readonly int[] EnhanceCosts = { 50, 75, 150, 250, 450 };
+
     // 변동 시 전체 맵 통보 (SynergyManager 와 동일한 스타일).
     // 구독자(Binder) 가 매번 모든 시너지를 다시 동기화한다.
     public event Action<Dictionary<int, int>> OnEnhanceLevelChanged;
@@ -57,8 +61,17 @@ public class SynergyEnhanceLevelManager : MonoBehaviour
     /// <summary> 다음 단계 강화에 필요한 골드. 향후 산식 확정되면 본 메소드 본문만 교체. </summary>
     public int CalculateEnhanceCost(int synergyId, int currentLevel)
     {
-        // TODO : 강화 비용 산식 미정. 임시로 1 고정.
-        return 1;
+        // 5단계 고정 비용표. 시너지 ID 무관 동일 적용.
+        // currentLevel 은 출발 레벨 (0~4). 범위 밖이면 강화 불가로 처리.
+        if (currentLevel < 0 || currentLevel >= EnhanceCosts.Length)
+        {
+            DebugTool.Warnning(
+                $"[SynergyEnhanceLevelManager] 강화 비용 조회 범위 밖 | synergyId={synergyId}, currentLevel={currentLevel}",
+                DebugType.Synergy, this);
+            return int.MaxValue;
+        }
+
+        return EnhanceCosts[currentLevel];
     }
 
     /// <summary> 더 강화 가능한지 (최대 레벨 미달 여부만 본다. 골드는 별도). </summary>
