@@ -146,10 +146,7 @@ public class BoardSystem : MonoBehaviour
         if (slot == null)
             return false;
 
-        if (!slotMap.TryGetValue(slot, out slotData))
-            return false;
-
-        return IsSlotPlaceable(slot);
+        return slotMap.TryGetValue(slot, out slotData);
     }
 
     public bool TryGetSlotData(PlacementSlot slot, out SlotData slotData)
@@ -177,7 +174,14 @@ public class BoardSystem : MonoBehaviour
 
         if (!IsSlotPlaceable(targetSlot.slot))
         {
-            DebugTool.Warnning($"아직 배치할 수 없는 슬롯입니다. slot={targetSlot.slot.name}", DebugType.Board, this);
+            DebugTool.Warnning($"보드에 등록되지 않은 슬롯입니다. slot={targetSlot.slot.name}", DebugType.Board, this);
+            return false;
+        }
+
+        if (!CanPlaceAdditionalTower())
+        {
+            DebugTool.Warnning($"최대 배치 가능 수가 부족합니다. 현재 배치 수: {CurrentPlacedTileCount} / 최대 배치 수: {GetCurrentPlaceableSlotCount()}", DebugType.Board, this);
+            NotifyNoPlaceableSpace();
             return false;
         }
 
@@ -290,7 +294,7 @@ public class BoardSystem : MonoBehaviour
 
         if (!IsSlotPlaceable(targetSlot.slot))
         {
-            DebugTool.Warnning($"아직 이동할 수 없는 슬롯입니다. slot={targetSlot.slot.name}", DebugType.Board, this);
+            DebugTool.Warnning($"보드에 등록되지 않은 슬롯입니다. slot={targetSlot.slot.name}", DebugType.Board, this);
             return false;
         }
 
@@ -409,9 +413,17 @@ public class BoardSystem : MonoBehaviour
         }
 
         int placeableSlotCount = GetCurrentPlaceableSlotCount();
+
+        if (!CanPlaceAdditionalTower())
+        {
+            DebugTool.Warnning($"최대 배치 가능 수가 부족합니다. 현재 배치 수: {CurrentPlacedTileCount} / 최대 배치 수: {placeableSlotCount}", DebugType.Board, this);
+            NotifyNoPlaceableSpace();
+            return false;
+        }
+
         List<SlotData> emptySlots = new List<SlotData>();
 
-        for (int i = 0; i < placeableSlotCount; i++)
+        for (int i = 0; i < orderedSlots.Count; i++)
         {
             SlotData slotData = orderedSlots[i];
 
@@ -424,7 +436,7 @@ public class BoardSystem : MonoBehaviour
 
         if (emptySlots.Count <= 0)
         {
-            DebugTool.Warnning($"배치 가능한 타일 안에 빈 슬롯이 없습니다. 현재 제한: {placeableSlotCount}", DebugType.Board, this);
+            DebugTool.Warnning("배치할 수 있는 빈 슬롯이 없습니다.", DebugType.Board, this);
             NotifyNoPlaceableSpace();
             return false;
         }
@@ -444,21 +456,19 @@ public class BoardSystem : MonoBehaviour
         return Mathf.Clamp(playerDataManager.PlaceableTileCount, 0, orderedSlots.Count);
     }
 
+    public bool CanPlaceAdditionalTower()
+    {
+        if (!usePlayerPlaceableTileLimit || playerDataManager == null)
+            return true;
+
+        return CurrentPlacedTileCount < GetCurrentPlaceableSlotCount();
+    }
+
     public bool IsSlotPlaceable(PlacementSlot slot)
     {
         if (slot == null)
             return false;
 
-        int placeableSlotCount = GetCurrentPlaceableSlotCount();
-
-        for (int i = 0; i < placeableSlotCount; i++)
-        {
-            SlotData slotData = orderedSlots[i];
-
-            if (slotData != null && slotData.slot == slot)
-                return true;
-        }
-
-        return false;
+        return slotMap.ContainsKey(slot);
     }
 }
