@@ -10,6 +10,16 @@ public enum SkillDamageBaseType
     MaxHp           // 적 최대 체력 × ratio. 방어력/치명타/슬로우보너스 무시. 30007
 }
 
+/// <summary>
+/// 자가 버프(BuffValue/Duration > 0) 가 어떤 방식으로 적용되는지.
+/// 시트는 BuffValue/Duration 컬럼 구조만 있어서 의미 분리는 SO 인스펙터에서 설정.
+/// </summary>
+public enum BuffKind
+{
+    StatModifier,   // BuffStatType 스탯에 PercentAdd 모디파이어 (30004 공속, 30005 공격력)
+    ExtraAttack     // 활성 동안 매 공격마다 BuffValue 회 추가 공격 시전 (30008)
+}
+
 [CreateAssetMenu(fileName = "SkillData", menuName = "Data/Skill/Skill Data")]
 public class SkillDataSO : ScriptableObject
 {
@@ -42,8 +52,11 @@ public class SkillDataSO : ScriptableObject
     [Tooltip("버프 지속 시간 (초)")]
     [SerializeField, Min(0)] private float _buffDuration;
 
-    [Tooltip("버프가 적용될 스탯. AttackPower=공격력(30005), AttackSpeed=공속(30004) 등.\n시트엔 없는 정보라 인스펙터에서 직접 설정. SO Generator가 덮어쓰지 않음.")]
+    [Tooltip("버프가 적용될 스탯. AttackPower=공격력(30005), AttackSpeed=공속(30004) 등.\n시트엔 없는 정보라 인스펙터에서 직접 설정. SO Generator가 덮어쓰지 않음.\nBuffKind=ExtraAttack 인 경우 무시.")]
     [SerializeField] private StatType _buffStatType = StatType.AttackPower;
+
+    [Tooltip("자가 버프 적용 방식. StatModifier=스탯 모디파이어(30004/30005), ExtraAttack=매 공격마다 추가 공격(30008).\n시트엔 없는 정보라 인스펙터에서 직접 설정. SO Generator가 덮어쓰지 않음.")]
+    [SerializeField] private BuffKind _buffKind = BuffKind.StatModifier;
 
     [Space(5)]
     [Header("====타겟====")]
@@ -65,6 +78,7 @@ public class SkillDataSO : ScriptableObject
     public float BuffValue => _buffValue;
     public float BuffDuration => _buffDuration;
     public StatType BuffStatType => _buffStatType;
+    public BuffKind BuffKind => _buffKind;
     public int TargetCount => _targetCount;
     public GameObject ExtraProjectilePrefab => _extraProjectilePrefab;
 
