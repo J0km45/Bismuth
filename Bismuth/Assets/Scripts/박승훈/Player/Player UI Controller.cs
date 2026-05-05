@@ -19,7 +19,7 @@ public class PlayerUIController : MonoBehaviour
     private PlayerAction _playerAction;
     public PlayerAction PlayerAction => _playerAction;
     
-    private readonly int MAX_PLACEMENT_UPGRADE_LEVEL = 8;
+    private readonly int MAX_PLACEMENT_UPGRADE_LEVEL = 7;
     private readonly int MAX_UNIT_LEVEL = 20;
     private readonly int COMBINE_GOLD = 50;
     private readonly int SUMMON_GOLD = 50;
