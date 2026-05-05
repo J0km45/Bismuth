@@ -35,7 +35,7 @@ public class SynergyScrollViewUI : MonoBehaviour
         if (_enhanceLevelManager == null) _enhanceLevelManager = FindAnyObjectByType<SynergyEnhanceLevelManager>();
     }
 
-    private void OnEnable()
+    private void Start()
     {
         _synergyManager.OnSynergyChanged += Refresh;
         LocalizationManager.Instance.OnLocalizationLoaded += RefreshDescriptionText;

@@ -1,49 +1,55 @@
 fileFormatVersion: 2
-guid: 79bc321799b5f054ab08f74e400976ca
+guid: 2b15d73f3b0e6f449b5bf579dcae13d7
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -3213203610785780431
-    second: effect_30002_atlas_0
+      213: -593399260832993291
+    second: 40204_0
   - first:
-      213: 8509079975163012195
-    second: effect_30002_atlas_1
+      213: 7017214384290406093
+    second: 40204_1
   - first:
-      213: -2467158684166788051
-    second: effect_30002_atlas_2
+      213: -691773434598026655
+    second: 40204_2
   - first:
-      213: 587876050320583851
-    second: effect_30002_atlas_3
+      213: -9072209299074883907
+    second: 40204_3
   - first:
-      213: -622813476644730211
-    second: effect_30002_atlas_4
+      213: -1552681391233677674
+    second: 40204_4
   - first:
-      213: 129166183402028422
-    second: effect_30002_atlas_5
+      213: 988706939756691921
+    second: 40204_5
   - first:
-      213: 7954074870154549582
-    second: effect_30002_atlas_6
+      213: 4496312282678915562
+    second: 40204_6
   - first:
-      213: -473941482513468198
-    second: effect_30002_atlas_7
+      213: -574842159013211543
+    second: 40204_7
   - first:
-      213: -330897515805981164
-    second: effect_30002_atlas_8
+      213: -935426364096286859
+    second: 40204_8
   - first:
-      213: 3438405949045973511
-    second: effect_30002_atlas_9
+      213: 7226885965812215042
+    second: 40204_9
   - first:
-      213: 8038406994428756389
-    second: effect_30002_atlas_10
+      213: 801017365955198341
+    second: 40204_10
   - first:
-      213: 8155649943711965838
-    second: effect_30002_atlas_11
+      213: 7834683703218227101
+    second: 40204_11
   - first:
-      213: -8351768827819931999
-    second: effect_30002_atlas_12
+      213: 5412740761428101931
+    second: 40204_12
   - first:
-      213: -6604838195044784588
-    second: effect_30002_atlas_13
+      213: 6970989122252680201
+    second: 40204_13
+  - first:
+      213: 8330461222646005237
+    second: 40204_14
+  - first:
+      213: 1763417725528254103
+    second: 40204_15
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -76,7 +82,7 @@ TextureImporter:
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-    filterMode: 1
+    filterMode: 0
     aniso: 1
     mipBias: 0
     wrapU: 1
@@ -136,6 +142,19 @@ TextureImporter:
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
   - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
     buildTarget: Android
     maxTextureSize: 2048
     resizeAlgorithm: 0
@@ -165,13 +184,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: effect_30002_atlas_0
+      name: 40204_0
       rect:
         serializedVersion: 2
-        x: 144
-        y: 205
-        width: 32
-        height: 37
+        x: 2
+        y: 1392
+        width: 317
+        height: 448
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -180,20 +199,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 13d6c1c17586863d0800000000000000
-      internalID: -3213203610785780431
+      spriteID: 5ffe1182482d3c7f0800000000000000
+      internalID: -593399260832993291
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: effect_30002_atlas_1
+      name: 40204_1
       rect:
         serializedVersion: 2
-        x: 200
-        y: 199
-        width: 48
-        height: 49
+        x: 322
+        y: 1394
+        width: 317
+        height: 451
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -202,20 +221,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 3642bf48723561670800000000000000
-      internalID: 8509079975163012195
+      spriteID: dce1460cd47226160800000000000000
+      internalID: 7017214384290406093
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: effect_30002_atlas_2
+      name: 40204_2
       rect:
         serializedVersion: 2
-        x: 7
-        y: 134
-        width: 50
-        height: 51
+        x: 642
+        y: 1393
+        width: 317
+        height: 455
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -224,20 +243,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: d2ce7b19f34e2cdd0800000000000000
-      internalID: -2467158684166788051
+      spriteID: 1629bb5f9b35666f0800000000000000
+      internalID: -691773434598026655
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: effect_30002_atlas_3
+      name: 40204_3
       rect:
         serializedVersion: 2
-        x: 70
-        y: 134
-        width: 52
-        height: 52
+        x: 962
+        y: 1393
+        width: 316
+        height: 455
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -246,64 +265,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: bac615f272e882800800000000000000
-      internalID: 587876050320583851
+      spriteID: dbe55a885b9091280800000000000000
+      internalID: -9072209299074883907
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: effect_30002_atlas_4
-      rect:
-        serializedVersion: 2
-        x: 133
-        y: 133
-        width: 54
-        height: 54
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: d9ac34b51725b57f0800000000000000
-      internalID: -622813476644730211
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: effect_30002_atlas_5
-      rect:
-        serializedVersion: 2
-        x: 196
-        y: 131
-        width: 56
-        height: 57
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 68dbbae95f3eac100800000000000000
-      internalID: 129166183402028422
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: effect_30002_atlas_6
+      name: 40204_4
       rect:
         serializedVersion: 2
         x: 3
-        y: 66
-        width: 59
-        height: 59
+        y: 931
+        width: 315
+        height: 455
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -312,20 +287,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: e495c60b3fc826e60800000000000000
-      internalID: 7954074870154549582
+      spriteID: 696482a4084c37ae0800000000000000
+      internalID: -1552681391233677674
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: effect_30002_atlas_7
+      name: 40204_5
       rect:
         serializedVersion: 2
-        x: 65
-        y: 65
-        width: 62
-        height: 61
+        x: 323
+        y: 933
+        width: 315
+        height: 449
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -334,20 +309,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: ad476729bb83c69f0800000000000000
-      internalID: -473941482513468198
+      spriteID: 1d1492b29b798bd00800000000000000
+      internalID: 988706939756691921
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: effect_30002_atlas_8
+      name: 40204_6
       rect:
         serializedVersion: 2
-        x: 128
-        y: 65
-        width: 64
-        height: 62
+        x: 643
+        y: 934
+        width: 315
+        height: 446
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -356,20 +331,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 4164359667a686bf0800000000000000
-      internalID: -330897515805981164
+      spriteID: ae17d48d23c166e30800000000000000
+      internalID: 4496312282678915562
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: effect_30002_atlas_9
+      name: 40204_7
       rect:
         serializedVersion: 2
-        x: 192
-        y: 65
-        width: 64
-        height: 62
+        x: 962
+        y: 933
+        width: 317
+        height: 445
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -378,20 +353,130 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 702a9724efba7bf20800000000000000
-      internalID: 3438405949045973511
+      spriteID: 962591e1a10c508f0800000000000000
+      internalID: -574842159013211543
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: effect_30002_atlas_10
+      name: 40204_8
       rect:
         serializedVersion: 2
-        x: 0
+        x: 2
+        y: 470
+        width: 318
+        height: 446
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 57f618e8da2b403f0800000000000000
+      internalID: -935426364096286859
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 40204_9
+      rect:
+        serializedVersion: 2
+        x: 322
+        y: 470
+        width: 318
+        height: 446
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 20d2e780f7e0b4460800000000000000
+      internalID: 7226885965812215042
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 40204_10
+      rect:
+        serializedVersion: 2
+        x: 641
+        y: 466
+        width: 319
+        height: 452
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 58dbda4ec09cd1b00800000000000000
+      internalID: 801017365955198341
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 40204_11
+      rect:
+        serializedVersion: 2
+        x: 961
+        y: 463
+        width: 319
+        height: 457
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d974dd171536abc60800000000000000
+      internalID: 7834683703218227101
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 40204_12
+      rect:
+        serializedVersion: 2
+        x: 1
+        y: 1
+        width: 319
+        height: 459
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b2b033a6b0bed1b40800000000000000
+      internalID: 5412740761428101931
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 40204_13
+      rect:
+        serializedVersion: 2
+        x: 322
         y: 2
-        width: 64
-        height: 61
+        width: 318
+        height: 458
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -400,20 +485,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 5a101f672982e8f60800000000000000
-      internalID: 8038406994428756389
+      spriteID: 90cabfc3cadedb060800000000000000
+      internalID: 6970989122252680201
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: effect_30002_atlas_11
+      name: 40204_14
       rect:
         serializedVersion: 2
-        x: 64
-        y: 2
-        width: 64
-        height: 61
+        x: 642
+        y: 3
+        width: 317
+        height: 456
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -422,20 +507,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: e82e26fc960be2170800000000000000
-      internalID: 8155649943711965838
+      spriteID: 5fd3bf6685ebb9370800000000000000
+      internalID: 8330461222646005237
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: effect_30002_atlas_12
+      name: 40204_15
       rect:
         serializedVersion: 2
-        x: 129
-        y: 4
-        width: 62
-        height: 58
+        x: 962
+        y: 8
+        width: 316
+        height: 446
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -444,30 +529,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 1a6cc9b208e881c80800000000000000
-      internalID: -8351768827819931999
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: effect_30002_atlas_13
-      rect:
-        serializedVersion: 2
-        x: 201
-        y: 13
-        width: 46
-        height: 38
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 4366c61d7a6e654a0800000000000000
-      internalID: -6604838195044784588
+      spriteID: 7962db0141be87810800000000000000
+      internalID: 1763417725528254103
       vertices: []
       indices: 
       edges: []
@@ -486,20 +549,22 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      effect_30002_atlas_0: -3213203610785780431
-      effect_30002_atlas_1: 8509079975163012195
-      effect_30002_atlas_10: 8038406994428756389
-      effect_30002_atlas_11: 8155649943711965838
-      effect_30002_atlas_12: -8351768827819931999
-      effect_30002_atlas_13: -6604838195044784588
-      effect_30002_atlas_2: -2467158684166788051
-      effect_30002_atlas_3: 587876050320583851
-      effect_30002_atlas_4: -622813476644730211
-      effect_30002_atlas_5: 129166183402028422
-      effect_30002_atlas_6: 7954074870154549582
-      effect_30002_atlas_7: -473941482513468198
-      effect_30002_atlas_8: -330897515805981164
-      effect_30002_atlas_9: 3438405949045973511
+      40204_0: -593399260832993291
+      40204_1: 7017214384290406093
+      40204_10: 801017365955198341
+      40204_11: 7834683703218227101
+      40204_12: 5412740761428101931
+      40204_13: 6970989122252680201
+      40204_14: 8330461222646005237
+      40204_15: 1763417725528254103
+      40204_2: -691773434598026655
+      40204_3: -9072209299074883907
+      40204_4: -1552681391233677674
+      40204_5: 988706939756691921
+      40204_6: 4496312282678915562
+      40204_7: -574842159013211543
+      40204_8: -935426364096286859
+      40204_9: 7226885965812215042
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

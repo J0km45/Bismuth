@@ -1,9 +1,13 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 public class BoardSystem : MonoBehaviour
 {
     public static BoardSystem Instance { get; private set; }
+
+    public event Action<int> OnPlacedTileCountChanged;
 
     public enum RelocateResult
     {
@@ -61,6 +65,28 @@ public class BoardSystem : MonoBehaviour
 
         RebuildBoard();
     }
+
+    public int CurrentPlacedTileCount => GetPlacedTileCount();
+
+    public int GetPlacedTileCount()
+    {
+        int count = 0;
+
+        for (int i = 0; i < orderedSlots.Count; i++)
+        {
+            SlotData slotData = orderedSlots[i];
+
+            if (slotData != null && slotData.isOccupied)
+                count++;
+        }
+
+        return count;
+    }
+
+    private void NotifyPlacedTileCountChanged()
+    {
+        OnPlacedTileCountChanged?.Invoke(CurrentPlacedTileCount);
+    }
     
 
     private void OnDestroy()
@@ -97,6 +123,7 @@ public class BoardSystem : MonoBehaviour
         }
 
         DebugTool.Log($"보드 재구성 완료 - 슬롯 수: {slotMap.Count}", DebugType.Board, this);
+        NotifyPlacedTileCountChanged();
     }
 
     public bool TryGetSlotFromWorld(Vector3 worldPos, out SlotData slotData)
@@ -180,6 +207,7 @@ public class BoardSystem : MonoBehaviour
             this
         );
 
+        NotifyPlacedTileCountChanged();
         return true;
     }
 
@@ -231,6 +259,7 @@ public class BoardSystem : MonoBehaviour
             this
         );
 
+        NotifyPlacedTileCountChanged();
         return true;
     }
 
@@ -395,6 +424,7 @@ public class BoardSystem : MonoBehaviour
         }
 
         int randomIndex = Random.Range(0, emptySlots.Count);
+        
         emptySlot = emptySlots[randomIndex];
 
         DebugTool.Log($"배치 슬롯 선택 - {emptySlot.slot.name} / 위치 {emptySlot.worldCenter}", DebugType.Board, this);

@@ -970,37 +970,9 @@ PrefabInstance:
       propertyPath: m_SizeDelta.y
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 588775869148489356, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
-      propertyPath: m_AnchorMax.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 588775869148489356, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
-      propertyPath: m_AnchorMin.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 588775869148489356, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
-      propertyPath: m_AnchoredPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 588775869148489356, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
-      propertyPath: m_AnchoredPosition.y
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 1370426514789499714, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
       propertyPath: m_Name
       value: CombatCanvas
-      objectReference: {fileID: 0}
-    - target: {fileID: 3523061742351017495, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
-      propertyPath: m_AnchorMax.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3523061742351017495, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
-      propertyPath: m_AnchorMax.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3523061742351017495, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
-      propertyPath: m_SizeDelta.x
-      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3695510818756753951, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
@@ -1014,10 +986,6 @@ PrefabInstance:
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
       value: 
       objectReference: {fileID: 553961980}
-    - target: {fileID: 4965356995576087733, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 5873718309042736905, guid: db825abab7d270a43b48c69631e4f3a4, type: 3}
       propertyPath: m_Pivot.x
       value: 0
@@ -1460,10 +1428,6 @@ PrefabInstance:
     m_TransformParent: {fileID: 1963458286}
     m_Modifications:
     - target: {fileID: 219398841401376091, guid: d18713278c47e5449b9da2b2d82e727c, type: 3}
-      propertyPath: _log
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 219398841401376091, guid: d18713278c47e5449b9da2b2d82e727c, type: 3}
       propertyPath: placedTowerRoot
       value: 
       objectReference: {fileID: 1434883955}
@@ -1662,10 +1626,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: Player Manager
       objectReference: {fileID: 0}
-    - target: {fileID: 5877217470729030653, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
-      propertyPath: _enhanceLevelManager
-      value: 
-      objectReference: {fileID: 4138993132534094901}
     - target: {fileID: 7012402871630413712, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
       propertyPath: unitInfoPanel
       value: 
@@ -1733,10 +1693,7 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 4351018382781704222, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 4138993132534094910}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
 --- !u!114 &4138993132534094892 stripped
 MonoBehaviour:
@@ -1760,34 +1717,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b408ec664d2b28a45aa5f80480598e3b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerDataManager
---- !u!114 &4138993132534094901 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 7464948112616133436, guid: 0d421f50ae089d34aa77d042e4fae853, type: 3}
-  m_PrefabInstance: {fileID: 4138993132534094891}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 553961979}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d1554fe8207fefb43811d519ea51eeef, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SynergyEnhanceLevelManager
---- !u!114 &4138993132534094910
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 553961979}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9e77fe0a94b2eeb4ca1e4ae0b85b0c47, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SynergyAuraBinder
-  _summonUnit: {fileID: 4138993132534094892}
-  _enhanceLevelManager: {fileID: 4138993132534094901}
-  _auraNormalPrefab: {fileID: 955899002318875484, guid: c0cb308d7efd65946918a151095bcfd3, type: 3}
-  _auraMaxPrefab: {fileID: 6972002210347296545, guid: 4637cf01e3708a74c9b5a53ac3802788, type: 3}
-  _log: 0
 --- !u!1001 &4260271875672331262
 PrefabInstance:
   m_ObjectHideFlags: 0

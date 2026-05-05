@@ -130,13 +130,22 @@ MonoBehaviour:
     m_Bits: 32768
   aoeOverlapBufferSize: 32
   aoeEffectScalePerRadius: 2
+  playerDataManager: {fileID: 0}
   synergyManager: {fileID: 0}
+  enhanceLevelManager: {fileID: 0}
   wizardFollowUpDelay: 0.35
   wizardFollowUpLog: 0
   _battleWaveRunner: {fileID: 0}
-  synergySO: {fileID: 11400000, guid: ae19ff350cd21684392c987d6ab5e999, type: 2}
+  elfBuffEffectPrefab: {fileID: 6570711794869980875, guid: d8d35aa8058e4424a8e40e2a84a8ff90, type: 3}
+  elfSynergyLog: 0
+  gunnerBuffEffectPrefab: {fileID: 0}
+  gunnerBuffEffectDuration: 0.5
+  gunnerSynergyLog: 0
   spiritCooldown: 10
   spiritSynergyLog: 0
+  spiritBonusHitEffect: {fileID: 659549128280761746, guid: 9a85303194e77724ca26dc9205cd25f7, type: 3}
+  orcCooldown: 10
+  orcSynergyLog: 0
 --- !u!114 &125510194641839064
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -149,6 +158,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e4e57c35dc1e3af47a62268cf8e51bc9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DamageCalculator
-  synergySO: {fileID: 11400000, guid: ae19ff350cd21684392c987d6ab5e999, type: 2}
   synergyManager: {fileID: 0}
   synergyLog: 0
