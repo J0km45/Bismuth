@@ -15,39 +15,60 @@ public class UnitCatalogManager : MonoBehaviour
     public UnityEvent<UnitStat> OnSummonUnit;
 
     [SerializeField] private bool _log = true;
+    [SerializeField] private bool _isCatalogInitialized;
 
     private void Start()
     {
-        InitCatalog();
-        LoadUnitCatalog();
+        if (UnitDataController.IsLoaded)
+            InitializeCatalogAfterUnitDataLoaded();
+        else
+            DebugTool.Log("유닛 데이터 로드 대기 중입니다. 도감 초기화를 보류합니다.", DebugType.Catalog, this);
     }
 
     private void OnEnable()
     {
         OnSummonUnit.AddListener(AddUnitCatalog);
+        UnitDataController.OnUnitDataLoaded += InitializeCatalogAfterUnitDataLoaded;
     }
 
     private void OnDisable()
     {
         OnSummonUnit.RemoveListener(AddUnitCatalog);
+        UnitDataController.OnUnitDataLoaded -= InitializeCatalogAfterUnitDataLoaded;
     }
 
     private void Update()
     {
-        if (Keyboard.current.spaceKey.wasPressedThisFrame)
+        if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
             PrintAllUnitCatalog();
+    }
+
+    private void InitializeCatalogAfterUnitDataLoaded()
+    {
+        InitCatalog();
+        LoadUnitCatalog();
+        _isCatalogInitialized = true;
     }
 
     // 도감에 유닛 추가
     public void AddUnitCatalog(UnitStat stat)
     {
+        if (!_isCatalogInitialized)
+        {
+            DebugTool.Warnning("도감 초기화가 끝나지 않아 유닛 등록을 건너뜁니다.", DebugType.Catalog, this);
+            return;
+        }
+
+        if (stat == null)
+            return;
+
         if (unitCatalog.ContainsKey(stat.Id))
         {
             if (!unitCatalog[stat.Id])
             {
                 unitCatalog[stat.Id] = true;
 
-                for (int i = 0; i < unitCatalog.Count -1; ++i)
+                for (int i = 0; i < unitCatalogSO.UnitCatalog.Count; ++i)
                 {
                     if (unitCatalogSO.UnitCatalog[i].UnitId == stat.Id)
                     {
@@ -62,10 +83,14 @@ public class UnitCatalogManager : MonoBehaviour
                 PrintUnitCatalog(stat);
             }
             else
+            {
                 DebugTool.Log($"[{stat.Id} : {stat.Name}] 이미 도감에 추가되었습니다.", DebugType.Catalog, this);
+            }
         }
         else
-            DebugTool.Log($"잘못돈 ID 입니다.", DebugType.Catalog, this);
+        {
+            DebugTool.Log($"잘못된 ID 입니다. id={stat.Id}", DebugType.Catalog, this);
+        }
     }
 
     // 도감 초기화
@@ -73,41 +98,63 @@ public class UnitCatalogManager : MonoBehaviour
     {
         unitCatalog.Clear();
 
-        if (unitCatalogSO.FirstInit)
+        if (unitCatalogSO != null && unitCatalogSO.FirstInit)
             unitCatalogSO.UnitCatalog.Clear();
     }
 
-    // 도감 초기화
+    // 유닛 데이터 로드 완료 후 도감 초기화
     private void InitCatalog()
     {
+        if (unitSO == null || unitCatalogSO == null)
+        {
+            DebugTool.Warnning("UnitSO 또는 UnitCatalogSO가 할당되지 않았습니다.", DebugType.Catalog, this);
+            return;
+        }
+
+        if (unitSO.Units == null || unitSO.Units.Count == 0)
+        {
+            DebugTool.Warnning("유닛 데이터가 비어 있어 도감 초기화를 보류합니다.", DebugType.Catalog, this);
+            return;
+        }
+
         ClearUnitCatalog();
 
         foreach (UnitData data in unitSO.Units)
         {
+            if (data == null)
+                continue;
+
             if (unitCatalog.ContainsKey(data.Id))
             {
                 DebugTool.Warnning($"중복된 Unit ID 발견: {data.Id}", DebugType.Catalog, this);
                 continue;
             }
+
             unitCatalog.Add(data.Id, false);
-            // DebugTool.Log($"{data.UnitName}", DebugType.Catalog, this);
 
             if (unitCatalogSO.FirstInit)
             {
-                DebugTool.Log("유닛 도감 최초 초기화", DebugType.Catalog, this);
                 UnitIdSummonedPair newPair = new UnitIdSummonedPair(data.Id, false, data.UnitName);
                 unitCatalogSO.UnitCatalog.Add(newPair);
             }
         }
-        unitCatalogSO.FirstInit = false;
+
+        if (unitCatalog.Count > 0)
+            unitCatalogSO.FirstInit = false;
     }
 
     // 유닛 도감 로딩
     private void LoadUnitCatalog()
     {
+        if (unitCatalogSO == null)
+            return;
+
         foreach (UnitIdSummonedPair pair in unitCatalogSO.UnitCatalog)
         {
-            unitCatalog[pair.UnitId] = pair.Summoned;
+            if (!unitCatalog.ContainsKey(pair.UnitId))
+                unitCatalog.Add(pair.UnitId, pair.Summoned);
+            else
+                unitCatalog[pair.UnitId] = pair.Summoned;
         }
 
         PrintAllUnitCatalog();
