@@ -21,6 +21,7 @@ GameObject:
   - component: {fileID: 2799974427374469838}
   - component: {fileID: 7812345678901234502}
   - component: {fileID: 5877217470729030653}
+  - component: {fileID: 8637701458510473832}
   m_Layer: 0
   m_Name: PlayerManager
   m_TagString: Untagged
@@ -61,6 +62,10 @@ MonoBehaviour:
   _gold: 0
   _maxBaseHealth: 0
   _currentBaseHealth: 0
+  _placementUpgradeLevel: 0
+  _basePlaceableTileCount: 12
+  _maxPlacementUpgradeLevel: 8
+  _placeableTileIncreasePerLevel: 1
 --- !u!114 &3962914728387289638
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -316,3 +321,20 @@ MonoBehaviour:
   _summonUnit: {fileID: 8554172300313096461}
   _enhanceLevelManager: {fileID: 7464948112616133436}
   _log: 1
+--- !u!114 &8637701458510473832
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4351018382781704222}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e77fe0a94b2eeb4ca1e4ae0b85b0c47, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SynergyAuraBinder
+  _summonUnit: {fileID: 8554172300313096461}
+  _enhanceLevelManager: {fileID: 7464948112616133436}
+  _auraNormalPrefab: {fileID: 955899002318875484, guid: c0cb308d7efd65946918a151095bcfd3, type: 3}
+  _auraMaxPrefab: {fileID: 6972002210347296545, guid: 4637cf01e3708a74c9b5a53ac3802788, type: 3}
+  _log: 0
